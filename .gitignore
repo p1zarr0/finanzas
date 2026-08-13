@@ -1,0 +1,10 @@
+# Basura que Windows y OneDrive dejan en las carpetas
+Thumbs.db
+desktop.ini
+ehthumbs.db
+$RECYCLE.BIN/
+*.lnk
+
+# Archivos temporales de pruebas
+_prueba-*.html
+*.tmp

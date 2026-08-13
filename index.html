@@ -1,0 +1,2114 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#FAF7F5">
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" href="./icono-192.png">
+<title>Mis Finanzas</title>
+<style>
+/* ============================================================
+   TOKENS DE COLOR
+   Definimos los colores una sola vez como "variables".
+   Si mañana quieres cambiar la paleta completa, tocas solo aquí.
+   ============================================================ */
+:root{
+  --fondo:#FAF7F5;        /* blanco cálido, no blanco puro: cansa menos la vista */
+  --tarjeta:#FFFFFF;
+  --texto:#2E2A28;
+  --suave:#9A918C;        /* textos secundarios */
+  --linea:#EDE7E3;
+  --sombra:0 1px 3px rgba(46,42,40,.06), 0 8px 24px rgba(46,42,40,.04);
+  --gasto:#C97B84;
+  --ingreso:#7A9E7E;
+  --ahorroC:#5E9490;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-tema="claro"]){
+    --fondo:#171512;
+    --tarjeta:#211D1A;
+    --texto:#F0EAE5;
+    --suave:#9A918C;
+    --linea:#2E2926;
+    --sombra:0 1px 3px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.2);
+    --gasto:#E0959D;
+    --ingreso:#9DC0A1;
+    --ahorroC:#8FC5C0;
+  }
+}
+:root[data-tema="oscuro"]{
+  --fondo:#171512; --tarjeta:#211D1A; --texto:#F0EAE5; --suave:#9A918C;
+  --linea:#2E2926; --sombra:0 1px 3px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.2);
+  --gasto:#E0959D; --ingreso:#9DC0A1; --ahorroC:#8FC5C0;
+}
+
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  background:var(--fondo);
+  color:var(--texto);
+  line-height:1.5;
+  padding-bottom:96px;           /* espacio para la barra inferior */
+  overscroll-behavior-y:contain;
+}
+.app{max-width:520px;margin:0 auto;padding:0 20px}
+
+/* Títulos en cursiva serif: el sello visual de Fleur */
+.titulo-serif{
+  font-family:Georgia,"Times New Roman",serif;
+  font-style:italic;
+  font-weight:400;
+  letter-spacing:-.01em;
+}
+
+/* ---------- Cabecera con selector de mes ---------- */
+header{padding:28px 0 20px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+header h1{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Aviso breve al cambiar de apariencia: un ícono que muta necesita decir qué es */
+.toast{
+  position:fixed;left:50%;bottom:96px;transform:translate(-50%,10px);
+  background:var(--texto);color:var(--fondo);padding:9px 18px;border-radius:20px;
+  font-size:13px;z-index:80;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s
+}
+.toast.visible{opacity:1;transform:translate(-50%,0)}
+#mesActual, #mesAnalisis{font-size:23px;text-transform:capitalize}
+/* En pantallas angostas (muchos Android son de 360px) "septiembre 2026"
+   no alcanza junto a los cuatro botones: se achica en vez de cortarse. */
+@media (max-width:400px){
+  #mesActual, #mesAnalisis{font-size:19px}
+  header h1{font-size:21px}
+}
+.acciones{display:flex;gap:5px;align-items:center;flex:0 0 auto}
+.nav-mes{display:flex;gap:5px}
+.nav-mes button, .acciones>button{
+  width:32px;height:32px;border:none;border-radius:50%;
+  background:var(--tarjeta);color:var(--suave);box-shadow:var(--sombra);
+  font-size:16px;cursor:pointer;display:grid;place-items:center
+}
+
+/* ---------- Tarjeta de balance ---------- */
+.balance{
+  background:var(--tarjeta);border-radius:24px;padding:26px 24px;
+  box-shadow:var(--sombra);text-align:center;margin-bottom:22px
+}
+.balance .etiqueta{font-size:12px;color:var(--suave);letter-spacing:.08em;text-transform:uppercase}
+.balance .monto{font-size:40px;font-weight:300;letter-spacing:-.03em;margin:6px 0 20px}
+.balance .fila{display:flex;border-top:1px solid var(--linea);padding-top:18px}
+.balance .fila div{flex:1}
+.balance .fila span{display:block;font-size:11px;color:var(--suave);letter-spacing:.06em;text-transform:uppercase}
+.balance .fila strong{font-size:16px;font-weight:500}
+.v-ingreso{color:var(--ingreso)} .v-gasto{color:var(--gasto)} .v-ahorro{color:var(--ahorroC)}
+.acumulado{
+  border-top:1px solid var(--linea);margin-top:16px;padding-top:14px;
+  font-size:12.5px;color:var(--suave)
+}
+.acumulado b{color:var(--ahorroC);font-weight:500}
+
+/* ---------- Tarjetas genéricas ---------- */
+.tarjeta{
+  background:var(--tarjeta);border-radius:24px;padding:22px;
+  box-shadow:var(--sombra);margin-bottom:22px
+}
+h2.seccion{font-size:19px;margin-bottom:16px}
+
+/* ---------- Gráfico de dona ---------- */
+.grafico{display:flex;align-items:center;gap:22px;flex-wrap:wrap}
+.dona{position:relative;flex:0 0 156px;width:156px;height:156px;margin:0 auto}
+.dona svg{transform:rotate(-90deg)}   /* para que empiece arriba y no a la derecha */
+.dona-centro{
+  position:absolute;inset:0;display:grid;place-content:center;text-align:center
+}
+.dona-centro small{font-size:10px;color:var(--suave);letter-spacing:.08em;text-transform:uppercase}
+.dona-centro b{font-size:19px;font-weight:500;display:block}
+.leyenda{flex:1;min-width:170px;display:flex;flex-direction:column;gap:11px}
+.leyenda-item{display:flex;align-items:center;gap:10px;font-size:14px}
+.punto{width:10px;height:10px;border-radius:50%;flex:0 0 10px}
+.leyenda-item .nom{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.leyenda-item .pct{color:var(--suave);font-size:12px;min-width:34px;text-align:right}
+
+/* ---------- Lista desplegable de categorías ---------- */
+.cat{border-bottom:1px solid var(--linea)}
+.cat:last-child{border-bottom:none}
+.cat-cab{display:flex;align-items:center;gap:12px;padding:14px 0;cursor:pointer}
+.cat-cab .nom{flex:1;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cat-cab .pct{font-size:11.5px;color:var(--suave);min-width:30px;text-align:right}
+.cat-cab .monto{font-size:15px;font-weight:500}
+/* Las categorías sin gasto este mes siguen visibles, pero apagadas */
+.cat.vacia .cat-cab{opacity:.42}
+.comparacion{
+  border-top:1px solid var(--linea);margin-top:18px;padding-top:14px;
+  font-size:12.5px;color:var(--suave);text-align:center
+}
+.comparacion b{font-weight:500}
+.comparacion span{opacity:.75}
+.flecha{color:var(--suave);font-size:11px;transition:transform .18s ease;width:14px;text-align:center}
+.cat.abierta .flecha{transform:rotate(90deg)}
+.cat-cuerpo{display:none;padding:0 0 12px 22px}
+.cat.abierta .cat-cuerpo{display:block}
+.sub{display:flex;align-items:center;gap:10px;padding:8px 0;font-size:14px;color:var(--suave)}
+.sub .nom{flex:1}
+.barra{height:4px;border-radius:2px;background:var(--linea);overflow:hidden;margin-top:8px}
+.barra i{display:block;height:100%;border-radius:2px}
+
+/* ---------- Movimientos ---------- */
+.mov{display:flex;align-items:center;gap:13px;padding:13px 0;border-bottom:1px solid var(--linea)}
+.mov:last-child{border-bottom:none}
+.mov .ico{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;font-size:17px;flex:0 0 38px}
+.mov .info{flex:1;min-width:0}
+.mov .info b{display:block;font-size:15px;font-weight:500}
+.mov .info small{color:var(--suave);font-size:12px}
+.mov .val{font-size:15px;font-weight:500;white-space:nowrap}
+.mov{cursor:pointer}
+.mov.saldada{opacity:.5}
+.mov .flecha{margin-left:2px}
+.dia{font-size:12px;color:var(--suave);letter-spacing:.06em;text-transform:uppercase;margin:20px 0 2px}
+
+/* ---------- Suscripciones ---------- */
+.sus{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--linea);cursor:pointer}
+.sus:last-of-type{border-bottom:none}
+.sus .ico{font-size:19px;width:26px;text-align:center;flex:0 0 26px}
+.sus .nom{flex:1;min-width:0;font-size:14.5px}
+.sus .nom small{display:block;color:var(--suave);font-size:11.5px}
+.sus .val{font-size:14.5px;font-weight:500;white-space:nowrap}
+.sus .val.sin{color:var(--suave);font-weight:400;font-size:12.5px}
+.sus.pronto .nom small{color:var(--gasto)}
+.sus.pausada{opacity:.42}
+.cobrar{
+  border:none;background:var(--linea);color:var(--texto);
+  font-size:11.5px;padding:6px 11px;border-radius:20px;cursor:pointer;
+  font-family:inherit;white-space:nowrap
+}
+.total-subs{
+  border-top:1px solid var(--linea);margin-top:6px;padding-top:14px;
+  display:flex;justify-content:space-between;align-items:baseline;font-size:13px;color:var(--suave)
+}
+.total-subs b{font-size:17px;font-weight:500;color:var(--texto)}
+
+.vacio{text-align:center;color:var(--suave);padding:34px 16px;font-size:14px}
+.vacio .emo{font-size:32px;display:block;margin-bottom:10px;opacity:.5}
+
+/* ---------- Barra inferior + botón de agregar ---------- */
+nav{
+  position:fixed;left:0;right:0;bottom:0;z-index:40;
+  background:var(--tarjeta);border-top:1px solid var(--linea);
+  padding:9px 0 calc(9px + env(safe-area-inset-bottom));
+  display:flex;justify-content:space-around;align-items:center;
+  max-width:520px;margin:0 auto;border-radius:22px 22px 0 0
+}
+nav button{
+  border:none;background:none;color:var(--suave);font-size:9.5px;
+  display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;
+  padding:5px 4px;letter-spacing:.02em;flex:1;min-width:0
+}
+nav #btnAgregar{flex:0 0 auto}
+nav button .g{font-size:19px;line-height:1}
+nav button.activo{color:var(--texto)}
+#btnAgregar{
+  width:54px;height:54px;border-radius:50%;border:none;
+  background:var(--texto);color:var(--fondo);font-size:26px;font-weight:300;
+  cursor:pointer;box-shadow:0 6px 18px rgba(46,42,40,.22);
+  margin-top:-26px;display:grid;place-items:center;padding:0
+}
+
+/* ---------- Hoja inferior (modal) ---------- */
+.fondo-modal{
+  position:fixed;inset:0;background:rgba(0,0,0,.42);z-index:50;
+  opacity:0;pointer-events:none;transition:opacity .22s ease
+}
+.fondo-modal.visible{opacity:1;pointer-events:auto}
+.hoja{
+  position:fixed;left:0;right:0;bottom:0;z-index:60;
+  background:var(--fondo);border-radius:28px 28px 0 0;
+  padding:10px 22px calc(26px + env(safe-area-inset-bottom));
+  max-width:520px;margin:0 auto;max-height:92vh;overflow-y:auto;
+  transform:translateY(100%);transition:transform .28s cubic-bezier(.32,.72,0,1)
+}
+.hoja.visible{transform:translateY(0)}
+.asa{width:38px;height:4px;background:var(--linea);border-radius:2px;margin:0 auto 16px}
+
+/* Monto protagonista: lo primero y lo más grande */
+.monto-input{
+  display:flex;align-items:center;justify-content:center;gap:4px;margin:6px 0 20px
+}
+.monto-input span{font-size:30px;color:var(--suave);font-weight:300}
+#inpMonto{
+  border:none;background:none;color:var(--texto);
+  font-size:48px;font-weight:300;letter-spacing:-.03em;
+  width:100%;max-width:260px;text-align:center;outline:none;font-family:inherit
+}
+#inpMonto::placeholder{color:var(--linea)}
+
+.selector{display:flex;background:var(--linea);border-radius:14px;padding:3px;margin-bottom:20px}
+.selector button{
+  flex:1;border:none;background:none;color:var(--suave);
+  padding:9px;border-radius:11px;font-size:14px;cursor:pointer;font-family:inherit
+}
+.selector button.activo{background:var(--tarjeta);color:var(--texto);font-weight:500;box-shadow:var(--sombra)}
+
+.campo{margin-bottom:18px}
+.campo>label{display:block;font-size:11px;color:var(--suave);letter-spacing:.08em;text-transform:uppercase;margin-bottom:9px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{
+  border:1px solid var(--linea);background:var(--tarjeta);color:var(--texto);
+  padding:8px 14px;border-radius:20px;font-size:13.5px;cursor:pointer;
+  display:flex;align-items:center;gap:7px;font-family:inherit
+}
+/* Texto oscuro sobre el color pastel: se lee mejor que blanco */
+.chip.activo{border-color:transparent;color:#2E2A28;font-weight:500}
+.chip .punto{width:8px;height:8px;flex:0 0 8px}
+.chip.activo .punto{background:rgba(46,42,40,.4)!important}
+/* Chip de agregar: punteado para que se lea como "crear", no como una opción */
+.chip-mas{border-style:dashed;color:var(--suave);font-size:16px;line-height:1;padding:8px 16px}
+.grupo-titulo{
+  font-size:10.5px;color:var(--suave);letter-spacing:.08em;text-transform:uppercase;
+  margin:14px 0 8px
+}
+.grupo-titulo:first-child{margin-top:0}
+/* Aviso visual de que la pulsación larga está corriendo */
+.chip.presionado{transform:scale(.9);transition:transform .45s ease}
+.presionado{transform:scale(.97);transition:transform .45s ease}
+#editorCategorias .sub{cursor:pointer}
+#editorCategorias .cat-cab{cursor:pointer}
+
+input[type=date],input[type=text],input[type=number],select{
+  width:100%;border:1px solid var(--linea);background:var(--tarjeta);color:var(--texto);
+  padding:12px 14px;border-radius:14px;font-size:15px;font-family:inherit;outline:none
+}
+.btn-principal{
+  width:100%;border:none;background:var(--texto);color:var(--fondo);
+  padding:16px;border-radius:16px;font-size:16px;font-weight:500;
+  cursor:pointer;margin-top:6px;font-family:inherit
+}
+.btn-principal:disabled{opacity:.3}
+.btn-texto{
+  width:100%;border:1px dashed var(--linea);background:none;color:var(--suave);
+  padding:12px;border-radius:14px;font-size:14px;cursor:pointer;font-family:inherit;margin-top:10px
+}
+/* ---------- Escáner de boletas ---------- */
+.btn-escanear{
+  width:100%;border:1px dashed var(--linea);background:var(--tarjeta);color:var(--suave);
+  padding:13px;border-radius:16px;font-size:14px;cursor:pointer;
+  font-family:inherit;margin:4px 0 14px
+}
+.btn-escanear:disabled{opacity:.5}
+.progreso{margin:0 0 16px}
+.progreso-texto{font-size:12.5px;color:var(--suave);margin-bottom:8px;text-align:center}
+.progreso-barra{height:4px;background:var(--linea);border-radius:2px;overflow:hidden}
+.progreso-barra i{display:block;height:100%;width:0;background:var(--texto);
+  border-radius:2px;transition:width .3s ease}
+.aviso-ocr{
+  font-size:12px;color:var(--suave);text-align:center;margin:-8px 0 14px;line-height:1.45
+}
+.aviso-ocr b{color:var(--texto);font-weight:500}
+
+.oculto{display:none!important}
+.fila-ajuste{display:flex;align-items:center;gap:10px;padding:13px 0;border-bottom:1px solid var(--linea);font-size:14.5px}
+.fila-ajuste:last-child{border-bottom:none}
+.fila-ajuste .nom{flex:1}
+.mini{border:none;background:none;color:var(--suave);font-size:16px;cursor:pointer;padding:4px 8px}
+.colores{display:flex;flex-wrap:wrap;gap:9px}
+.color-op{width:32px;height:32px;border-radius:50%;border:2px solid transparent;cursor:pointer}
+.color-op.activo{border-color:var(--texto)}
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ===================== PANTALLA: INICIO ===================== -->
+  <section id="p-inicio">
+    <header>
+      <h1 class="titulo-serif" id="mesActual">—</h1>
+      <div class="acciones">
+        <div class="nav-mes">
+          <button onclick="cambiarMes(-1)" aria-label="Mes anterior">‹</button>
+          <button onclick="cambiarMes(1)" aria-label="Mes siguiente">›</button>
+        </div>
+        <button onclick="ciclarTema()" class="btn-tema" aria-label="Apariencia">🌗</button>
+        <button onclick="irA('ajustes')" aria-label="Ajustes">⚙</button>
+      </div>
+    </header>
+
+    <div class="balance">
+      <div class="etiqueta">Disponible este mes</div>
+      <div class="monto" id="balanceMonto">$0</div>
+      <div class="fila">
+        <div><span>Ingresos</span><strong class="v-ingreso" id="totalIngresos">$0</strong></div>
+        <div><span>Gastos</span><strong class="v-gasto" id="totalGastos">$0</strong></div>
+        <div><span>Ahorro</span><strong class="v-ahorro" id="totalAhorro">$0</strong></div>
+      </div>
+      <div class="acumulado" id="acumuladoAhorro"></div>
+    </div>
+
+    <div class="tarjeta" id="tarjetaSuscripciones">
+      <h2 class="seccion titulo-serif">Suscripciones</h2>
+      <div id="listaSuscripciones"></div>
+      <div class="total-subs" id="totalSuscripciones"></div>
+      <button class="btn-texto" onclick="abrirNuevaSub('c7', false)">+ Agregar suscripción</button>
+    </div>
+
+  </section>
+
+  <!-- ===================== PANTALLA: ANÁLISIS ===================== -->
+  <section id="p-analisis" class="oculto">
+    <header>
+      <h1 class="titulo-serif" id="mesAnalisis">—</h1>
+      <div class="acciones">
+        <div class="nav-mes">
+          <button onclick="cambiarMes(-1)" aria-label="Mes anterior">‹</button>
+          <button onclick="cambiarMes(1)" aria-label="Mes siguiente">›</button>
+        </div>
+        <button onclick="ciclarTema()" class="btn-tema" aria-label="Apariencia">🌗</button>
+        <button onclick="irA('ajustes')" aria-label="Ajustes">⚙</button>
+      </div>
+    </header>
+
+    <div class="tarjeta" id="tarjetaGrafico">
+      <h2 class="seccion titulo-serif">En qué se fue</h2>
+      <div class="grafico">
+        <div class="dona">
+          <svg width="156" height="156" viewBox="0 0 156 156" id="dona"></svg>
+          <div class="dona-centro">
+            <small>Gastado</small>
+            <b id="donaTotal">$0</b>
+          </div>
+        </div>
+        <div class="leyenda" id="leyenda"></div>
+      </div>
+      <div class="comparacion" id="comparacion"></div>
+    </div>
+
+    <div class="tarjeta">
+      <h2 class="seccion titulo-serif">Categorías</h2>
+      <div id="listaCategorias"></div>
+    </div>
+  </section>
+
+  <!-- ===================== PANTALLA: TRANSFERENCIAS ===================== -->
+  <section id="p-transferencias" class="oculto">
+    <header>
+      <h1 class="titulo-serif">Transferencias</h1>
+      <div class="acciones">
+        <button onclick="ciclarTema()" class="btn-tema" aria-label="Apariencia">🌗</button>
+        <button onclick="irA('ajustes')" aria-label="Ajustes">⚙</button>
+      </div>
+    </header>
+
+    <div class="balance">
+      <div class="fila" style="border-top:none;padding-top:0">
+        <div><span>Te deben</span><strong class="v-ingreso" id="totalMeDeben">$0</strong></div>
+        <div><span>Debes</span><strong class="v-gasto" id="totalDebo">$0</strong></div>
+      </div>
+    </div>
+
+    <div class="tarjeta">
+      <h2 class="seccion titulo-serif">Pendientes</h2>
+      <div id="listaPendientes"></div>
+      <button class="btn-texto" onclick="abrirTransferencia()">+ Anotar una deuda</button>
+    </div>
+
+    <div class="tarjeta" id="tarjetaSaldadas">
+      <h2 class="seccion titulo-serif">Ya saldadas</h2>
+      <div id="listaSaldadas"></div>
+    </div>
+
+    <p style="text-align:center;color:var(--suave);font-size:12px;padding:0 10px 20px;line-height:1.5">
+      Lo pendiente no toca tu balance. Cuando marcas una como saldada,
+      recién ahí entra como ingreso o gasto real.
+    </p>
+  </section>
+
+  <!-- ===================== PANTALLA: MOVIMIENTOS ===================== -->
+  <section id="p-movimientos" class="oculto">
+    <header>
+      <h1 class="titulo-serif">Movimientos</h1>
+      <div class="acciones">
+        <button onclick="ciclarTema()" class="btn-tema" aria-label="Apariencia">🌗</button>
+        <button onclick="irA('ajustes')" aria-label="Ajustes">⚙</button>
+      </div>
+    </header>
+    <div class="tarjeta" id="listaMovimientos"></div>
+  </section>
+
+  <!-- ===================== PANTALLA: AJUSTES ===================== -->
+  <section id="p-ajustes" class="oculto">
+    <header>
+      <h1 class="titulo-serif">Mis categorías</h1>
+      <div class="acciones"><button onclick="irA('inicio')" aria-label="Volver">✕</button></div>
+    </header>
+
+    <div class="tarjeta">
+      <div id="editorCategorias"></div>
+      <button class="btn-texto" onclick="abrirNuevaCategoria()">+ Nueva categoría</button>
+    </div>
+
+    <div class="tarjeta">
+      <h2 class="seccion titulo-serif">Datos</h2>
+      <div class="fila-ajuste">
+        <span class="nom">Exportar a Excel (CSV)</span>
+        <button class="mini" onclick="exportarCSV()">↓</button>
+      </div>
+      <div class="fila-ajuste">
+        <span class="nom" style="color:var(--gasto)">Borrar todos los datos</span>
+        <button class="mini" onclick="borrarTodo()">✕</button>
+      </div>
+    </div>
+    <p style="text-align:center;color:var(--suave);font-size:12px;padding:8px 0 20px">
+      Tus datos se guardan solo en este dispositivo.
+    </p>
+  </section>
+
+</div>
+
+<!-- ===================== BARRA INFERIOR ===================== -->
+<nav>
+  <button id="tab-inicio" class="activo" onclick="irA('inicio')"><span class="g">◍</span>Inicio</button>
+  <button id="tab-analisis" onclick="irA('analisis')"><span class="g">◔</span>Análisis</button>
+  <button id="btnAgregar" onclick="abrirMovimiento()">+</button>
+  <button id="tab-transferencias" onclick="irA('transferencias')"><span class="g">⇄</span>Transfer.</button>
+  <button id="tab-movimientos" onclick="irA('movimientos')"><span class="g">≡</span>Movim.</button>
+</nav>
+
+<div class="toast" id="toast"></div>
+
+<!-- ===================== HOJA: NUEVO MOVIMIENTO ===================== -->
+<div class="fondo-modal" id="fondoModal" onclick="cerrarHojas()"></div>
+
+<div class="hoja" id="hojaMovimiento">
+  <div class="asa"></div>
+  <h2 class="seccion titulo-serif" style="text-align:center;margin-bottom:14px" id="tituloMovimiento">Nuevo movimiento</h2>
+
+  <!-- Escanear va antes del monto: si sale bien, te ahorra teclearlo -->
+  <button class="btn-escanear" id="btnEscanear" onclick="elegirBoleta()">📷 Escanear boleta</button>
+  <input type="file" accept="image/*" capture="environment" id="inpBoleta"
+         class="oculto" onchange="procesarBoleta(this)">
+
+  <div class="progreso oculto" id="progresoOCR">
+    <div class="progreso-texto" id="progresoTexto">Preparando…</div>
+    <div class="progreso-barra"><i id="progresoBarra"></i></div>
+  </div>
+
+  <!-- El monto va primero y grande: es lo que uno quiere teclear al toque -->
+  <div class="monto-input">
+    <span>$</span>
+    <input type="text" inputmode="numeric" id="inpMonto" placeholder="0" oninput="formatearMonto(this)">
+  </div>
+
+  <div class="selector">
+    <button id="selGasto" class="activo" onclick="elegirTipo('gasto')">Gasto</button>
+    <button id="selIngreso" onclick="elegirTipo('ingreso')">Ingreso</button>
+    <button id="selAhorro" onclick="elegirTipo('ahorro')">Ahorro</button>
+  </div>
+
+  <div class="campo">
+    <label>Categoría</label>
+    <div class="chips" id="chipsCategoria"></div>
+  </div>
+
+  <div class="campo oculto" id="campoSub">
+    <label>Detalle</label>
+    <div class="chips" id="chipsSub"></div>
+  </div>
+
+  <div class="campo">
+    <label>Fecha</label>
+    <input type="date" id="inpFecha">
+  </div>
+
+  <div class="campo">
+    <label>Nota (opcional)</label>
+    <input type="text" id="inpNota" placeholder="Ej: feria del domingo">
+  </div>
+
+  <button class="btn-principal" id="btnGuardarMov" onclick="guardarMovimiento()">Guardar</button>
+  <button class="btn-texto oculto" id="btnBorrarMov" onclick="borrarMovEditado()">Eliminar movimiento</button>
+</div>
+
+<!-- ===================== HOJA: NUEVA CATEGORÍA ===================== -->
+<div class="hoja" id="hojaCategoria">
+  <div class="asa"></div>
+  <h2 class="seccion titulo-serif" style="text-align:center;margin-bottom:20px" id="tituloCategoria">Nueva categoría</h2>
+
+  <div class="campo">
+    <label>Nombre</label>
+    <input type="text" id="inpCatNombre" placeholder="Ej: Salud">
+  </div>
+
+  <div class="campo" id="campoTipoCat">
+    <label>Tipo</label>
+    <div class="selector" style="margin-bottom:0">
+      <button id="selCatGasto" class="activo" onclick="elegirTipoCat('gasto')">Gasto</button>
+      <button id="selCatIngreso" onclick="elegirTipoCat('ingreso')">Ingreso</button>
+    </div>
+  </div>
+
+  <div class="campo">
+    <label>Ícono</label>
+    <div class="chips" id="chipsIcono"></div>
+  </div>
+
+  <div class="campo">
+    <label>Color</label>
+    <div class="colores" id="paletaColores"></div>
+  </div>
+
+  <button class="btn-principal" id="btnGuardarCat" onclick="guardarCategoria()">Crear categoría</button>
+</div>
+
+<!-- ===================== HOJA: TRANSFERENCIA ===================== -->
+<div class="hoja" id="hojaTransferencia">
+  <div class="asa"></div>
+  <h2 class="seccion titulo-serif" style="text-align:center;margin-bottom:6px" id="tituloTransf">Anotar una deuda</h2>
+
+  <div class="monto-input">
+    <span>$</span>
+    <input type="text" inputmode="numeric" id="inpTMonto" placeholder="0" oninput="formatearMonto(this)">
+  </div>
+
+  <div class="selector">
+    <button id="selMeDeben" class="activo" onclick="elegirTipoTransf('meDeben')">Me deben</button>
+    <button id="selDebo" onclick="elegirTipoTransf('debo')">Yo debo</button>
+  </div>
+
+  <div class="campo">
+    <label id="labelPersona">¿Quién te debe?</label>
+    <input type="text" id="inpTPersona" placeholder="Ej: Camila">
+  </div>
+
+  <div class="campo">
+    <label>Por qué (opcional)</label>
+    <input type="text" id="inpTNota" placeholder="Ej: entrada del concierto">
+  </div>
+
+  <div class="campo">
+    <label>Fecha</label>
+    <input type="date" id="inpTFecha">
+  </div>
+
+  <button class="btn-principal" id="btnGuardarTransf" onclick="guardarTransferencia()">Guardar</button>
+  <button class="btn-texto oculto" id="btnBorrarTransf" onclick="borrarTransferencia()">Eliminar</button>
+</div>
+
+<!-- ===================== HOJA: NUEVA SUBCATEGORÍA ===================== -->
+<div class="hoja" id="hojaSub">
+  <div class="asa"></div>
+  <h2 class="seccion titulo-serif" style="text-align:center;margin-bottom:20px" id="tituloSub">Nuevo detalle</h2>
+
+  <!-- Elegir de una lista es más rápido que escribir, y de paso el emoji sale solo -->
+  <div class="campo" id="campoSugerencias">
+    <label>Elige uno</label>
+    <div id="sugerencias"></div>
+    <button class="btn-texto" id="btnVerTodas" onclick="verTodasSugerencias()">Ver todas</button>
+  </div>
+
+  <div class="campo oculto" id="campoNombreSub">
+    <label>Nombre</label>
+    <input type="text" id="inpSubNombre" placeholder="Ej: Internet">
+  </div>
+
+  <!-- Estos campos aparecen solo dentro de Suscripciones -->
+  <div id="camposSuscripcion" class="oculto">
+    <div class="campo">
+      <label>Cuánto pagas al mes</label>
+      <input type="text" inputmode="numeric" id="inpSubMonto" placeholder="$ 0"
+             oninput="formatearMonto(this)">
+    </div>
+    <div class="campo">
+      <label>Día de cobro</label>
+      <input type="number" min="1" max="31" id="inpSubDia" placeholder="Ej: 15">
+    </div>
+    <div class="campo">
+      <label>Estado</label>
+      <div class="selector" style="margin-bottom:0">
+        <button id="selSubActiva" class="activo" onclick="elegirEstadoSub(true)">Activa</button>
+        <button id="selSubPausada" onclick="elegirEstadoSub(false)">Pausada</button>
+      </div>
+    </div>
+  </div>
+
+  <button class="btn-principal" id="btnGuardarSub" onclick="guardarSub()">Agregar</button>
+  <button class="btn-texto oculto" id="btnBorrarSub" onclick="borrarSubEditada()">Eliminar</button>
+</div>
+
+<!-- Librería de lectura de texto. Está guardada en el proyecto, no se baja
+     de internet: por eso el escáner funciona sin conexión. -->
+<script src="lib/tesseract.min.js"></script>
+
+<script>
+/* ================================================================
+   1. DATOS
+   Todo vive en un solo objeto "estado". Las categorías NO están
+   escritas a mano en el diseño: son datos. Por eso puedes crear,
+   renombrar y borrar las que quieras sin tocar el código.
+   ================================================================ */
+
+const PALETA = ['#C97B84','#7A9E7E','#8FA8C4','#D9A566','#A98BA8','#6FA5A0','#C4899B','#8C9E6E'];
+const ICONOS = ['🍽','🏠','💡','🚌','🛍','💊','🎬','📚','☕','🎁','💰','✈️','🐾','🧾'];
+
+const CATEGORIAS_INICIALES = [
+  {id:'c1', nombre:'Alimentación',  tipo:'gasto',   color:'#C97B84', icono:'🍽', subs:[
+      {id:'a1',nombre:'Supermercado'},{id:'a2',nombre:'Feria'},{id:'a3',nombre:'Panadería'},
+      {id:'a4',nombre:'Almuerzo'},{id:'a5',nombre:'Café'},{id:'a6',nombre:'Delivery'}
+  ]},
+  {id:'c2', nombre:'Gastos fijos',  tipo:'gasto',   color:'#8FA8C4', icono:'🏠', subs:[
+      {id:'s1',nombre:'Luz'},{id:'s2',nombre:'Agua'},{id:'s3',nombre:'Gas'},
+      {id:'s4',nombre:'Gastos comunes'},{id:'s5',nombre:'Arriendo'}
+  ]},
+  {id:'c3', nombre:'Gastos varios', tipo:'gasto',   color:'#D9A566', icono:'🛍', subs:[
+      {id:'v1',nombre:'Ropa'},{id:'v2',nombre:'Regalo'},{id:'v3',nombre:'Cine'},
+      {id:'v4',nombre:'Libro'},{id:'v5',nombre:'Peluquería'}
+  ]},
+  {id:'c4', nombre:'Transporte',    tipo:'gasto',   color:'#7A9E7E', icono:'🚌', subs:[
+      {id:'t1',nombre:'Bencina'},{id:'t2',nombre:'Micro'},{id:'t3',nombre:'Metro'},
+      {id:'t4',nombre:'Taxi'},{id:'t5',nombre:'Estacionamiento'}
+  ]},
+  {id:'c5', nombre:'Ingresos',      tipo:'ingreso', color:'#7A9E7E', icono:'💰', subs:[]},
+  {id:'c6', nombre:'Ahorro',        tipo:'ahorro',  color:'#6FA5A0', icono:'🏦', subs:[]},
+  // Suscripciones empieza vacía a propósito: las 12 plataformas viven en
+  // SUGERENCIAS y se agregan cuando tú las ocupas, con su monto y día de cobro.
+  {id:'c7', nombre:'Suscripciones', tipo:'gasto',   color:'#A98BA8', icono:'💳', subs:[]},
+  {id:'c8', nombre:'Mascota',       tipo:'gasto',   color:'#8C9E6E', icono:'🐱', subs:[
+      {id:'p1',nombre:'Comida de gato'},{id:'p2',nombre:'Arena'},
+      {id:'p3',nombre:'Veterinario'},{id:'p4',nombre:'Juguetes'}
+  ]}
+];
+
+const CAT_SUSCRIPCIONES = 'c7';
+
+let estado = {
+  categorias: CATEGORIAS_INICIALES,
+  movimientos: [],           // {id, monto, tipo, catId, subId, fecha:'2026-08-12', nota}
+  // {id, monto, tipo:'meDeben'|'debo', persona, nota, fecha, pagada}
+  transferencias: [],
+  tema: 'auto',
+  version: 4
+};
+
+/* localStorage = la memoria del navegador. Guarda texto y sobrevive
+   aunque cierres la app o apagues el teléfono. Por eso funciona offline. */
+const CLAVE = 'misFinanzas_v1';
+
+function guardar(){ localStorage.setItem(CLAVE, JSON.stringify(estado)); }
+
+function cargar(){
+  const guardado = localStorage.getItem(CLAVE);
+  if(guardado){
+    try{ estado = JSON.parse(guardado); }catch(e){ console.warn('Datos corruptos, se empieza de cero'); }
+  }
+  // Datos guardados antes de que existiera el ahorro: se la agregamos
+  // al vuelo para que no haya que migrar nada a mano.
+  if(!estado.categorias.some(c => c.tipo === 'ahorro')){
+    estado.categorias.push(CATEGORIAS_INICIALES.find(c => c.tipo === 'ahorro'));
+  }
+  // Suscripciones se agrega una sola vez. Usamos un número de versión y no
+  // "¿existe?" para que, si la borras a propósito, no vuelva a aparecer sola.
+  // Cada versión agrega lo suyo una sola vez. Si borras una categoría
+  // a propósito, no vuelve a aparecer sola.
+  const agregarUnaVez = id => {
+    if(!estado.categorias.some(c => c.id === id)){
+      estado.categorias.push(CATEGORIAS_INICIALES.find(c => c.id === id));
+    }
+  };
+  if(!estado.version){ agregarUnaVez('c7'); estado.version = 2; }
+  if(estado.version < 3){ agregarUnaVez('c8'); estado.version = 3; }
+
+  if(estado.version < 4){
+    // Las 12 suscripciones venían precargadas sin monto, y como el panel
+    // esconde las que no están configuradas, no había forma de llegar a ellas.
+    // Se limpian las que nunca se usaron; las que sí, se respetan.
+    const susc = buscarCat('c7');
+    if(susc) susc.subs = susc.subs.filter(s =>
+      s.montoMensual || s.diaCobro || estado.movimientos.some(m => m.subId === s.id));
+
+    // Estas categorías quedaron sin detalles y no aparecía nada al elegirlas
+    const conDetalles = (id, nombres) => {
+      const cat = buscarCat(id);
+      if(cat && cat.subs.length === 0)
+        cat.subs = nombres.map(n => ({id: nuevoId(), nombre: n}));
+    };
+    conDetalles('c1', ['Supermercado','Feria','Panadería','Almuerzo','Café','Delivery']);
+    conDetalles('c3', ['Ropa','Regalo','Cine','Libro','Peluquería']);
+    conDetalles('c4', ['Bencina','Micro','Metro','Taxi','Estacionamiento']);
+
+    estado.version = 4;
+  }
+
+  if(!estado.transferencias) estado.transferencias = [];
+}
+
+/* ================================================================
+   2. UTILIDADES
+   ================================================================ */
+
+// Formato de peso chileno: sin decimales y con punto de miles
+const pesos = n => '$' + Math.round(Math.abs(n)).toLocaleString('es-CL');
+
+const nuevoId = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+
+// OJO: toISOString() usa hora UTC y en Chile eso adelanta un día por la tarde.
+// Por eso armamos la fecha local a mano.
+function hoyISO(){
+  const d = new Date();
+  const dos = n => String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${dos(d.getMonth()+1)}-${dos(d.getDate())}`;
+}
+
+const MESES = ['enero','febrero','marzo','abril','mayo','junio','julio',
+               'agosto','septiembre','octubre','noviembre','diciembre'];
+
+let mesVista = new Date();  // qué mes se está mirando
+
+// Convierte '2026-08-12' a un texto legible, sin líos de zona horaria
+function fechaLegible(iso){
+  const [a,m,d] = iso.split('-').map(Number);
+  return `${d} de ${MESES[m-1]}`;
+}
+
+function esDelMesVisto(iso){
+  const [a,m] = iso.split('-').map(Number);
+  return a === mesVista.getFullYear() && m === mesVista.getMonth()+1;
+}
+
+const buscarCat = id => estado.categorias.find(c => c.id === id);
+
+/* --- Emoji automático según la palabra ---
+   Palabras completas, sin abreviaciones. ("micro" no es abreviación:
+   en Chile es la palabra.) */
+const EMOJIS_PALABRA = {
+  // Alimentación
+  supermercado:'🛒', feria:'🥬', panaderia:'🥖', carniceria:'🥩', verduleria:'🥕',
+  almuerzo:'🍽', cena:'🍽', desayuno:'🥐', restaurante:'🍴', cafe:'☕',
+  once:'🧁', delivery:'🛵', helado:'🍦', pizza:'🍕', completo:'🌭', empanada:'🥟',
+  // Servicios del hogar
+  luz:'💡', electricidad:'💡', agua:'💧', gas:'🔥', internet:'📶', telefono:'📱',
+  arriendo:'🏠', comunes:'🏢', basura:'🗑', calefaccion:'🔥',
+  // Transporte
+  bencina:'⛽', combustible:'⛽', micro:'🚌', bus:'🚌', metro:'🚇', taxi:'🚕',
+  peaje:'🛣', estacionamiento:'🅿️', bicicleta:'🚲', mecanico:'🔧', pasaje:'🎫',
+  // Salud
+  farmacia:'💊', remedio:'💊', medico:'🩺', doctor:'🩺', dentista:'🦷',
+  optica:'👓', examen:'🧪', kinesiologo:'🩹',
+  // Suscripciones
+  netflix:'📺', spotify:'🎵', disney:'🏰', crunchyroll:'🍥', youtube:'▶️',
+  chatgpt:'🤖', claude:'✳️', meli:'🛵', jumbo:'🚚', amazon:'📦', max:'🎞', icloud:'☁️',
+  // Otros
+  cine:'🎬', streaming:'📺', ropa:'👕', zapatillas:'👟', regalo:'🎁',
+  mascota:'🐾', gato:'🐱', perro:'🐶', veterinario:'🩺', arena:'🪣',
+  croquetas:'🐱', juguete:'🧶', libro:'📚', gimnasio:'🏋️', peluqueria:'💇',
+  matricula:'🎓', universidad:'🎓', fotocopia:'🖨', banco:'🏦', ahorro:'🏦'
+};
+
+// ¿El texto ya trae un emoji escrito por el usuario? Entonces se respeta ese.
+const YA_TIENE_EMOJI = /\p{Extended_Pictographic}/u;
+
+function emojiDe(texto){
+  if(!texto) return '';
+  if(YA_TIENE_EMOJI.test(texto)) return '';
+  // Quitamos tildes (los códigos ̀-ͯ son las marcas de acento)
+  // para que "panadería" calce con "panaderia"
+  const limpio = texto.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+  for(const palabra of limpio.split(/[^a-z0-9]+/)){
+    // Se prueba la palabra tal cual y sus dos plurales posibles:
+    // "remedios" → "remedio" (quitar s), "juguetes" → "juguete" (quitar es)
+    for(const forma of [palabra, palabra.replace(/s$/,''), palabra.replace(/es$/,'')]){
+      if(EMOJIS_PALABRA[forma]) return EMOJIS_PALABRA[forma] + ' ';
+    }
+  }
+  return '';
+}
+
+/* ================================================================
+   3. NAVEGACIÓN ENTRE PANTALLAS
+   No hay páginas separadas: mostramos y escondemos secciones.
+   ================================================================ */
+
+function irA(pantalla){
+  ['inicio','analisis','transferencias','movimientos','ajustes'].forEach(p => {
+    document.getElementById('p-'+p).classList.toggle('oculto', p !== pantalla);
+    const tab = document.getElementById('tab-'+p);
+    if(tab) tab.classList.toggle('activo', p === pantalla);
+  });
+  window.scrollTo(0,0);
+  if(pantalla === 'ajustes') pintarEditorCategorias();
+  if(pantalla === 'movimientos') pintarMovimientos();
+  if(pantalla === 'transferencias') pintarTransferencias();
+}
+
+function cambiarMes(delta){
+  mesVista.setMonth(mesVista.getMonth() + delta);
+  pintarTodo();
+}
+
+/* ================================================================
+   4. PINTAR LA PANTALLA DE INICIO
+   ================================================================ */
+
+function pintarTodo(){
+  const titulo = MESES[mesVista.getMonth()] + ' ' + mesVista.getFullYear();
+  document.getElementById('mesActual').textContent = titulo;
+  document.getElementById('mesAnalisis').textContent = titulo;
+
+  const delMes = estado.movimientos.filter(m => esDelMesVisto(m.fecha));
+  const suma = tipo => delMes.filter(m=>m.tipo===tipo).reduce((s,m)=>s+m.monto,0);
+  const ingresos = suma('ingreso'), gastos = suma('gasto'), ahorro = suma('ahorro');
+
+  document.getElementById('totalIngresos').textContent = pesos(ingresos);
+  document.getElementById('totalGastos').textContent   = pesos(gastos);
+  document.getElementById('totalAhorro').textContent   = pesos(ahorro);
+
+  // Apartas primero y gastas lo que queda: por eso el ahorro también resta
+  const disponible = ingresos - gastos - ahorro;
+  const elBal = document.getElementById('balanceMonto');
+  elBal.textContent = (disponible < 0 ? '−' : '') + pesos(disponible);
+  elBal.style.color = disponible < 0 ? 'var(--gasto)' : 'var(--texto)';
+
+  // El acumulado es de todos los meses, no solo del que estás mirando
+  const acumulado = estado.movimientos
+    .filter(m => m.tipo === 'ahorro').reduce((s,m)=>s+m.monto,0);
+  document.getElementById('acumuladoAhorro').innerHTML = acumulado
+    ? `🏦 Ahorrado hasta hoy: <b>${pesos(acumulado)}</b>`
+    : `🏦 Todavía no registras ahorros.`;
+
+  pintarDona(delMes, gastos);
+  pintarComparacion(gastos);
+  pintarSuscripciones();
+  pintarCategorias(delMes, gastos);
+  pintarMovimientos();
+}
+
+/* --- El gráfico de dona, dibujado a mano en SVG ---
+   Truco: es un círculo con borde grueso. "stroke-dasharray" corta
+   ese borde en un trozo pintado y otro invisible; moviendo el
+   "offset" de cada círculo, cada categoría ocupa su porción. */
+function pintarDona(movs, totalGastos){
+  const svg = document.getElementById('dona');
+  const leyenda = document.getElementById('leyenda');
+  document.getElementById('donaTotal').textContent = pesos(totalGastos);
+
+  const porCat = {};
+  movs.filter(m=>m.tipo==='gasto').forEach(m => {
+    porCat[m.catId] = (porCat[m.catId] || 0) + m.monto;
+  });
+  const items = Object.entries(porCat)
+    .map(([id,val]) => ({cat: buscarCat(id), val}))
+    .filter(x => x.cat)
+    .sort((a,b) => b.val - a.val);
+
+  if(items.length === 0){
+    svg.innerHTML = `<circle cx="78" cy="78" r="60" fill="none" stroke="var(--linea)" stroke-width="17"/>`;
+    leyenda.innerHTML = `<p style="color:var(--suave);font-size:13.5px">Sin gastos este mes.</p>`;
+    return;
+  }
+
+  const R = 60, C = 2 * Math.PI * R;
+  let acumulado = 0, svgHTML = '', leyHTML = '';
+
+  items.forEach(({cat,val}) => {
+    const frac = val / totalGastos;
+    const largo = frac * C;
+    svgHTML += `<circle cx="78" cy="78" r="${R}" fill="none"
+                  stroke="${cat.color}" stroke-width="17"
+                  stroke-dasharray="${largo - 1.5} ${C - largo + 1.5}"
+                  stroke-dashoffset="${-acumulado}" stroke-linecap="butt"/>`;
+    acumulado += largo;
+
+    leyHTML += `<div class="leyenda-item">
+        <i class="punto" style="background:${cat.color}"></i>
+        <span class="nom">${cat.icono} ${cat.nombre}</span>
+        <span class="pct">${Math.round(frac*100)}%</span>
+      </div>`;
+  });
+
+  svg.innerHTML = svgHTML;
+  leyenda.innerHTML = leyHTML;
+}
+
+/* ================================================================
+   4b. SUSCRIPCIONES
+   ================================================================ */
+
+// Solo aparecen en el panel las que ya configuraste (monto o día de cobro).
+// Las demás existen igual como detalle, listas para usar al registrar.
+const estaConfigurada = s => !!(s.montoMensual || s.diaCobro);
+
+/* Próxima fecha de cobro a partir del día del mes.
+   Ojo con el día 31: en los meses que no lo tienen se usa el último día. */
+function proximoCobro(dia){
+  if(!dia) return null;
+  const hoy = new Date(); hoy.setHours(0,0,0,0);
+  const diasDelMes = (a,m) => new Date(a, m+1, 0).getDate();
+  const enMes = (a,m) => new Date(a, m, Math.min(dia, diasDelMes(a,m)));
+
+  let f = enMes(hoy.getFullYear(), hoy.getMonth());
+  if(f < hoy) f = enMes(hoy.getFullYear(), hoy.getMonth() + 1);
+  return f;
+}
+
+const diasHasta = fecha => Math.round((fecha - new Date().setHours(0,0,0,0)) / 86400000);
+
+// ¿Ya pasó el cobro de este mes y no lo registraste?
+function cobroPendiente(sub){
+  if(!sub.diaCobro || !sub.montoMensual || sub.activa === false) return false;
+  const hoy = new Date();
+  const diasDelMes = new Date(hoy.getFullYear(), hoy.getMonth()+1, 0).getDate();
+  if(hoy.getDate() < Math.min(sub.diaCobro, diasDelMes)) return false;
+  return !estado.movimientos.some(m =>
+    m.subId === sub.id && esDelMesVisto(m.fecha) && m.tipo === 'gasto');
+}
+
+function pintarSuscripciones(){
+  const cat = buscarCat(CAT_SUSCRIPCIONES);
+  const tarjeta = document.getElementById('tarjetaSuscripciones');
+  if(!cat){ tarjeta.classList.add('oculto'); return; }
+
+  tarjeta.classList.remove('oculto');
+  const configuradas = cat.subs.filter(estaConfigurada);
+
+  if(configuradas.length === 0){
+    document.getElementById('listaSuscripciones').innerHTML =
+      `<div class="vacio" style="padding:18px 8px">
+         Anota tus suscripciones con su día de cobro<br>y te aviso antes de que te las cobren.
+       </div>`;
+    document.getElementById('totalSuscripciones').innerHTML = '';
+    return;
+  }
+
+  // Primero las activas, y dentro de ellas la que se cobra antes
+  const orden = configuradas.slice().sort((a,b) => {
+    if((a.activa === false) !== (b.activa === false)) return a.activa === false ? 1 : -1;
+    const fa = proximoCobro(a.diaCobro), fb = proximoCobro(b.diaCobro);
+    if(!fa) return 1; if(!fb) return -1;
+    return fa - fb;
+  });
+
+  document.getElementById('listaSuscripciones').innerHTML = orden.map(s => {
+    const pausada = s.activa === false;
+    const fecha = proximoCobro(s.diaCobro);
+    const dias = fecha ? diasHasta(fecha) : null;
+    const pronto = !pausada && dias !== null && dias <= 3;
+    const pendiente = !pausada && cobroPendiente(s);
+
+    let sub = '';
+    if(pausada)            sub = 'Pausada';
+    else if(pendiente)     sub = `Se cobró el ${s.diaCobro} y no lo registras`;
+    else if(dias === 0)    sub = 'Se cobra hoy';
+    else if(dias === 1)    sub = 'Se cobra mañana';
+    else if(dias !== null) sub = `Día ${s.diaCobro} · en ${dias} días`;
+    else                   sub = 'Sin día de cobro';
+
+    return `<div class="sus ${pronto||pendiente?'pronto':''} ${pausada?'pausada':''}"
+                 onclick="editarSuscripcion('${s.id}')">
+        <span class="ico">${emojiDe(s.nombre) || '💳'}</span>
+        <span class="nom">${s.nombre}<small>${sub}</small></span>
+        ${pendiente
+          ? `<button class="cobrar" onclick="event.stopPropagation();registrarCobro('${s.id}')">Registrar</button>`
+          : ''}
+        <span class="val ${s.montoMensual?'':'sin'}">
+          ${s.montoMensual ? pesos(s.montoMensual) : 'sin monto'}
+        </span>
+      </div>`;
+  }).join('');
+
+  const totalMes = configuradas
+    .filter(s => s.activa !== false)
+    .reduce((t,s) => t + (s.montoMensual || 0), 0);
+  document.getElementById('totalSuscripciones').innerHTML =
+    `<span>Al mes</span><b>${pesos(totalMes)}</b>`;
+}
+
+// Un toque para dejar registrado el cobro que ya ocurrió
+function registrarCobro(subId){
+  const cat = buscarCat(CAT_SUSCRIPCIONES);
+  const sub = cat.subs.find(s => s.id === subId);
+  const hoy = new Date();
+  const diasDelMes = new Date(hoy.getFullYear(), hoy.getMonth()+1, 0).getDate();
+  const dia = String(Math.min(sub.diaCobro, diasDelMes)).padStart(2,'0');
+
+  estado.movimientos.push({
+    id: nuevoId(), monto: sub.montoMensual, tipo: 'gasto',
+    catId: CAT_SUSCRIPCIONES, subId: sub.id,
+    fecha: `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}-${dia}`,
+    nota: ''
+  });
+  guardar(); pintarTodo();
+}
+
+/* --- Lista desplegable de categorías con sus detalles --- */
+function pintarCategorias(movs, totalGastos){
+  const cont = document.getElementById('listaCategorias');
+  // Todas las categorías de gasto, incluidas las que están en cero,
+  // ordenadas de mayor a menor para que lo importante quede arriba.
+  const totalDe = cat => movs.filter(m => m.catId === cat.id).reduce((s,m)=>s+m.monto,0);
+  const gastosCat = estado.categorias
+    .filter(c => c.tipo === 'gasto')
+    .sort((a,b) => totalDe(b) - totalDe(a));
+
+  cont.innerHTML = gastosCat.map(cat => {
+    const propios = movs.filter(m => m.catId === cat.id);
+    const total = propios.reduce((s,m)=>s+m.monto,0);
+    const pct = totalGastos ? (total/totalGastos*100) : 0;
+
+    // Al desplegar: si la categoría tiene detalles, mostramos el total de cada uno.
+    // Si no tiene, mostramos los movimientos sueltos, que es la info útil ahí.
+    let subsHTML = '';
+    if(propios.length === 0){
+      subsHTML = `<div class="sub"><span class="nom">Sin movimientos este mes</span></div>`;
+    }else if(cat.subs.length){
+      cat.subs.forEach(sub => {
+        const t = propios.filter(m => m.subId === sub.id).reduce((s,m)=>s+m.monto,0);
+        if(t > 0) subsHTML += `<div class="sub"><span class="nom">${emojiDe(sub.nombre)}${sub.nombre}</span><span>${pesos(t)}</span></div>`;
+      });
+      const sinDetalle = propios.filter(m => !m.subId).reduce((s,m)=>s+m.monto,0);
+      if(sinDetalle > 0)
+        subsHTML += `<div class="sub"><span class="nom">Sin detalle</span><span>${pesos(sinDetalle)}</span></div>`;
+    }else{
+      propios.slice().sort((a,b)=>b.fecha.localeCompare(a.fecha)).forEach(m => {
+        subsHTML += `<div class="sub">
+            <span class="nom">${m.nota ? emojiDe(m.nota) + m.nota : fechaLegible(m.fecha)}</span>
+            <span>${pesos(m.monto)}</span>
+          </div>`;
+      });
+    }
+
+    return `<div class="cat ${total === 0 ? 'vacia' : ''}" onclick="this.classList.toggle('abierta')">
+        <div class="cat-cab">
+          <span>${cat.icono}</span>
+          <span class="nom">${cat.nombre}</span>
+          <span class="pct">${total ? Math.round(pct) + '%' : ''}</span>
+          <span class="monto">${pesos(total)}</span>
+          <span class="flecha">›</span>
+        </div>
+        <div class="barra"><i style="width:${pct}%;background:${cat.color}"></i></div>
+        <div class="cat-cuerpo">${subsHTML}</div>
+      </div>`;
+  }).join('');
+}
+
+/* Cuánto cambió el gasto respecto del mes pasado.
+   Sin datos previos no se muestra nada: un "+100%" contra cero no dice nada. */
+function pintarComparacion(gastosMes){
+  const anterior = new Date(mesVista.getFullYear(), mesVista.getMonth() - 1, 1);
+  const gastosAnterior = estado.movimientos
+    .filter(m => {
+      const [a,mm] = m.fecha.split('-').map(Number);
+      return m.tipo === 'gasto' && a === anterior.getFullYear() && mm === anterior.getMonth() + 1;
+    })
+    .reduce((s,m) => s + m.monto, 0);
+
+  const el = document.getElementById('comparacion');
+  if(!gastosAnterior || !gastosMes){ el.innerHTML = ''; return; }
+
+  const cambio = Math.round((gastosMes - gastosAnterior) / gastosAnterior * 100);
+  const nombreMes = MESES[anterior.getMonth()];
+  if(cambio === 0){
+    el.innerHTML = `Igual que en ${nombreMes}.`;
+  }else{
+    const subio = cambio > 0;
+    el.innerHTML = `<b class="${subio ? 'v-gasto' : 'v-ingreso'}">${subio ? '↑' : '↓'} ${Math.abs(cambio)}%</b>
+                    ${subio ? 'más' : 'menos'} que en ${nombreMes} <span>(${pesos(gastosAnterior)})</span>`;
+  }
+}
+
+/* ================================================================
+   5. LISTA DE MOVIMIENTOS
+   ================================================================ */
+
+function pintarMovimientos(){
+  const cont = document.getElementById('listaMovimientos');
+  const delMes = estado.movimientos
+    .filter(m => esDelMesVisto(m.fecha))
+    .sort((a,b) => b.fecha.localeCompare(a.fecha) || b.id.localeCompare(a.id));
+
+  if(delMes.length === 0){
+    cont.innerHTML = `<div class="vacio"><span class="emo">🌱</span>
+      Todavía no hay movimientos este mes.<br>Toca el + para registrar el primero.</div>`;
+    return;
+  }
+
+  let html = '', ultimaFecha = '';
+  delMes.forEach(m => {
+    if(m.fecha !== ultimaFecha){
+      html += `<div class="dia">${fechaLegible(m.fecha)}</div>`;
+      ultimaFecha = m.fecha;
+    }
+    const cat = buscarCat(m.catId);
+    const sub = cat && cat.subs.find(s => s.id === m.subId);
+    const partes = [];
+    if(sub)    partes.push(emojiDe(sub.nombre) + sub.nombre);
+    if(m.nota) partes.push(emojiDe(m.nota) + m.nota);
+    const detalle = partes.join(' · ');
+    html += `<div class="mov" onclick="editarMovimiento('${m.id}')">
+        <div class="ico" style="background:${(cat?cat.color:'#999')}22">${cat?cat.icono:'•'}</div>
+        <div class="info">
+          <b>${cat ? cat.nombre : 'Sin categoría'}</b>
+          ${detalle ? `<small>${detalle}</small>` : ''}
+        </div>
+        <div class="val ${m.tipo==='ingreso'?'v-ingreso':m.tipo==='ahorro'?'v-ahorro':''}">
+          ${m.tipo==='ingreso'?'+':m.tipo==='ahorro'?'↑':'−'}${pesos(m.monto)}
+        </div>
+        <span class="flecha">›</span>
+      </div>`;
+  });
+  cont.innerHTML = html;
+}
+
+function borrarMovimiento(id){
+  if(!confirm('¿Borrar este movimiento?')) return;
+  estado.movimientos = estado.movimientos.filter(m => m.id !== id);
+  guardar(); pintarTodo();
+}
+
+/* ================================================================
+   6. HOJA PARA AGREGAR UN MOVIMIENTO
+   ================================================================ */
+
+let tipoActual = 'gasto', catElegida = null, subElegida = null;
+let movEditando = null;   // null = registrando uno nuevo
+
+function abrirHoja(id){
+  document.getElementById('fondoModal').classList.add('visible');
+  document.getElementById(id).classList.add('visible');
+}
+function cerrarHojas(){
+  document.getElementById('fondoModal').classList.remove('visible');
+  document.querySelectorAll('.hoja').forEach(h => h.classList.remove('visible'));
+}
+
+function abrirMovimiento(){
+  movEditando = null;
+  tipoActual = 'gasto'; catElegida = null; subElegida = null;
+  document.getElementById('tituloMovimiento').textContent = 'Nuevo movimiento';
+  document.getElementById('btnGuardarMov').textContent = 'Guardar';
+  document.getElementById('btnBorrarMov').classList.add('oculto');
+  document.getElementById('btnEscanear').classList.remove('oculto');
+  document.getElementById('inpMonto').value = '';
+  document.getElementById('inpNota').value = '';
+  document.getElementById('inpFecha').value = hoyISO();
+  const aviso = document.getElementById('avisoOCR');
+  if(aviso) aviso.remove();                 // limpia el mensaje del escaneo anterior
+  mostrarProgreso(false, '', 0);
+  elegirTipo('gasto');
+  abrirHoja('hojaMovimiento');
+  setTimeout(() => document.getElementById('inpMonto').focus(), 320);
+}
+
+// Va poniendo los puntos de miles mientras escribes
+function formatearMonto(input){
+  const soloNumeros = input.value.replace(/\D/g,'');
+  input.value = soloNumeros ? Number(soloNumeros).toLocaleString('es-CL') : '';
+}
+const leerMonto = () => Number(document.getElementById('inpMonto').value.replace(/\D/g,'')) || 0;
+
+function elegirTipo(tipo){
+  tipoActual = tipo;
+  catElegida = null; subElegida = null;
+  ['gasto','ingreso','ahorro'].forEach(t => {
+    const b = document.getElementById('sel' + t[0].toUpperCase() + t.slice(1));
+    b.classList.toggle('activo', t === tipo);
+  });
+  pintarChipsCategoria();
+  document.getElementById('campoSub').classList.add('oculto');
+
+  // Con una sola categoría del tipo (Ingresos, Ahorro) no tiene sentido
+  // hacer elegir: se marca sola y se ahorra un toque.
+  const opciones = estado.categorias.filter(c => c.tipo === tipo);
+  if(opciones.length === 1) elegirCategoria(opciones[0].id);
+}
+
+function pintarChipsCategoria(){
+  const cont = document.getElementById('chipsCategoria');
+  cont.innerHTML = estado.categorias
+    .filter(c => c.tipo === tipoActual)
+    .map(c => `<button class="chip ${catElegida===c.id?'activo':''}"
+                 style="${catElegida===c.id?`background:${c.color}`:''}"
+                 onclick="elegirCategoria('${c.id}')">
+                 <i class="punto" style="background:${c.color}"></i>${c.icono} ${c.nombre}
+               </button>`).join('')
+    // Crear una categoría sin salir del registro, igual que con los detalles
+    + `<button class="chip chip-mas" onclick="nuevaCategoriaDesdeRegistro()">+</button>`;
+}
+
+function nuevaCategoriaDesdeRegistro(){
+  catDesdeRegistro = true;
+  catEditando = null;
+  abrirHojaCategoria(null);
+  elegirTipoCat(tipoActual);          // ya sabemos si es gasto, ingreso o ahorro
+}
+
+function elegirCategoria(id){
+  catElegida = id; subElegida = null;
+  pintarChipsCategoria();
+
+  // El campo de detalle se muestra siempre: aunque la categoría no tenga
+  // ninguno todavía, ahí está el "+" para crear el primero.
+  const cat = buscarCat(id);
+  const campo = document.getElementById('campoSub');
+  if(cat){
+    campo.classList.remove('oculto');
+    pintarChipsSub(cat);
+  }else{
+    campo.classList.add('oculto');
+  }
+}
+
+function pintarChipsSub(cat){
+  const chips = cat.subs
+    .map(s => `<button class="chip ${subElegida===s.id?'activo':''}"
+                 style="${subElegida===s.id?`background:${cat.color}`:''}"
+                 data-sub="${s.id}"
+                 onclick="elegirSub('${s.id}')">${emojiDe(s.nombre)}${s.nombre}</button>`).join('');
+
+  // El chip de agregar va al final, con borde punteado para que se lea
+  // como "crear" y no como una opción más de la lista.
+  document.getElementById('chipsSub').innerHTML = chips +
+    `<button class="chip chip-mas" onclick="abrirNuevaSub('${cat.id}', true)">+</button>`;
+
+  activarPulsacionLarga('#chipsSub .chip[data-sub]',
+    chip => confirmarBorrarSub(cat.id, chip.dataset.sub));
+}
+
+function elegirSub(id){
+  subElegida = (subElegida === id) ? null : id;   // volver a tocar lo deselecciona
+  pintarChipsSub(buscarCat(catElegida));
+}
+
+/* --- Mantener el dedo sobre un chip para eliminar ese detalle ---
+   Sin ✕ visibles: ensucian la vista y con los chips tan juntos
+   provocarían borrados sin querer al registrar un gasto. */
+function activarPulsacionLarga(selector, alCumplirse){
+  document.querySelectorAll(selector).forEach(elemento => {
+    let temporizador = null;
+    let seActivo = false;
+
+    const cancelar = () => { clearTimeout(temporizador); elemento.classList.remove('presionado'); };
+
+    elemento.addEventListener('pointerdown', () => {
+      seActivo = false;
+      elemento.classList.add('presionado');
+      temporizador = setTimeout(() => {
+        seActivo = true;
+        elemento.classList.remove('presionado');
+        alCumplirse(elemento);
+      }, 500);
+    });
+
+    // Si el dedo se mueve es scroll, no una pulsación: se cancela
+    ['pointermove','pointerup','pointercancel','pointerleave']
+      .forEach(ev => elemento.addEventListener(ev, cancelar));
+
+    // Evita que el toque que borró haga además lo que hace un toque normal
+    elemento.addEventListener('click', e => {
+      if(seActivo){ e.preventDefault(); e.stopPropagation(); }
+    }, true);
+  });
+}
+
+function confirmarBorrarSub(catId, subId, despues){
+  const cat = buscarCat(catId);
+  const sub = cat.subs.find(s => s.id === subId);
+  if(!sub) return;
+  const usados = estado.movimientos.filter(m => m.subId === subId).length;
+  const aviso = usados
+    ? `¿Eliminar el detalle "${sub.nombre}"?\n\n${usados} movimiento(s) lo usan. No se borran: quedan en ${cat.nombre}, sin detalle.`
+    : `¿Eliminar el detalle "${sub.nombre}"?`;
+  if(!confirm(aviso)) return;
+  if(subElegida === subId) subElegida = null;
+  borrarSub(catId, subId);
+  if(despues) despues();
+  else pintarChipsSub(buscarCat(catId));
+}
+
+/* Corregir un movimiento ya registrado: el monto mal tecleado es
+   el error más común, y antes obligaba a borrarlo y empezar de nuevo. */
+function editarMovimiento(id){
+  const m = estado.movimientos.find(x => x.id === id);
+  if(!m) return;
+
+  movEditando = id;
+  tipoActual = m.tipo; catElegida = null; subElegida = null;
+
+  document.getElementById('tituloMovimiento').textContent = 'Editar movimiento';
+  document.getElementById('btnGuardarMov').textContent = 'Guardar cambios';
+  document.getElementById('btnBorrarMov').classList.remove('oculto');
+  document.getElementById('btnEscanear').classList.add('oculto');
+  const aviso = document.getElementById('avisoOCR');
+  if(aviso) aviso.remove();
+  mostrarProgreso(false, '', 0);
+
+  const inp = document.getElementById('inpMonto');
+  inp.value = String(m.monto); formatearMonto(inp);
+  document.getElementById('inpNota').value = m.nota || '';
+  document.getElementById('inpFecha').value = m.fecha;
+
+  elegirTipo(m.tipo);
+  if(m.catId){
+    elegirCategoria(m.catId);
+    if(m.subId){ subElegida = m.subId; pintarChipsSub(buscarCat(m.catId)); }
+  }
+  abrirHoja('hojaMovimiento');
+}
+
+function borrarMovEditado(){
+  if(!movEditando) return;
+  const id = movEditando;
+  movEditando = null;
+  cerrarHojas();
+  borrarMovimiento(id);
+}
+
+function guardarMovimiento(){
+  const monto = leerMonto();
+  if(monto <= 0){ alert('Escribe un monto.'); return; }
+  if(!catElegida){ alert('Elige una categoría.'); return; }
+
+  const datos = {
+    monto,
+    tipo: tipoActual,
+    catId: catElegida,
+    subId: subElegida,
+    fecha: document.getElementById('inpFecha').value,
+    nota: document.getElementById('inpNota').value.trim()
+  };
+
+  if(movEditando){
+    Object.assign(estado.movimientos.find(m => m.id === movEditando), datos);
+    movEditando = null;
+  }else{
+    estado.movimientos.push({id: nuevoId(), ...datos});
+  }
+  guardar();
+
+  // Si guardaste algo de otro mes, saltamos a ese mes para que lo veas
+  const [a,m] = document.getElementById('inpFecha').value.split('-').map(Number);
+  mesVista = new Date(a, m-1, 1);
+
+  cerrarHojas();
+  pintarTodo();
+}
+
+/* ================================================================
+   6a. TRANSFERENCIAS (lo que te deben y lo que debes)
+   No entran al balance: son plata que todavía no se movió.
+   Al marcarlas como saldadas se convierten en un movimiento real.
+   ================================================================ */
+
+let tipoTransf = 'meDeben', transfEditando = null;
+
+function elegirTipoTransf(tipo){
+  tipoTransf = tipo;
+  document.getElementById('selMeDeben').classList.toggle('activo', tipo === 'meDeben');
+  document.getElementById('selDebo').classList.toggle('activo', tipo === 'debo');
+  document.getElementById('labelPersona').textContent =
+    tipo === 'meDeben' ? '¿Quién te debe?' : '¿A quién le debes?';
+}
+
+function abrirTransferencia(){
+  transfEditando = null;
+  document.getElementById('tituloTransf').textContent = 'Anotar una deuda';
+  document.getElementById('btnGuardarTransf').textContent = 'Guardar';
+  document.getElementById('btnBorrarTransf').classList.add('oculto');
+  document.getElementById('inpTMonto').value = '';
+  document.getElementById('inpTPersona').value = '';
+  document.getElementById('inpTNota').value = '';
+  document.getElementById('inpTFecha').value = hoyISO();
+  elegirTipoTransf('meDeben');
+  abrirHoja('hojaTransferencia');
+  setTimeout(() => document.getElementById('inpTMonto').focus(), 320);
+}
+
+function editarTransferencia(id){
+  const t = estado.transferencias.find(x => x.id === id);
+  if(!t) return;
+  transfEditando = id;
+  document.getElementById('tituloTransf').textContent = 'Editar deuda';
+  document.getElementById('btnGuardarTransf').textContent = 'Guardar cambios';
+  document.getElementById('btnBorrarTransf').classList.remove('oculto');
+  const inp = document.getElementById('inpTMonto');
+  inp.value = String(t.monto); formatearMonto(inp);
+  document.getElementById('inpTPersona').value = t.persona || '';
+  document.getElementById('inpTNota').value = t.nota || '';
+  document.getElementById('inpTFecha').value = t.fecha;
+  elegirTipoTransf(t.tipo);
+  abrirHoja('hojaTransferencia');
+}
+
+function guardarTransferencia(){
+  const monto = Number(document.getElementById('inpTMonto').value.replace(/\D/g,'')) || 0;
+  const persona = document.getElementById('inpTPersona').value.trim();
+  if(monto <= 0){ alert('Escribe un monto.'); return; }
+  if(!persona){ alert(tipoTransf === 'meDeben' ? '¿Quién te debe?' : '¿A quién le debes?'); return; }
+
+  const datos = {
+    monto, tipo: tipoTransf, persona,
+    nota: document.getElementById('inpTNota').value.trim(),
+    fecha: document.getElementById('inpTFecha').value
+  };
+
+  if(transfEditando){
+    Object.assign(estado.transferencias.find(t => t.id === transfEditando), datos);
+    transfEditando = null;
+  }else{
+    estado.transferencias.push({id: nuevoId(), pagada: false, ...datos});
+  }
+  guardar(); cerrarHojas(); pintarTransferencias();
+}
+
+function borrarTransferencia(){
+  if(!confirm('¿Eliminar esta deuda?')) return;
+  estado.transferencias = estado.transferencias.filter(t => t.id !== transfEditando);
+  transfEditando = null;
+  guardar(); cerrarHojas(); pintarTransferencias();
+}
+
+/* Saldar convierte la deuda en un movimiento real: recién ahí toca el balance */
+function saldar(id){
+  const t = estado.transferencias.find(x => x.id === id);
+  if(!t) return;
+  const esIngreso = t.tipo === 'meDeben';
+  const texto = esIngreso
+    ? `¿${t.persona} ya te pagó los ${pesos(t.monto)}?\n\nSe va a registrar como ingreso de hoy.`
+    : `¿Ya le pagaste los ${pesos(t.monto)} a ${t.persona}?\n\nSe va a registrar como gasto de hoy.`;
+  if(!confirm(texto)) return;
+
+  const cat = esIngreso ? 'c5' : 'c3';        // Ingresos / Gastos varios
+  estado.movimientos.push({
+    id: nuevoId(), monto: t.monto,
+    tipo: esIngreso ? 'ingreso' : 'gasto',
+    catId: buscarCat(cat) ? cat : estado.categorias.find(c =>
+            c.tipo === (esIngreso ? 'ingreso' : 'gasto')).id,
+    subId: null, fecha: hoyISO(),
+    nota: [t.persona, t.nota].filter(Boolean).join(' · ')
+  });
+  t.pagada = true;
+  t.fechaPago = hoyISO();
+  guardar(); pintarTodo(); pintarTransferencias();
+  avisar(esIngreso ? 'Registrado como ingreso' : 'Registrado como gasto');
+}
+
+function reabrir(id){
+  const t = estado.transferencias.find(x => x.id === id);
+  if(!t) return;
+  if(!confirm('¿Volver a marcarla como pendiente?\n\nOjo: el movimiento que se creó al saldarla no se borra, tienes que eliminarlo tú desde Movimientos.')) return;
+  t.pagada = false; delete t.fechaPago;
+  guardar(); pintarTransferencias();
+}
+
+function pintarTransferencias(){
+  const todas = estado.transferencias || [];
+  const pendientes = todas.filter(t => !t.pagada);
+  const saldadas   = todas.filter(t => t.pagada);
+
+  const suma = tipo => pendientes.filter(t => t.tipo === tipo).reduce((s,t)=>s+t.monto,0);
+  document.getElementById('totalMeDeben').textContent = pesos(suma('meDeben'));
+  document.getElementById('totalDebo').textContent    = pesos(suma('debo'));
+
+  const fila = (t, saldada) => {
+    const esIngreso = t.tipo === 'meDeben';
+    const detalle = saldada
+      ? `Saldada el ${fechaLegible(t.fechaPago || t.fecha)}`
+      : `${esIngreso ? 'Te debe' : 'Le debes'} desde el ${fechaLegible(t.fecha)}${t.nota ? ' · ' + t.nota : ''}`;
+    return `<div class="mov ${saldada ? 'saldada' : ''}" onclick="editarTransferencia('${t.id}')">
+        <div class="ico" style="background:${esIngreso ? 'rgba(122,158,126,.16)' : 'rgba(201,123,132,.16)'}">
+          ${esIngreso ? '↙' : '↗'}
+        </div>
+        <div class="info">
+          <b>${t.persona}</b>
+          <small>${detalle}</small>
+        </div>
+        <div class="val ${esIngreso ? 'v-ingreso' : 'v-gasto'}">${pesos(t.monto)}</div>
+        <button class="cobrar" onclick="event.stopPropagation();${saldada ? `reabrir('${t.id}')` : `saldar('${t.id}')`}">
+          ${saldada ? 'Reabrir' : 'Saldar'}
+        </button>
+      </div>`;
+  };
+
+  document.getElementById('listaPendientes').innerHTML = pendientes.length
+    ? pendientes.slice().sort((a,b) => a.fecha.localeCompare(b.fecha)).map(t => fila(t,false)).join('')
+    : `<div class="vacio" style="padding:20px 8px">Nadie te debe y no le debes a nadie.<br>Así da gusto.</div>`;
+
+  document.getElementById('tarjetaSaldadas').classList.toggle('oculto', saldadas.length === 0);
+  document.getElementById('listaSaldadas').innerHTML = saldadas
+    .slice().sort((a,b) => (b.fechaPago||'').localeCompare(a.fechaPago||''))
+    .map(t => fila(t,true)).join('');
+}
+
+/* ================================================================
+   6b. ESCÁNER DE BOLETAS
+   Todo ocurre en el teléfono: la foto no sale de aquí ni se guarda.
+   ================================================================ */
+
+function elegirBoleta(){
+  if(typeof Tesseract === 'undefined'){
+    alert('El escáner necesita que la app se abra desde el servidor o desde internet, '
+        + 'no haciendo doble clic en el archivo. El resto de la app funciona igual.');
+    return;
+  }
+  document.getElementById('inpBoleta').click();
+}
+
+/* Prepara la foto antes de leerla. En papel térmico esto cambia mucho
+   el resultado: achicar acelera, y estirar el contraste separa la tinta
+   gastada del fondo. Se estira alrededor del gris promedio en vez de
+   usar un umbral duro, que en fotos con sombras borraría texto entero. */
+function prepararImagen(img){
+  const MAX_ANCHO = 1400;
+  const escala = Math.min(1, MAX_ANCHO / img.width);
+  const lienzo = document.createElement('canvas');
+  lienzo.width  = Math.round(img.width  * escala);
+  lienzo.height = Math.round(img.height * escala);
+
+  const ctx = lienzo.getContext('2d');
+  ctx.drawImage(img, 0, 0, lienzo.width, lienzo.height);
+
+  const datos = ctx.getImageData(0, 0, lienzo.width, lienzo.height);
+  const p = datos.data;
+  const grises = new Uint8ClampedArray(p.length / 4);
+
+  let suma = 0;
+  for(let i = 0, j = 0; i < p.length; i += 4, j++){
+    const g = (p[i]*0.299 + p[i+1]*0.587 + p[i+2]*0.114) | 0;
+    grises[j] = g;
+    suma += g;
+  }
+  const promedio = suma / grises.length;
+
+  for(let i = 0, j = 0; i < p.length; i += 4, j++){
+    let v = (grises[j] - promedio) * 1.7 + promedio;
+    p[i] = p[i+1] = p[i+2] = v < 0 ? 0 : v > 255 ? 255 : v;
+  }
+  ctx.putImageData(datos, 0, 0);
+  return lienzo;
+}
+
+/* Busca el total en el texto leído.
+   Primero la línea que dice TOTAL; si no hay, el número más grande. */
+const NEGATIVAS = /(sub\s*-?\s*total|iva|neto|dcto|descuento|ahorro|propina|vuelto|efectivo|cambio|puntos)/i;
+const POSITIVAS = /(total\s*a\s*pagar|monto\s*total|total)/i;
+
+function numerosDe(linea){
+  const encontrados = [];
+  // Formatos chilenos: $12.345 · 12.345 · 12345
+  const re = /\$?\s?(\d{1,3}(?:\.\d{3})+|\d{3,8})/g;
+  let m;
+  while((m = re.exec(linea))){
+    const n = Number(m[1].replace(/\./g, ''));
+    if(n >= 100 && n <= 99999999) encontrados.push(n);
+  }
+  return encontrados;
+}
+
+function extraerTotal(texto){
+  const lineas = texto.split('\n');
+
+  // Las boletas suelen traer el TOTAL abajo: recorremos de atrás hacia
+  // adelante para quedarnos con el último, que es el definitivo.
+  for(let i = lineas.length - 1; i >= 0; i--){
+    const l = lineas[i];
+    if(POSITIVAS.test(l) && !NEGATIVAS.test(l)){
+      const n = numerosDe(l);
+      if(n.length) return {monto: Math.max(...n), seguro: true};
+    }
+  }
+  const todos = lineas.flatMap(numerosDe);
+  if(todos.length) return {monto: Math.max(...todos), seguro: false};
+  return null;
+}
+
+const TIENDAS = ['Lider','Jumbo','Santa Isabel','Unimarc','Tottus','Acuenta','Ekono',
+  'Alvi','Mayorista','Sodimac','Easy','Construmart','Cruz Verde','Salcobrand','Ahumada',
+  'Copec','Shell','Petrobras','Ripley','Falabella','Paris','Starken','Chilexpress'];
+
+function detectarTienda(texto){
+  const limpio = texto.toLowerCase();
+  return TIENDAS.find(t => limpio.includes(t.toLowerCase())) || '';
+}
+
+function mostrarProgreso(visible, texto, pct){
+  document.getElementById('progresoOCR').classList.toggle('oculto', !visible);
+  if(texto !== undefined) document.getElementById('progresoTexto').textContent = texto;
+  if(pct  !== undefined) document.getElementById('progresoBarra').style.width = pct + '%';
+}
+
+async function procesarBoleta(input){
+  const archivo = input.files && input.files[0];
+  input.value = '';                    // permite volver a elegir la misma foto
+  if(!archivo) return;
+
+  const boton = document.getElementById('btnEscanear');
+  boton.disabled = true;
+  mostrarProgreso(true, 'Preparando la foto…', 5);
+
+  let worker;
+  try{
+    const img = await new Promise((ok, error) => {
+      const i = new Image();
+      i.onload = () => ok(i);
+      i.onerror = () => error(new Error('No se pudo abrir la imagen'));
+      i.src = URL.createObjectURL(archivo);
+    });
+
+    const lienzo = prepararImagen(img);
+    URL.revokeObjectURL(img.src);
+    mostrarProgreso(true, 'Leyendo la boleta…', 15);
+
+    worker = await Tesseract.createWorker('spa', 1, {
+      workerPath: 'lib/worker.min.js',
+      corePath:   'lib/',
+      langPath:   'lib/',
+      gzip: true,
+      logger: m => {
+        if(m.status === 'recognizing text')
+          mostrarProgreso(true, 'Leyendo la boleta…', 15 + Math.round(m.progress * 80));
+      }
+    });
+
+    const { data:{ text } } = await worker.recognize(lienzo);
+    const hallazgo = extraerTotal(text);
+    const tienda = detectarTienda(text);
+
+    if(hallazgo){
+      const inp = document.getElementById('inpMonto');
+      inp.value = String(hallazgo.monto);
+      formatearMonto(inp);
+      if(tienda && !document.getElementById('inpNota').value)
+        document.getElementById('inpNota').value = tienda;
+      avisoOCR(hallazgo.seguro
+        ? '✓ Total detectado. <b>Revísalo antes de guardar.</b>'
+        : '⚠ No encontré la línea del total, puse <b>el monto más grande</b>. Confírmalo.');
+    }else{
+      avisoOCR('No pude leer ningún monto. Escríbelo a mano, o prueba con más luz y la boleta estirada.');
+    }
+  }catch(e){
+    console.error(e);
+    avisoOCR('Falló la lectura. Puedes escribir el monto a mano.');
+  }finally{
+    if(worker) await worker.terminate();
+    mostrarProgreso(false, '', 0);
+    boton.disabled = false;
+  }
+}
+
+// Mensaje bajo el botón, que se limpia al cerrar la hoja
+function avisoOCR(html){
+  let el = document.getElementById('avisoOCR');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'avisoOCR';
+    el.className = 'aviso-ocr';
+    document.getElementById('progresoOCR').after(el);
+  }
+  el.innerHTML = html;
+}
+
+/* ================================================================
+   7. EDITOR DE CATEGORÍAS
+   ================================================================ */
+
+let tipoCatNueva = 'gasto', colorElegido = PALETA[0], iconoElegido = ICONOS[0], catParaSub = null;
+
+function pintarEditorCategorias(){
+  document.getElementById('editorCategorias').innerHTML = estado.categorias.map(cat => {
+    const subs = cat.subs.map(s => `
+      <div class="sub borrable" data-cat="${cat.id}" data-sub="${s.id}">
+        <span class="nom">${emojiDe(s.nombre)}${s.nombre}</span>
+      </div>`).join('');
+    return `<div class="cat abierta">
+        <div class="cat-cab borrable" data-cat="${cat.id}" onclick="editarCategoria('${cat.id}')">
+          <i class="punto" style="background:${cat.color}"></i>
+          <span>${cat.icono}</span>
+          <span class="nom">${cat.nombre}</span>
+          <span class="flecha">›</span>
+        </div>
+        <div class="cat-cuerpo">
+          ${subs}
+          <button class="btn-texto" style="margin-top:6px;padding:8px"
+                  onclick="abrirNuevaSub('${cat.id}')">+ Agregar detalle</button>
+        </div>
+      </div>`;
+  }).join('');
+
+  // Mismo gesto que al registrar un gasto: mantener el dedo para eliminar
+  activarPulsacionLarga('#editorCategorias .sub.borrable',
+    el => confirmarBorrarSub(el.dataset.cat, el.dataset.sub, pintarEditorCategorias));
+  activarPulsacionLarga('#editorCategorias .cat-cab.borrable',
+    el => borrarCategoria(el.dataset.cat));
+}
+
+let catEditando = null;        // null = creando
+let catDesdeRegistro = false;  // true si se abrió con el "+" mientras se registra
+
+function editarCategoria(catId){
+  const cat = buscarCat(catId);
+  if(!cat) return;
+  catEditando = catId;
+  abrirHojaCategoria(cat);
+}
+
+function abrirNuevaCategoria(){
+  catEditando = null;
+  abrirHojaCategoria(null);
+}
+
+function abrirHojaCategoria(cat){
+  document.getElementById('tituloCategoria').textContent =
+    cat ? 'Editar categoría' : 'Nueva categoría';
+  document.getElementById('btnGuardarCat').textContent = cat ? 'Guardar' : 'Crear categoría';
+  document.getElementById('inpCatNombre').value = cat ? cat.nombre : '';
+  tipoCatNueva  = cat ? cat.tipo  : 'gasto';
+  colorElegido  = cat ? cat.color : PALETA[0];
+  iconoElegido  = cat ? cat.icono : ICONOS[0];
+  elegirTipoCat(tipoCatNueva);
+  // El tipo no se cambia después de crear la categoría: convertir gastos en
+  // ingresos daría vuelta los números de meses ya cerrados.
+  document.getElementById('campoTipoCat').classList.toggle('oculto', !!cat);
+  document.getElementById('paletaColores').innerHTML = PALETA
+    .map(c => `<button class="color-op ${c===colorElegido?'activo':''}" style="background:${c}"
+                 onclick="elegirColor('${c}')"></button>`).join('');
+  document.getElementById('chipsIcono').innerHTML = ICONOS
+    .map(i => `<button class="chip ${i===iconoElegido?'activo':''}"
+                 style="${i===iconoElegido?'background:var(--texto)':''}"
+                 onclick="elegirIcono('${i}')">${i}</button>`).join('');
+  abrirHoja('hojaCategoria');
+}
+
+function elegirTipoCat(t){
+  tipoCatNueva = t;
+  document.getElementById('selCatGasto').classList.toggle('activo', t==='gasto');
+  document.getElementById('selCatIngreso').classList.toggle('activo', t==='ingreso');
+}
+function elegirColor(c){
+  colorElegido = c;
+  document.querySelectorAll('#paletaColores .color-op')
+    .forEach(b => b.classList.toggle('activo', b.style.backgroundColor === hexARgb(c)));
+}
+function elegirIcono(i){
+  iconoElegido = i;
+  document.querySelectorAll('#chipsIcono .chip').forEach(b => {
+    const act = b.textContent.trim() === i;
+    b.classList.toggle('activo', act);
+    b.style.background = act ? 'var(--texto)' : '';
+  });
+}
+// El navegador guarda los colores como "rgb(x, y, z)", así que convertimos para comparar
+function hexARgb(hex){
+  const n = parseInt(hex.slice(1),16);
+  return `rgb(${(n>>16)&255}, ${(n>>8)&255}, ${n&255})`;
+}
+
+function guardarCategoria(){
+  const nombre = document.getElementById('inpCatNombre').value.trim();
+  if(!nombre){ alert('Ponle un nombre.'); return; }
+
+  let nueva = null;
+  if(catEditando){
+    // Se conservan los movimientos: solo cambia cómo se ve la categoría
+    Object.assign(buscarCat(catEditando),
+      {nombre, tipo: tipoCatNueva, color: colorElegido, icono: iconoElegido});
+    catEditando = null;
+  }else{
+    nueva = {
+      id: nuevoId(), nombre, tipo: tipoCatNueva,
+      color: colorElegido, icono: iconoElegido, subs: []
+    };
+    estado.categorias.push(nueva);
+  }
+  guardar();
+
+  if(catDesdeRegistro && nueva){
+    // Volvemos al registro sin perder el monto, con la categoría nueva elegida
+    document.getElementById('hojaCategoria').classList.remove('visible');
+    catDesdeRegistro = false;
+    elegirCategoria(nueva.id);
+    pintarEditorCategorias(); pintarTodo();
+    return;
+  }
+  catDesdeRegistro = false;
+  cerrarHojas(); pintarEditorCategorias(); pintarTodo();
+}
+
+function borrarCategoria(id){
+  const usados = estado.movimientos.filter(m => m.catId === id).length;
+  const aviso = usados
+    ? `Esta categoría tiene ${usados} movimiento(s). Se borrarán también. ¿Seguir?`
+    : '¿Borrar esta categoría?';
+  if(!confirm(aviso)) return;
+  estado.categorias = estado.categorias.filter(c => c.id !== id);
+  estado.movimientos = estado.movimientos.filter(m => m.catId !== id);
+  guardar(); pintarEditorCategorias(); pintarTodo();
+}
+
+/* ---- Vocabulario ofrecido al crear un detalle ----
+   Se escribe con mayúscula porque es lo que va a quedar guardado.
+   El emoji lo pone emojiDe(), así que no hay que repetirlo aquí. */
+const SUGERENCIAS = {
+  'Alimentación': ['Supermercado','Feria','Panadería','Carnicería','Almuerzo','Restaurante','Café','Once','Delivery'],
+  'Servicios':    ['Luz','Agua','Gas','Internet','Teléfono','Arriendo','Gastos comunes','Basura'],
+  'Transporte':   ['Bencina','Micro','Metro','Taxi','Peaje','Estacionamiento','Mecánico','Pasajes'],
+  'Salud':        ['Farmacia','Médico','Dentista','Óptica','Exámenes'],
+  'Suscripciones':['Netflix','Spotify','Disney+','Crunchyroll','YouTube Premium','ChatGPT','Claude','Meli+','Jumbo Prime','Amazon Prime','Max','iCloud'],
+  'Mascota':      ['Comida de gato','Arena','Veterinario','Juguetes'],
+  'Otros':        ['Cine','Streaming','Ropa','Regalo','Libro','Gimnasio','Peluquería','Banco']
+};
+
+// Qué grupo le toca a cada categoría de fábrica. Las que crea el usuario
+// no tienen grupo conocido: a esas se les muestra la lista completa.
+const GRUPO_DE_CATEGORIA = {
+  c1:'Alimentación', c2:'Servicios', c3:'Otros', c4:'Transporte',
+  c7:'Suscripciones', c8:'Mascota'
+};
+
+let mostrandoTodas = false;
+
+function pintarSugerencias(catId){
+  const cat = buscarCat(catId);
+  const grupo = GRUPO_DE_CATEGORIA[catId];
+  const yaUsados = new Set(cat.subs.map(s => s.nombre.toLowerCase()));
+
+  // Sin grupo conocido, o si pidió verlas todas, se muestra la lista completa
+  const grupos = (!grupo || mostrandoTodas)
+    ? Object.entries(SUGERENCIAS)
+    : [[grupo, SUGERENCIAS[grupo]]];
+
+  let html = '';
+  for(const [nombreGrupo, opciones] of grupos){
+    const libres = opciones.filter(o => !yaUsados.has(o.toLowerCase()));
+    if(!libres.length) continue;
+    if(grupos.length > 1) html += `<div class="grupo-titulo">${nombreGrupo}</div>`;
+    html += `<div class="chips">` + libres.map(o =>
+      `<button class="chip" onclick="usarSugerencia(${JSON.stringify(o).replace(/"/g,'&quot;')})">
+         ${emojiDe(o)}${o}</button>`).join('') + `</div>`;
+  }
+  if(!html) html = `<p style="font-size:13px;color:var(--suave)">Ya usaste todas las de esta lista.</p>`;
+
+  // "Otro" siempre disponible, para lo que no esté en la lista
+  html += `<div class="chips" style="margin-top:10px">
+             <button class="chip chip-mas" onclick="escribirOtro()">Otro…</button>
+           </div>`;
+
+  document.getElementById('sugerencias').innerHTML = html;
+  document.getElementById('btnVerTodas').classList.toggle('oculto', !grupo || mostrandoTodas);
+}
+
+function verTodasSugerencias(){
+  mostrandoTodas = true;
+  pintarSugerencias(catParaSub);
+}
+
+function usarSugerencia(nombre){
+  document.getElementById('inpSubNombre').value = nombre;
+  // Una suscripción necesita monto y día de cobro, así que se muestra el
+  // resto del formulario. Un detalle normal se guarda al toque.
+  if(catParaSub === CAT_SUSCRIPCIONES) mostrarFormularioSub();
+  else guardarSub();
+}
+
+function escribirOtro(){
+  mostrarFormularioSub();
+  document.getElementById('inpSubNombre').focus();
+}
+
+function mostrarFormularioSub(){
+  document.getElementById('campoSugerencias').classList.add('oculto');
+  document.getElementById('campoNombreSub').classList.remove('oculto');
+  document.getElementById('btnGuardarSub').classList.remove('oculto');
+}
+
+// desdeRegistro = true cuando se abre con el chip "+" mientras se registra
+// un gasto. En ese caso hay que volver a la hoja del movimiento sin perder nada.
+let subDesdeRegistro = false;
+let subEditando = null;      // null = estamos creando; con id = editando
+let estadoSubActiva = true;
+
+// Prepara la hoja: los campos de suscripción solo se muestran en esa categoría
+function prepararHojaSub(catId, sub){
+  const esSuscripcion = catId === CAT_SUSCRIPCIONES;
+  document.getElementById('camposSuscripcion').classList.toggle('oculto', !esSuscripcion);
+  document.getElementById('tituloSub').textContent =
+    sub ? (esSuscripcion ? 'Editar suscripción' : 'Editar detalle')
+        : (esSuscripcion ? 'Nueva suscripción' : 'Nuevo detalle');
+  document.getElementById('btnGuardarSub').textContent = sub ? 'Guardar' : 'Agregar';
+  document.getElementById('btnBorrarSub').classList.toggle('oculto', !sub);
+
+  // Al crear se ofrecen sugerencias; al editar se va directo al nombre
+  mostrandoTodas = false;
+  document.getElementById('campoSugerencias').classList.toggle('oculto', !!sub);
+  document.getElementById('campoNombreSub').classList.toggle('oculto', !sub);
+  // Mientras se elige de la lista no hay nada que guardar todavía
+  document.getElementById('btnGuardarSub').classList.toggle('oculto', !sub);
+  if(!sub) pintarSugerencias(catId);
+
+  document.getElementById('inpSubNombre').value = sub ? sub.nombre : '';
+  document.getElementById('inpSubMonto').value =
+    sub && sub.montoMensual ? Number(sub.montoMensual).toLocaleString('es-CL') : '';
+  document.getElementById('inpSubDia').value = sub && sub.diaCobro ? sub.diaCobro : '';
+  elegirEstadoSub(sub ? sub.activa !== false : true);
+}
+
+function elegirEstadoSub(activa){
+  estadoSubActiva = activa;
+  document.getElementById('selSubActiva').classList.toggle('activo', activa);
+  document.getElementById('selSubPausada').classList.toggle('activo', !activa);
+}
+
+function abrirNuevaSub(catId, desdeRegistro){
+  catParaSub = catId;
+  subDesdeRegistro = !!desdeRegistro;
+  subEditando = null;
+  prepararHojaSub(catId, null);
+  abrirHoja('hojaSub');
+}
+
+function editarSuscripcion(subId){
+  const cat = buscarCat(CAT_SUSCRIPCIONES);
+  const sub = cat.subs.find(s => s.id === subId);
+  if(!sub) return;
+  catParaSub = CAT_SUSCRIPCIONES;
+  subDesdeRegistro = false;
+  subEditando = subId;
+  prepararHojaSub(CAT_SUSCRIPCIONES, sub);
+  abrirHoja('hojaSub');
+}
+
+function guardarSub(){
+  const nombre = document.getElementById('inpSubNombre').value.trim();
+  if(!nombre) return;
+
+  const esSuscripcion = catParaSub === CAT_SUSCRIPCIONES;
+  const extras = esSuscripcion ? {
+    montoMensual: Number(document.getElementById('inpSubMonto').value.replace(/\D/g,'')) || null,
+    diaCobro: Number(document.getElementById('inpSubDia').value) || null,
+    activa: estadoSubActiva
+  } : {};
+
+  const cat = buscarCat(catParaSub);
+  let sub;
+  if(subEditando){
+    sub = cat.subs.find(s => s.id === subEditando);
+    Object.assign(sub, {nombre}, extras);
+  }else{
+    sub = {id: nuevoId(), nombre, ...extras};
+    cat.subs.push(sub);
+  }
+  guardar();
+
+  if(subDesdeRegistro){
+    // Cerramos solo esta hoja: la del movimiento sigue abierta detrás,
+    // con el monto y la categoría intactos.
+    document.getElementById('hojaSub').classList.remove('visible');
+    subElegida = sub.id;                       // el recién creado queda elegido
+    pintarChipsSub(cat);
+    subDesdeRegistro = false;
+  }else{
+    cerrarHojas();
+  }
+  subEditando = null;
+  pintarEditorCategorias(); pintarTodo();
+}
+
+function borrarSubEditada(){
+  const cat = buscarCat(catParaSub);
+  const sub = cat.subs.find(s => s.id === subEditando);
+  if(!sub) return;
+  const usados = estado.movimientos.filter(m => m.subId === sub.id).length;
+  const aviso = usados
+    ? `¿Eliminar "${sub.nombre}"?\n\n${usados} movimiento(s) lo usan. No se borran: quedan en ${cat.nombre}, sin detalle.`
+    : `¿Eliminar "${sub.nombre}"?`;
+  if(!confirm(aviso)) return;
+  borrarSub(catParaSub, subEditando);
+  subEditando = null;
+  cerrarHojas();
+}
+
+function borrarSub(catId, subId){
+  const cat = buscarCat(catId);
+  cat.subs = cat.subs.filter(s => s.id !== subId);
+  // Los movimientos que usaban ese detalle quedan en la categoría, sin detalle
+  estado.movimientos.forEach(m => { if(m.subId === subId) m.subId = null; });
+  guardar(); pintarEditorCategorias(); pintarTodo();
+}
+
+/* ================================================================
+   8. AJUSTES: tema, exportar, borrar
+   ================================================================ */
+
+/* Ciclamos entre los tres estados en vez de alternar dos, para no perder
+   el modo automático, que es el que sigue la pantalla del teléfono. */
+const TEMAS = [
+  {valor:'auto',   icono:'🌗', nombre:'Apariencia automática'},
+  {valor:'claro',  icono:'☀️', nombre:'Modo claro'},
+  {valor:'oscuro', icono:'🌙', nombre:'Modo oscuro'}
+];
+
+function aplicarTema(valor){
+  estado.tema = valor;
+  document.documentElement.dataset.tema = (valor === 'auto') ? '' : valor;
+  const t = TEMAS.find(x => x.valor === valor) || TEMAS[0];
+  document.querySelectorAll('.btn-tema').forEach(b => b.textContent = t.icono);
+  return t;
+}
+
+function ciclarTema(){
+  const i = TEMAS.findIndex(t => t.valor === (estado.tema || 'auto'));
+  const siguiente = TEMAS[(i + 1) % TEMAS.length];
+  const t = aplicarTema(siguiente.valor);
+  guardar();
+  avisar(t.nombre);
+}
+
+let tiempoToast = null;
+function avisar(texto){
+  const el = document.getElementById('toast');
+  el.textContent = texto;
+  el.classList.add('visible');
+  clearTimeout(tiempoToast);
+  tiempoToast = setTimeout(() => el.classList.remove('visible'), 1600);
+}
+
+function exportarCSV(){
+  const filas = [['Fecha','Tipo','Categoría','Detalle','Nota','Monto']];
+  estado.movimientos
+    .slice().sort((a,b) => a.fecha.localeCompare(b.fecha))
+    .forEach(m => {
+      const cat = buscarCat(m.catId);
+      const sub = cat && cat.subs.find(s => s.id === m.subId);
+      filas.push([m.fecha, m.tipo, cat?cat.nombre:'', sub?sub.nombre:'', m.nota||'', m.monto]);
+    });
+  // El punto y coma es lo que espera Excel en español
+  const csv = '﻿' + filas.map(f => f.map(c => `"${String(c).replace(/"/g,'""')}"`).join(';')).join('\n');
+  const enlace = document.createElement('a');
+  enlace.href = URL.createObjectURL(new Blob([csv], {type:'text/csv;charset=utf-8'}));
+  enlace.download = 'mis-finanzas.csv';
+  enlace.click();
+}
+
+function borrarTodo(){
+  if(!confirm('Se borrarán TODOS tus movimientos y categorías. Esto no se puede deshacer. ¿Seguro?')) return;
+  if(!confirm('Última confirmación: ¿borrar todo?')) return;
+  localStorage.removeItem(CLAVE);
+  location.reload();
+}
+
+/* ================================================================
+   9. ARRANQUE
+   ================================================================ */
+
+cargar();
+aplicarTema(estado.tema || 'auto');
+pintarTodo();
+
+// La tecla Escape cierra las hojas (útil en el computador)
+document.addEventListener('keydown', e => { if(e.key === 'Escape') cerrarHojas(); });
+
+/* Registro del service worker: es lo que permite instalarla y abrirla
+   sin internet. Solo corre si la página viene de un servidor seguro;
+   al abrir el archivo con doble clic no existe y no pasa nada. */
+if('serviceWorker' in navigator && location.protocol !== 'file:'){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .catch(e => console.warn('No se pudo registrar el modo sin conexión:', e));
+  });
+}
+</script>
+</body>
+</html>
