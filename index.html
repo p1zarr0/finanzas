@@ -1652,10 +1652,15 @@ async function procesarBoleta(input){
     URL.revokeObjectURL(img.src);
     mostrarProgreso(true, 'Leyendo la boleta…', 15);
 
+    // Rutas absolutas, no relativas: el lector corre en un proceso aparte
+    // que no sabe desde qué carpeta se abrió la app, y con rutas relativas
+    // falla apenas el sitio cuelga de un subdirectorio (como en GitHub Pages).
+    const carpetaLib = new URL('lib/', location.href).href;
+
     worker = await Tesseract.createWorker('spa', 1, {
-      workerPath: 'lib/worker.min.js',
-      corePath:   'lib/',
-      langPath:   'lib/',
+      workerPath: carpetaLib + 'worker.min.js',
+      corePath:   carpetaLib,
+      langPath:   carpetaLib,
       gzip: true,
       logger: m => {
         if(m.status === 'recognizing text')
