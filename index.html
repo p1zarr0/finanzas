@@ -112,6 +112,20 @@ header h1{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 }
 h2.seccion{font-size:19px;margin-bottom:16px}
 
+/* Título con un filtro a la derecha. En pantalla angosta el filtro
+   se va solo a la línea de abajo en vez de apretar el título. */
+.cab-tarjeta{
+  display:flex;align-items:baseline;justify-content:space-between;
+  gap:10px;flex-wrap:wrap
+}
+.cab-tarjeta h2.seccion{margin-bottom:16px}
+.filtro{display:flex;gap:2px;margin-bottom:16px}
+.filtro button{
+  border:none;background:none;color:var(--suave);font-family:inherit;font-size:12px;
+  padding:5px 11px;border-radius:20px;cursor:pointer;white-space:nowrap
+}
+.filtro button.activo{background:var(--linea);color:var(--texto)}
+
 /* ---------- Gráfico de dona ---------- */
 .grafico{display:flex;align-items:center;gap:22px;flex-wrap:wrap}
 .dona{position:relative;flex:0 0 156px;width:156px;height:156px;margin:0 auto}
@@ -232,12 +246,17 @@ nav button.activo{color:var(--texto)}
   display:flex;align-items:center;justify-content:center;gap:4px;margin:6px 0 20px
 }
 .monto-input span{font-size:30px;color:var(--suave);font-weight:300}
-#inpMonto{
+/* Por clase y no por id: el monto grande lo usan la hoja de movimiento
+   y la de los fijos, y tienen que verse exactamente igual.
+   Lleva [type=text] a propósito: más abajo hay una regla para todos los
+   input[type=text] y, con la misma fuerza, ganaría la que viene después. */
+.monto-input input[type=text]{
   border:none;background:none;color:var(--texto);
   font-size:48px;font-weight:300;letter-spacing:-.03em;
-  width:100%;max-width:260px;text-align:center;outline:none;font-family:inherit
+  width:100%;max-width:260px;text-align:center;outline:none;font-family:inherit;
+  padding:0;border-radius:0
 }
-#inpMonto::placeholder{color:var(--linea)}
+.monto-input input[type=text]::placeholder{color:var(--linea)}
 
 .selector{display:flex;background:var(--linea);border-radius:14px;padding:3px;margin-bottom:20px}
 .selector button{
@@ -361,7 +380,13 @@ input[type=date],input[type=text],input[type=number],select{
     <div class="aviso-fijos oculto" id="avisoFijos"></div>
 
     <div class="tarjeta" id="tarjetaFijos">
-      <h2 class="seccion titulo-serif">Ingresos y gastos fijos</h2>
+      <div class="cab-tarjeta">
+        <h2 class="seccion titulo-serif">Ingresos y gastos fijos</h2>
+        <div class="filtro oculto" id="filtroFijos">
+          <button id="ordFijos_proximos" onclick="ordenarFijos('proximos')">Próximos</button>
+          <button id="ordFijos_monto"    onclick="ordenarFijos('monto')">Mayor monto</button>
+        </div>
+      </div>
       <div id="listaFijos"></div>
       <div class="total-subs" id="totalFijos"></div>
       <button class="btn-texto" id="btnAgregarFijo" onclick="abrirNuevoFijo()">+ Agregar fijo</button>
@@ -672,22 +697,19 @@ input[type=date],input[type=text],input[type=number],select{
 <!-- ===================== HOJA: INGRESO O GASTO FIJO ===================== -->
 <div class="hoja" id="hojaFijo">
   <div class="asa"></div>
-  <h2 class="seccion titulo-serif" style="text-align:center;margin-bottom:20px" id="tituloFijo">Nuevo fijo</h2>
+  <h2 class="seccion titulo-serif" style="text-align:center;margin-bottom:14px" id="tituloFijo">Nuevo fijo</h2>
 
-  <!-- El monto primero, igual que al registrar un movimiento -->
-  <div class="campo">
-    <label>Cuánto es</label>
-    <input type="text" inputmode="numeric" id="inpFijoMonto" placeholder="$ 0"
+  <!-- Monto primero y grande, exactamente igual que al registrar un movimiento -->
+  <div class="monto-input">
+    <span>$</span>
+    <input type="text" inputmode="numeric" id="inpFijoMonto" placeholder="0"
            oninput="formatearMonto(this)">
   </div>
 
-  <div class="campo">
-    <label>Tipo</label>
-    <div class="selector" style="margin-bottom:0">
-      <button id="selFijo_gasto"   onclick="elegirTipoFijo('gasto')">Gasto</button>
-      <button id="selFijo_ingreso" onclick="elegirTipoFijo('ingreso')">Ingreso</button>
-      <button id="selFijo_ahorro"  onclick="elegirTipoFijo('ahorro')">Ahorro</button>
-    </div>
+  <div class="selector">
+    <button id="selFijo_gasto"   onclick="elegirTipoFijo('gasto')">Gasto</button>
+    <button id="selFijo_ingreso" onclick="elegirTipoFijo('ingreso')">Ingreso</button>
+    <button id="selFijo_ahorro"  onclick="elegirTipoFijo('ahorro')">Ahorro</button>
   </div>
 
   <div class="campo">
@@ -1226,6 +1248,22 @@ function deshacerFijos(){
   guardar(); pintarTodo();
 }
 
+// Cuántos se ven sin desplegar. Con más de esto la tarjeta empieza a empujar
+// las Suscripciones fuera de la pantalla del teléfono.
+const CUANTOS_FIJOS = 4;
+let fijosExpandidos = false;   // no se guarda: cada vez que abres, vuelve corta
+
+function alternarVerFijos(){
+  fijosExpandidos = !fijosExpandidos;
+  pintarFijos();
+}
+
+// El orden sí se guarda: es una preferencia tuya, no un estado pasajero
+function ordenarFijos(cual){
+  estado.ordenFijos = cual;
+  guardar(); pintarFijos();
+}
+
 function pintarFijos(){
   const tarjeta = document.getElementById('tarjetaFijos');
   const lista   = document.getElementById('listaFijos');
@@ -1238,6 +1276,9 @@ function pintarFijos(){
   tarjeta.classList.remove('oculto');
   // Cuando está vacía, la invitación ya trae su propio botón "Configurar"
   document.getElementById('btnAgregarFijo').classList.toggle('oculto', !estado.fijos.length);
+  // El filtro solo tiene sentido cuando hay varios que ordenar
+  document.getElementById('filtroFijos').classList
+    .toggle('oculto', estado.fijos.length <= CUANTOS_FIJOS);
 
   if(!estado.fijos.length){
     lista.innerHTML = `
@@ -1254,12 +1295,28 @@ function pintarFijos(){
   }
 
   const mes = mesClave();
+  const porMonto = estado.ordenFijos === 'monto';
+  ['proximos','monto'].forEach(o =>
+    document.getElementById('ordFijos_'+o).classList.toggle('activo',
+      o === (porMonto ? 'monto' : 'proximos')));
+
   const orden = estado.fijos.slice().sort((a,b) => {
+    // Los pausados siempre al final: no son plata que vaya a moverse
     if((a.activo === false) !== (b.activo === false)) return a.activo === false ? 1 : -1;
-    return (a.dia || 32) - (b.dia || 32);
+    if(porMonto) return (b.monto || 0) - (a.monto || 0);
+    // "Próximos" mira la fecha real, no el número del día: pasado el 20, el
+    // día 1 del mes que viene llega antes que el 28 de este.
+    const fa = proximoCobro(a.dia), fb = proximoCobro(b.dia);
+    if(!fa) return 1; if(!fb) return -1;
+    return fa - fb;
   });
 
-  lista.innerHTML = orden.map(f => {
+  // La lista completa empujaba Suscripciones fuera de la pantalla. Se muestran
+  // unos pocos y el resto queda a un toque, sin esconder nunca los totales.
+  const visibles = fijosExpandidos ? orden : orden.slice(0, CUANTOS_FIJOS);
+  const ocultos  = orden.length - visibles.length;
+
+  lista.innerHTML = visibles.map(f => {
     const pausado = f.activo === false;
     const hecho   = f.ultimoRegistrado === mes;
     // "Hecho" no siempre significa anotado: un fijo creado después de su día
@@ -1285,6 +1342,11 @@ function pintarFijos(){
         <span class="val ${clase}">${f.tipo==='ingreso'?'+':'−'}${pesos(f.monto)}</span>
       </div>`;
   }).join('');
+
+  if(ocultos > 0 || fijosExpandidos){
+    lista.innerHTML += `<button class="btn-texto" style="padding:9px"
+        onclick="alternarVerFijos()">${ocultos > 0 ? `Ver los otros ${ocultos}` : 'Ver menos'}</button>`;
+  }
 
   const suma = tipo => estado.fijos
     .filter(f => f.activo !== false && f.tipo === tipo)
