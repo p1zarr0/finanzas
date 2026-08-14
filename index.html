@@ -175,6 +175,13 @@ h2.seccion{font-size:19px;margin-bottom:16px}
 .mov .val{font-size:15px;font-weight:500;white-space:nowrap}
 .mov{cursor:pointer}
 .mov.saldada{opacity:.5}
+/* Fijo del mes que todavía no ocurre: cuenta en los totales, pero se ve
+   más tenue para que distingas la plata que ya salió de la que va a salir. */
+.mov.programado{opacity:.62}
+.mov .marca{
+  font-style:normal;border:1px solid var(--linea);border-radius:20px;
+  padding:1px 7px;font-size:10.5px;letter-spacing:.02em
+}
 .mov .flecha{margin-left:2px}
 .dia{font-size:12px;color:var(--suave);letter-spacing:.06em;text-transform:uppercase;margin:20px 0 2px}
 
@@ -381,15 +388,15 @@ input[type=date],input[type=text],input[type=number],select{
 
     <div class="tarjeta" id="tarjetaFijos">
       <div class="cab-tarjeta">
-        <h2 class="seccion titulo-serif">Ingresos y gastos fijos</h2>
+        <h2 class="seccion titulo-serif">Ingresos, gastos fijos y ahorros</h2>
         <div class="filtro oculto" id="filtroFijos">
           <button id="ordFijos_proximos" onclick="ordenarFijos('proximos')">Próximos</button>
           <button id="ordFijos_monto"    onclick="ordenarFijos('monto')">Mayor monto</button>
         </div>
       </div>
       <div id="listaFijos"></div>
-      <div class="total-subs" id="totalFijos"></div>
-      <button class="btn-texto" id="btnAgregarFijo" onclick="abrirNuevoFijo()">+ Agregar fijo</button>
+      <button class="btn-texto" id="btnAgregarFijo" onclick="abrirNuevoFijo()">
+        + Agregar ingresos, gastos fijos y ahorros</button>
     </div>
 
     <div class="tarjeta" id="tarjetaSuscripciones">
@@ -497,7 +504,7 @@ input[type=date],input[type=text],input[type=number],select{
     <div class="tarjeta">
       <h2 class="seccion titulo-serif">Automático</h2>
       <div class="fila-ajuste">
-        <span class="nom">Ingresos y gastos fijos</span>
+        <span class="nom">Ingresos, gastos fijos y ahorros</span>
         <button class="mini" onclick="irAFijos()">+</button>
       </div>
       <p style="color:var(--suave);font-size:12px;padding:8px 0 2px;line-height:1.5">
@@ -724,7 +731,7 @@ input[type=date],input[type=text],input[type=number],select{
 
   <div class="campo">
     <label>Nombre</label>
-    <input type="text" id="inpFijoNombre" placeholder="Ej: Sueldo">
+    <input type="text" id="inpFijoNombre" placeholder="Ej: Sueldo" oninput="nombreFijoEscrito()">
   </div>
 
   <div class="campo">
@@ -786,7 +793,13 @@ const CATEGORIAS_INICIALES = [
       {id:'i4',nombre:'Freelance'},{id:'i5',nombre:'Arriendo que recibo'},
       {id:'i6',nombre:'Devolución de impuestos'}
   ]},
-  {id:'c6', nombre:'Ahorro',        tipo:'ahorro',  color:'#6FA5A0', icono:'🏦', subs:[]},
+  // Los detalles del ahorro son metas: sirven para ver para qué estás guardando,
+  // no solo cuánto.
+  {id:'c6', nombre:'Ahorro',        tipo:'ahorro',  color:'#6FA5A0', icono:'🏦', subs:[
+      {id:'g1',nombre:'Fondo de emergencia'},{id:'g2',nombre:'Vacaciones'},
+      {id:'g3',nombre:'Auto'},{id:'g4',nombre:'Casa'},
+      {id:'g5',nombre:'Estudios'},{id:'g6',nombre:'Regalos'}
+  ]},
   // Suscripciones empieza vacía a propósito: las 12 plataformas viven en
   // SUGERENCIAS y se agregan cuando tú las ocupas, con su monto y día de cobro.
   {id:'c7', nombre:'Suscripciones', tipo:'gasto',   color:'#A98BA8', icono:'💳', subs:[]},
@@ -823,7 +836,7 @@ let estado = {
   //  activo:true, ultimoRegistrado:'2026-08'}
   fijos: [],
   tema: 'auto',
-  version: 7
+  version: 8
 };
 
 /* localStorage = la memoria del navegador. Guarda texto y sobrevive
@@ -950,6 +963,14 @@ function cargar(){
     estado.version = 7;
   }
 
+  if(estado.version < 8){
+    // Ahorro tampoco tenía detalles. Como metas concretas, el análisis pasa a
+    // decirte para qué estás guardando y no solo cuánto.
+    ['Fondo de emergencia','Vacaciones','Auto','Casa','Estudios','Regalos']
+      .forEach(n => sumarDetalle(buscarCat('c6'), n));
+    estado.version = 8;
+  }
+
   if(!estado.transferencias) estado.transferencias = [];
   if(!estado.fijos) estado.fijos = [];
 
@@ -1027,7 +1048,9 @@ const EMOJIS_PALABRA = {
   cine:'🎬', streaming:'📺', ropa:'👕', zapatillas:'👟', regalo:'🎁',
   mascota:'🐾', gato:'🐱', perro:'🐶', veterinario:'🩺', arena:'🪣',
   croquetas:'🐱', juguete:'🧶', libro:'📚', gimnasio:'🏋️', peluqueria:'💇',
-  matricula:'🎓', universidad:'🎓', fotocopia:'🖨', banco:'🏦', ahorro:'🏦'
+  matricula:'🎓', universidad:'🎓', fotocopia:'🖨', banco:'🏦', ahorro:'🏦',
+  // Metas de ahorro
+  emergencia:'🚨', vacaciones:'🏖', casa:'🏠', estudio:'🎓', meta:'🎯', fondo:'🏦'
 };
 
 // ¿El texto ya trae un emoji escrito por el usuario? Entonces se respeta ese.
@@ -1193,7 +1216,9 @@ function revisarFijos(){
 
     // El día 31 no existe en todos los meses: se usa el último día
     const dia = Math.min(f.dia, diasDelMes);
-    if(hoy.getDate() < dia) return;
+    // Se anota el mes completo, incluso los días que todavía no llegan. Para eso
+    // sirve tener fijos: saber qué te queda después de lo inevitable. Los que aún
+    // no ocurren se marcan como "Programado" en la lista de movimientos.
 
     const mov = {
       id: nuevoId(), monto: f.monto, tipo: f.tipo,
@@ -1267,7 +1292,6 @@ function ordenarFijos(cual){
 function pintarFijos(){
   const tarjeta = document.getElementById('tarjetaFijos');
   const lista   = document.getElementById('listaFijos');
-  const totales = document.getElementById('totalFijos');
 
   // "Ahora no": la tarjeta se esconde, pero se llega igual desde Ajustes
   if(!estado.fijos.length && estado.fijosOmitido){
@@ -1290,7 +1314,6 @@ function pintarFijos(){
         <button class="btn-texto" style="padding:8px 14px" onclick="abrirNuevoFijo()">Configurar</button>
         <button class="btn-texto" style="padding:8px 14px;opacity:.6" onclick="omitirFijos()">Ahora no</button>
       </div>`;
-    totales.innerHTML = '';
     return;
   }
 
@@ -1321,13 +1344,17 @@ function pintarFijos(){
     const hecho   = f.ultimoRegistrado === mes;
     // "Hecho" no siempre significa anotado: un fijo creado después de su día
     // queda marcado para no anotar plata hacia atrás. Se dicen cosas distintas.
-    const anotado = estado.movimientos.some(m => m.fijoId === f.id && m.fecha.slice(0,7) === mes);
+    const suyo    = estado.movimientos.find(m => m.fijoId === f.id && m.fecha.slice(0,7) === mes);
     const fecha   = proximoCobro(f.dia);
     const dias    = fecha ? diasHasta(fecha) : null;
+    // Anotado no es lo mismo que ocurrido: el mes se anota completo, así que
+    // los de días que no llegan todavía están "programados".
+    const porVenir = suyo && suyo.fecha > hoyISO();
 
     let sub;
     if(pausado)            sub = 'Pausado';
-    else if(anotado)       sub = `Anotado el ${f.dia} de ${MESES[new Date().getMonth()]}`;
+    else if(porVenir)      sub = `Programado para el ${f.dia}`;
+    else if(suyo)          sub = `Anotado el ${f.dia} de ${MESES[new Date().getMonth()]}`;
     else if(hecho)         sub = `Desde el próximo mes · día ${f.dia}`;
     else if(dias === 0)    sub = 'Es hoy';
     else if(dias === 1)    sub = 'Es mañana';
@@ -1337,9 +1364,11 @@ function pintarFijos(){
     const clase = f.tipo === 'ingreso' ? 'v-ingreso' : (f.tipo === 'ahorro' ? 'v-ahorro' : 'v-gasto');
     return `<div class="sus ${!pausado && dias !== null && dias <= 3 && !hecho ? 'pronto' : ''} ${pausado?'pausada':''}"
                  data-fijo="${f.id}" onclick="editarFijo('${f.id}')">
-        <span class="ico">${emojiDe(f.nombre) || (f.tipo==='ingreso'?'💵':'🧾')}</span>
+        <span class="ico">${emojiDe(f.nombre) ||
+          (f.tipo==='ingreso' ? '💵' : f.tipo==='ahorro' ? '🏦' : '🧾')}</span>
         <span class="nom">${f.nombre}<small>${sub}</small></span>
-        <span class="val ${clase}">${f.tipo==='ingreso'?'+':'−'}${pesos(f.monto)}</span>
+        <span class="val ${clase}">${
+          f.tipo==='ingreso' ? '+' : f.tipo==='ahorro' ? '↑' : '−'}${pesos(f.monto)}</span>
       </div>`;
   }).join('');
 
@@ -1348,15 +1377,8 @@ function pintarFijos(){
         onclick="alternarVerFijos()">${ocultos > 0 ? `Ver los otros ${ocultos}` : 'Ver menos'}</button>`;
   }
 
-  const suma = tipo => estado.fijos
-    .filter(f => f.activo !== false && f.tipo === tipo)
-    .reduce((t,f) => t + (f.monto||0), 0);
-  const entra = suma('ingreso');
-  const sale  = suma('gasto') + suma('ahorro');
-  totales.innerHTML =
-    `<span>Al mes</span><b><span class="v-ingreso">+${pesos(entra)}</span>
-     &nbsp;<span class="v-gasto">−${pesos(sale)}</span></b>`;
-
+  // Sin fila de totales a propósito: ahora los fijos entran en "Disponible este
+  // mes", que es donde uno mira. Repetirlos aquí sería decir lo mismo dos veces.
   activarPulsacionLarga('#listaFijos .sus', el => borrarFijo(el.dataset.fijo));
 }
 
@@ -1386,6 +1408,7 @@ function borrarFijo(id){
 /* --- Hoja para crear o editar un fijo --- */
 let fijoEditando = null;   // null = creando
 let tipoFijo = 'gasto', catFijo = null, subFijo = null, activoFijo = true;
+let nombreFijoAuto = false;   // ¿el nombre lo puso la app o lo escribiste tú?
 
 function abrirNuevoFijo(){
   fijoEditando = null;
@@ -1405,6 +1428,8 @@ function abrirHojaFijo(f){
   document.getElementById('inpFijoMonto').value  = f ? Number(f.monto).toLocaleString('es-CL') : '';
   document.getElementById('inpFijoNombre').value = f ? f.nombre : '';
   document.getElementById('inpFijoDia').value    = f ? f.dia : '';
+  // Al editar, el nombre guardado es tuyo y no se toca
+  nombreFijoAuto = !f;
   tipoFijo = f ? f.tipo  : 'gasto';
   catFijo  = f ? f.catId : null;
   subFijo  = f ? (f.subId || null) : null;
@@ -1445,7 +1470,10 @@ function pintarChipsFijo(){
     if(suya) cats = [suya, ...cats];
   }
   // Si quedó una sola opción, no tiene gracia obligarte a tocarla
-  if(!catFijo && cats.length === 1) catFijo = cats[0].id;
+  if(!catFijo && cats.length === 1){
+    catFijo = cats[0].id;
+    proponerNombreFijo(cats[0].nombre);   // el elegido a mano pasa por elegirCatFijo
+  }
 
   document.getElementById('chipsFijoCat').innerHTML = cats.map(c =>
     `<button class="chip ${c.id===catFijo?'activo':''}"
@@ -1465,21 +1493,30 @@ function pintarChipsFijo(){
              onclick="elegirSubFijo('${s.id}')">${emojiDe(s.nombre)}${s.nombre}</button>`).join('');
 }
 
+/* El nombre se propone solo, pero nunca se pisa el que escribiste tú.
+   Sin esto pasaba algo raro: elegías Ingreso → Sueldo, cambiabas a Ahorro,
+   y el nombre seguía diciendo "Sueldo" (con su emoji 💵 en la lista). */
+function proponerNombreFijo(texto){
+  const inp = document.getElementById('inpFijoNombre');
+  if(!nombreFijoAuto && inp.value.trim()) return;   // lo escribiste tú: se respeta
+  inp.value = texto;
+  nombreFijoAuto = true;
+}
+
+// Se llama desde el oninput del campo: a partir de ahí el nombre es tuyo
+function nombreFijoEscrito(){ nombreFijoAuto = false; }
+
 function elegirCatFijo(id){
   catFijo = id; subFijo = null;
-  // Si el fijo no tiene nombre todavía, se propone el de la categoría
-  const inp = document.getElementById('inpFijoNombre');
-  if(!inp.value.trim()) inp.value = buscarCat(id).nombre;
+  proponerNombreFijo(buscarCat(id).nombre);
   pintarChipsFijo();
 }
 
 function elegirSubFijo(id){
   subFijo = (subFijo === id) ? null : id;
-  const inp = document.getElementById('inpFijoNombre');
   const cat = buscarCat(catFijo);
-  const sub = cat.subs.find(s => s.id === id);
   // El detalle es más específico que la categoría: manda como nombre
-  if(subFijo && (!inp.value.trim() || inp.value.trim() === cat.nombre)) inp.value = sub.nombre;
+  if(subFijo) proponerNombreFijo(cat.subs.find(s => s.id === id).nombre);
   pintarChipsFijo();
 }
 
@@ -1500,23 +1537,30 @@ function guardarFijo(){
 
   if(fijoEditando){
     Object.assign(estado.fijos.find(f => f.id === fijoEditando), datos);
+    // Si este mes ya está anotado, se actualiza también: subirle el monto al
+    // sueldo y que el mes en curso siguiera con el viejo sería desconcertante.
+    const mesAhora = mesClave();
+    estado.movimientos.forEach(m => {
+      if(m.fijoId === fijoEditando && m.fecha.slice(0,7) === mesAhora){
+        const tope = new Date(Number(mesAhora.slice(0,4)), Number(mesAhora.slice(5,7)), 0).getDate();
+        Object.assign(m, {
+          monto: datos.monto, tipo: datos.tipo, catId: datos.catId, subId: datos.subId || null,
+          fecha: `${mesAhora}-${String(Math.min(dia, tope)).padStart(2,'0')}`
+        });
+      }
+    });
   }else{
-    // Un fijo nuevo no anota nada hacia atrás por su cuenta: quizá ya lo
-    // anotaste a mano y quedaría duplicado. Si el día ya pasó, se pregunta.
     const hoy = new Date();
-    const yaPaso = hoy.getDate() >= dia;
-    const nuevo = {id: nuevoId(), ...datos, ultimoRegistrado: yaPaso ? mesClave(hoy) : null};
+    const nuevo = {id: nuevoId(), ...datos, ultimoRegistrado: null};
     estado.fijos.push(nuevo);
 
-    if(yaPaso && datos.activo &&
-       confirm(`El día ${dia} ya pasó.\n\n¿Anoto también el de ${MESES[hoy.getMonth()]}?`)){
-      estado.movimientos.push({
-        id: nuevoId(), monto: datos.monto, tipo: datos.tipo,
-        catId: datos.catId, subId: datos.subId || null,
-        fecha: `${mesClave(hoy)}-${String(dia).padStart(2,'0')}`,
-        nota: '', fijoId: nuevo.id
-      });
-    }
+    // Solo se pregunta cuando el día ya pasó: ahí existe el riesgo real de
+    // duplicar algo que anotaste a mano. Si todavía no llega, se anota y listo.
+    const yaPaso = hoy.getDate() >= dia;
+    const preguntar = yaPaso && datos.activo &&
+      !confirm(`El día ${dia} ya pasó.\n\n¿Anoto igual el de ${MESES[hoy.getMonth()]}?`);
+    if(preguntar) nuevo.ultimoRegistrado = mesClave(hoy);   // se salta este mes
+    else revisarFijos();                                    // lo anota al tiro
   }
   fijoEditando = null;
   guardar(); cerrarHojas(); pintarTodo();
@@ -1731,6 +1775,7 @@ function pintarMovimientos(){
     return;
   }
 
+  const hoy = hoyISO();
   let html = '', ultimaFecha = '';
   delMes.forEach(m => {
     if(m.fecha !== ultimaFecha){
@@ -1739,11 +1784,15 @@ function pintarMovimientos(){
     }
     const cat = buscarCat(m.catId);
     const sub = cat && cat.subs.find(s => s.id === m.subId);
+    // Los fijos se anotan por el mes completo, así que algunos todavía no ocurren.
+    // Se marcan para que sepas de un vistazo si la plata ya se movió o no.
+    const programado = m.fecha > hoy;
     const partes = [];
     if(sub)    partes.push(emojiDe(sub.nombre) + sub.nombre);
     if(m.nota) partes.push(emojiDe(m.nota) + m.nota);
+    if(programado) partes.push('<i class="marca">Programado</i>');
     const detalle = partes.join(' · ');
-    html += `<div class="mov" onclick="editarMovimiento('${m.id}')">
+    html += `<div class="mov ${programado?'programado':''}" onclick="editarMovimiento('${m.id}')">
         <div class="ico" style="background:${(cat?cat.color:'#999')}22">${cat?cat.icono:'•'}</div>
         <div class="info">
           <b>${cat ? cat.nombre : 'Sin categoría'}</b>
@@ -2539,6 +2588,8 @@ const SUGERENCIAS = {
   'Mascota':      ['Comida de gato','Arena','Veterinario','Juguetes'],
   'Ingresos':     ['Sueldo','Aguinaldo','Bono','Freelance','Arriendo que recibo',
                    'Devolución de impuestos','Comisión','Propinas'],
+  'Ahorro':       ['Fondo de emergencia','Vacaciones','Auto','Casa','Estudios',
+                   'Regalos','Jubilación','Viaje'],
   'Otros':        ['Cine','Streaming','Ropa','Regalo','Libro','Gimnasio','Peluquería','Banco']
 };
 
@@ -2546,7 +2597,8 @@ const SUGERENCIAS = {
 // no tienen grupo conocido: a esas se les muestra la lista completa.
 const GRUPO_DE_CATEGORIA = {
   c1:'Alimentación', c2:'Servicios', c3:'Otros', c4:'Locomoción',
-  c5:'Ingresos', c7:'Suscripciones', c8:'Mascota', c9:'Servicios', c10:'Auto'
+  c5:'Ingresos', c6:'Ahorro', c7:'Suscripciones', c8:'Mascota',
+  c9:'Servicios', c10:'Auto'
 };
 
 let mostrandoTodas = false;
