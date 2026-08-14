@@ -623,6 +623,12 @@ input[type=date],input[type=text],input[type=number],select{
   <div class="campo">
     <label>Categoría</label>
     <div class="chips" id="chipsCategoria"></div>
+    <!-- Las tres categorías de Recordatorios no se ofrecen aquí: se configuran
+         allá una vez y se anotan solas. Ver pintarChipsCategoria(). -->
+    <small class="ayuda oculto" id="ayudaRecordatorios">
+      ¿Es una cuenta de todos los meses (arriendo, luz, Netflix)?
+      Se configura una vez en <b>Recordatorios</b> y se anota sola.
+    </small>
   </div>
 
   <div class="campo oculto" id="campoSub">
@@ -2283,6 +2289,22 @@ function elegirTipo(tipo){
   pintarChipsCategoria();
   document.getElementById('campoSub').classList.add('oculto');
 
+  /* Las cuotas y la repetición son cosa de gastos: un sueldo no se paga en
+     tres veces, y lo que entra todos los meses se configura en
+     Configuración → "Ingresos y ahorros", igual que los pagos viven en
+     Recordatorios. Se apagan además de esconderse: si los dejaste
+     encendidos como gasto y después cambiaste a ingreso, seguían prendidos
+     sin que se vieran y el movimiento se guardaba repartido en cuotas. */
+  const esGasto = tipo === 'gasto';
+  ['campoCuotas','campoRepetir'].forEach(id =>
+    document.getElementById(id).classList.toggle('oculto', !esGasto));
+  if(!esGasto){
+    const cuotas = document.getElementById('tgCuotas');
+    const repetir = document.getElementById('tgRepetir');
+    if(cuotas.checked){ cuotas.checked = false; cambiarCuotas(); }
+    if(repetir.checked){ repetir.checked = false; cambiarRepetir(); }
+  }
+
   // Con una sola categoría del tipo (Ingresos, Ahorro) no tiene sentido
   // hacer elegir: se marca sola y se ahorra un toque.
   const opciones = estado.categorias.filter(c => c.tipo === tipo);
@@ -2290,10 +2312,23 @@ function elegirTipo(tipo){
   else ajustarRepetir();   // sin categoría todavía: el toggle se esconde
 }
 
+/* Gastos fijos, Hogar y Suscripciones no aparecen al anotar un movimiento:
+   son las cuentas que se configuran en Recordatorios, donde la app las anota
+   sola cada mes. Tener las dos puertas confundía —¿lo anoto acá o allá?— y
+   dejaba pagos sueltos sin recordatorio.
+
+   Editando sí se muestran: así se corrige el monto del mes cuando llega la
+   boleta más cara, que es justo para lo que sirve editar. */
 function pintarChipsCategoria(){
   const cont = document.getElementById('chipsCategoria');
+  const soloRecordatorios = tipoActual === 'gasto' && !movEditando;
+
+  document.getElementById('ayudaRecordatorios')
+    .classList.toggle('oculto', !soloRecordatorios);
+
   cont.innerHTML = estado.categorias
     .filter(c => c.tipo === tipoActual)
+    .filter(c => !soloRecordatorios || !CATS_FIJO_GASTO.includes(c.id))
     .map(c => `<button class="chip ${catElegida===c.id?'activo':''}"
                  style="${catElegida===c.id?`background:${c.color}`:''}"
                  onclick="elegirCategoria('${c.id}')">
