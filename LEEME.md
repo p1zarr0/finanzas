@@ -1,7 +1,7 @@
 # Mis Finanzas
 
-App de finanzas personales. Registro de gastos, ahorro, ingresos y gastos fijos que se
-anotan solos, suscripciones con recordatorio de cobro, análisis por categoría, deudas
+App de finanzas personales. Registro de gastos, ahorro, ingresos y pagos de cada mes
+que se anotan solos (arriendo, internet, Netflix), análisis por categoría, deudas
 pendientes y escáner de boletas.
 
 Las categorías separan lo que se comporta distinto: **Gastos fijos** (contractual) de
@@ -63,7 +63,9 @@ clic. Necesita venir de un servidor. Por eso está este comando.
 
 ## Por qué aparecen movimientos que no anotaste
 
-Los **ingresos y gastos fijos** (⚙ → Automático) se anotan solos. Una app web no puede
+**Ingresos y ahorros** y **Mis pagos de cada mes** (⚙ → Automático) se anotan solos.
+Las suscripciones viven ahí: son gastos fijos con otro nombre, así que Netflix se
+anota igual que el arriendo. Una app web no puede
 ejecutar nada mientras está cerrada, así que no hay nadie que despierte el día 5 a
 medianoche: lo que hace es revisar **al abrirla**. Si el día ya pasó y no está anotado,
 lo anota en ese momento y te avisa arriba, con un botón para deshacerlo.

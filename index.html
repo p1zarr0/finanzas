@@ -195,16 +195,6 @@ h2.seccion{font-size:19px;margin-bottom:16px}
 .sus .val.sin{color:var(--suave);font-weight:400;font-size:12.5px}
 .sus.pronto .nom small{color:var(--gasto)}
 .sus.pausada{opacity:.42}
-.cobrar{
-  border:none;background:var(--linea);color:var(--texto);
-  font-size:11.5px;padding:6px 11px;border-radius:20px;cursor:pointer;
-  font-family:inherit;white-space:nowrap
-}
-.total-subs{
-  border-top:1px solid var(--linea);margin-top:6px;padding-top:14px;
-  display:flex;justify-content:space-between;align-items:baseline;font-size:13px;color:var(--suave)
-}
-.total-subs b{font-size:17px;font-weight:500;color:var(--texto)}
 
 .vacio{text-align:center;color:var(--suave);padding:34px 16px;font-size:14px}
 .vacio .emo{font-size:32px;display:block;margin-bottom:10px;opacity:.5}
@@ -311,6 +301,8 @@ input[type=date],input[type=text],input[type=number],select{
   width:100%;border:1px dashed var(--linea);background:none;color:var(--suave);
   padding:12px;border-radius:14px;font-size:14px;cursor:pointer;font-family:inherit;margin-top:10px
 }
+/* El "+" solo: la etiqueta larga no aportaba nada que el cuadro no dijera ya */
+.btn-texto.mas{font-size:19px;line-height:1;padding:11px}
 /* ---------- Escáner de boletas ---------- */
 .btn-escanear{
   width:100%;border:1px dashed var(--linea);background:var(--tarjeta);color:var(--suave);
@@ -349,6 +341,8 @@ input[type=date],input[type=text],input[type=number],select{
 .fila-ajuste:last-child{border-bottom:none}
 .fila-ajuste .nom{flex:1}
 .mini{border:none;background:none;color:var(--suave);font-size:16px;cursor:pointer;padding:4px 8px}
+/* "Ocultar" en la cabecera de un cuadro: discreto, del tamaño del filtro */
+.cab-tarjeta .mini{font-size:12px;font-family:inherit;margin-bottom:16px;padding:5px 9px}
 .colores{display:flex;flex-wrap:wrap;gap:9px}
 .color-op{width:32px;height:32px;border-radius:50%;border:2px solid transparent;cursor:pointer}
 .color-op.activo{border-color:var(--texto)}
@@ -386,24 +380,27 @@ input[type=date],input[type=text],input[type=number],select{
     <!-- Aviso de lo que la app anotó sola al abrir -->
     <div class="aviso-fijos oculto" id="avisoFijos"></div>
 
-    <div class="tarjeta" id="tarjetaFijos">
+    <!-- Lo que entra: se configura una vez y después se puede esconder -->
+    <div class="tarjeta" id="tarjetaEntra">
       <div class="cab-tarjeta">
-        <h2 class="seccion titulo-serif">Ingresos, gastos fijos y ahorros</h2>
+        <h2 class="seccion titulo-serif">Ingresos y ahorros</h2>
+        <button class="mini oculto" id="btnOcultarEntra" onclick="ocultarEntra()">Ocultar</button>
+      </div>
+      <div id="listaEntra"></div>
+      <button class="btn-texto mas" id="btnAgregarEntra" onclick="abrirNuevoFijo('ingreso')">+</button>
+    </div>
+
+    <!-- Lo que sale solo cada mes: arriendo, internet, Netflix… todo junto -->
+    <div class="tarjeta" id="tarjetaSale">
+      <div class="cab-tarjeta">
+        <h2 class="seccion titulo-serif">Mis pagos de cada mes</h2>
         <div class="filtro oculto" id="filtroFijos">
           <button id="ordFijos_proximos" onclick="ordenarFijos('proximos')">Próximos</button>
           <button id="ordFijos_monto"    onclick="ordenarFijos('monto')">Mayor monto</button>
         </div>
       </div>
-      <div id="listaFijos"></div>
-      <button class="btn-texto" id="btnAgregarFijo" onclick="abrirNuevoFijo()">
-        + Agregar ingresos, gastos fijos y ahorros</button>
-    </div>
-
-    <div class="tarjeta" id="tarjetaSuscripciones">
-      <h2 class="seccion titulo-serif">Suscripciones</h2>
-      <div id="listaSuscripciones"></div>
-      <div class="total-subs" id="totalSuscripciones"></div>
-      <button class="btn-texto" onclick="abrirNuevaSub('c7', false)">+ Agregar suscripción</button>
+      <div id="listaSale"></div>
+      <button class="btn-texto mas" id="btnAgregarSale" onclick="abrirNuevoFijo('gasto')">+</button>
     </div>
 
   </section>
@@ -504,11 +501,16 @@ input[type=date],input[type=text],input[type=number],select{
     <div class="tarjeta">
       <h2 class="seccion titulo-serif">Automático</h2>
       <div class="fila-ajuste">
-        <span class="nom">Ingresos, gastos fijos y ahorros</span>
-        <button class="mini" onclick="irAFijos()">+</button>
+        <span class="nom">Ingresos y ahorros</span>
+        <button class="mini" onclick="irAFijos('ingreso')">+</button>
+      </div>
+      <div class="fila-ajuste">
+        <span class="nom">Mis pagos de cada mes</span>
+        <button class="mini" onclick="irAFijos('gasto')">+</button>
       </div>
       <p style="color:var(--suave);font-size:12px;padding:8px 0 2px;line-height:1.5">
-        El sueldo, el arriendo, el plan de celular. Se anotan solos cada mes.
+        El sueldo, el arriendo, el internet, Netflix. Se anotan solos cada mes,
+        y si escondiste alguno de los dos cuadros, desde aquí vuelve.
       </p>
     </div>
 
@@ -677,25 +679,8 @@ input[type=date],input[type=text],input[type=number],select{
     <input type="text" id="inpSubNombre" placeholder="Ej: Internet">
   </div>
 
-  <!-- Estos campos aparecen solo dentro de Suscripciones -->
-  <div id="camposSuscripcion" class="oculto">
-    <div class="campo">
-      <label>Cuánto pagas al mes</label>
-      <input type="text" inputmode="numeric" id="inpSubMonto" placeholder="$ 0"
-             oninput="formatearMonto(this)">
-    </div>
-    <div class="campo">
-      <label>Día de cobro</label>
-      <input type="number" min="1" max="31" id="inpSubDia" placeholder="Ej: 15">
-    </div>
-    <div class="campo">
-      <label>Estado</label>
-      <div class="selector" style="margin-bottom:0">
-        <button id="selSubActiva" class="activo" onclick="elegirEstadoSub(true)">Activa</button>
-        <button id="selSubPausada" onclick="elegirEstadoSub(false)">Pausada</button>
-      </div>
-    </div>
-  </div>
+  <!-- El monto y el día de una suscripción ya no viven aquí: son un fijo,
+       y se configuran en "Mis pagos de cada mes". Aquí solo va el nombre. -->
 
   <button class="btn-principal" id="btnGuardarSub" onclick="guardarSub()">Agregar</button>
   <button class="btn-texto oculto" id="btnBorrarSub" onclick="borrarSubEditada()">Eliminar</button>
@@ -838,7 +823,7 @@ let estado = {
   //  activo:true, ultimoRegistrado:'2026-08'}
   fijos: [],
   tema: 'auto',
-  version: 9
+  version: 10
 };
 
 /* localStorage = la memoria del navegador. Guarda texto y sobrevive
@@ -854,6 +839,11 @@ function cargar(){
     try{ estado = JSON.parse(guardado); }catch(e){ console.warn('Datos corruptos, se empieza de cero'); }
     versionAntes = estado.version || 0;
   }
+  // Antes de migrar nada: las migraciones escriben aquí, y unos datos viejos
+  // llegan sin estas listas.
+  if(!estado.transferencias) estado.transferencias = [];
+  if(!estado.fijos) estado.fijos = [];
+
   // Datos guardados antes de que existiera el ahorro: se la agregamos
   // al vuelo para que no haya que migrar nada a mano.
   if(!estado.categorias.some(c => c.tipo === 'ahorro')){
@@ -985,8 +975,38 @@ function cargar(){
     estado.version = 9;
   }
 
-  if(!estado.transferencias) estado.transferencias = [];
-  if(!estado.fijos) estado.fijos = [];
+  if(estado.version < 10){
+    /* Las suscripciones eran un motor aparte, más débil: había que tocar
+       "Registrar" cada mes y, mientras no lo hicieras, tu Disponible mostraba
+       más plata de la que tenías. En el fondo son gastos fijos —un monto igual
+       que se cobra un día del mes—, así que pasan a serlo de verdad. */
+    const susc = buscarCat(CAT_SUSCRIPCIONES);
+    if(susc){
+      const mes = mesClave();
+      susc.subs.forEach(s => {
+        if(!s.montoMensual && !s.diaCobro) return;   // nunca la configuraste
+        // Si ya registraste el cobro de este mes a mano, se marca como hecho
+        // para que el motor no lo anote de nuevo.
+        const yaEsteMes = estado.movimientos.find(m =>
+          m.subId === s.id && m.fecha.slice(0,7) === mes && m.tipo === 'gasto');
+        const id = nuevoId();
+        estado.fijos.push({
+          id, nombre: s.nombre, monto: s.montoMensual || 0,
+          dia: s.diaCobro || 0, tipo: 'gasto',
+          catId: CAT_SUSCRIPCIONES, subId: s.id,
+          activo: s.activa !== false,
+          ultimoRegistrado: yaEsteMes ? mes : null
+        });
+        // El cobro que registraste a mano pasa a ser de este fijo. Sin esto la
+        // ficha diría "desde el próximo mes" cuando en realidad ya está pagado.
+        if(yaEsteMes) yaEsteMes.fijoId = id;
+        // El detalle se queda solo con su nombre: el monto y el día ahora
+        // viven en el fijo, y tenerlos en dos partes sería pedir problemas.
+        delete s.montoMensual; delete s.diaCobro; delete s.activa;
+      });
+    }
+    estado.version = 10;
+  }
 
   // Si se migró algo, se guarda de inmediato. Si no, la migración volvería a
   // correr en cada apertura y podría devolverte categorías que borraste.
@@ -1142,7 +1162,6 @@ function pintarTodo(){
   pintarComparacion(gastos);
   pintarAvisoFijos();
   pintarFijos();
-  pintarSuscripciones();
   pintarCategorias(delMes, gastos);
   pintarMovimientos();
 }
@@ -1303,41 +1322,44 @@ function ordenarFijos(cual){
   guardar(); pintarFijos();
 }
 
-function pintarFijos(){
-  const tarjeta = document.getElementById('tarjetaFijos');
-  const lista   = document.getElementById('listaFijos');
+/* Una fila de la lista. La comparten los dos cuadros: lo que entra y lo que
+   sale son la misma cosa vista desde distinto lado. */
+function filaFijo(f){
+  const mes     = mesClave();
+  const pausado = f.activo === false;
+  const hecho   = f.ultimoRegistrado === mes;
+  // "Hecho" no siempre significa anotado: un fijo creado después de su día
+  // queda marcado para no anotar plata hacia atrás. Se dicen cosas distintas.
+  const suyo    = estado.movimientos.find(m => m.fijoId === f.id && m.fecha.slice(0,7) === mes);
+  const fecha   = proximoCobro(f.dia);
+  const dias    = fecha ? diasHasta(fecha) : null;
+  // Anotado no es lo mismo que ocurrido: el mes se anota completo, así que
+  // los de días que no llegan todavía están "programados".
+  const porVenir = suyo && suyo.fecha > hoyISO();
 
-  // "Ahora no": la tarjeta se esconde, pero se llega igual desde Ajustes
-  if(!estado.fijos.length && estado.fijosOmitido){
-    tarjeta.classList.add('oculto'); return;
-  }
-  tarjeta.classList.remove('oculto');
-  // Cuando está vacía, la invitación ya trae su propio botón "Configurar"
-  document.getElementById('btnAgregarFijo').classList.toggle('oculto', !estado.fijos.length);
-  // El filtro solo tiene sentido cuando hay varios que ordenar
-  document.getElementById('filtroFijos').classList
-    .toggle('oculto', estado.fijos.length <= CUANTOS_FIJOS);
+  let sub;
+  if(pausado)            sub = 'Pausado';
+  else if(porVenir)      sub = `Programado para el ${f.dia}`;
+  else if(suyo)          sub = `Anotado el ${f.dia} de ${MESES[new Date().getMonth()]}`;
+  else if(hecho)         sub = `Desde el próximo mes · día ${f.dia}`;
+  else if(dias === 0)    sub = 'Es hoy';
+  else if(dias === 1)    sub = 'Es mañana';
+  else if(dias !== null) sub = `Día ${f.dia} · en ${dias} días`;
+  else                   sub = 'Sin día';
 
-  if(!estado.fijos.length){
-    lista.innerHTML = `
-      <div class="vacio" style="padding:14px 8px">
-        ¿Recibes tu sueldo un día fijo del mes?<br>
-        Configúralo una vez y lo anoto solo.
-      </div>
-      <div style="display:flex;gap:8px;justify-content:center;padding-bottom:4px">
-        <button class="btn-texto" style="padding:8px 14px" onclick="abrirNuevoFijo()">Configurar</button>
-        <button class="btn-texto" style="padding:8px 14px;opacity:.6" onclick="omitirFijos()">Ahora no</button>
-      </div>`;
-    return;
-  }
+  const clase = f.tipo === 'ingreso' ? 'v-ingreso' : (f.tipo === 'ahorro' ? 'v-ahorro' : 'v-gasto');
+  return `<div class="sus ${!pausado && dias !== null && dias <= 3 && !hecho ? 'pronto' : ''} ${pausado?'pausada':''}"
+               data-fijo="${f.id}" onclick="editarFijo('${f.id}')">
+      <span class="ico">${emojiDe(f.nombre) ||
+        (f.tipo==='ingreso' ? '💵' : f.tipo==='ahorro' ? '🏦' : '🧾')}</span>
+      <span class="nom">${f.nombre}<small>${sub}</small></span>
+      <span class="val ${clase}">${
+        f.tipo==='ingreso' ? '+' : f.tipo==='ahorro' ? '↑' : '−'}${pesos(f.monto)}</span>
+    </div>`;
+}
 
-  const mes = mesClave();
-  const porMonto = estado.ordenFijos === 'monto';
-  ['proximos','monto'].forEach(o =>
-    document.getElementById('ordFijos_'+o).classList.toggle('activo',
-      o === (porMonto ? 'monto' : 'proximos')));
-
-  const orden = estado.fijos.slice().sort((a,b) => {
+function ordenarLista(lista, porMonto){
+  return lista.slice().sort((a,b) => {
     // Los pausados siempre al final: no son plata que vaya a moverse
     if((a.activo === false) !== (b.activo === false)) return a.activo === false ? 1 : -1;
     if(porMonto) return (b.monto || 0) - (a.monto || 0);
@@ -1347,53 +1369,85 @@ function pintarFijos(){
     if(!fa) return 1; if(!fb) return -1;
     return fa - fb;
   });
+}
 
-  // La lista completa empujaba Suscripciones fuera de la pantalla. Se muestran
-  // unos pocos y el resto queda a un toque, sin esconder nunca los totales.
+function pintarFijos(){
+  pintarEntra();
+  pintarSale();
+}
+
+/* --- Cuadro 1: lo que entra --- */
+function pintarEntra(){
+  const tarjeta = document.getElementById('tarjetaEntra');
+  const lista   = document.getElementById('listaEntra');
+  const suyos   = estado.fijos.filter(f => f.tipo === 'ingreso' || f.tipo === 'ahorro');
+
+  // Se configura una vez y se esconde. Vuelve desde ⚙.
+  if(estado.entraOculto || (!suyos.length && estado.fijosOmitido)){
+    tarjeta.classList.add('oculto'); return;
+  }
+  tarjeta.classList.remove('oculto');
+  document.getElementById('btnAgregarEntra').classList.toggle('oculto', !suyos.length);
+  document.getElementById('btnOcultarEntra').classList.toggle('oculto', !suyos.length);
+
+  if(!suyos.length){
+    lista.innerHTML = `
+      <div class="vacio" style="padding:14px 8px">
+        ¿Recibes tu sueldo un día fijo del mes?<br>
+        Configúralo una vez y lo anoto solo.
+      </div>
+      <div style="display:flex;gap:8px;justify-content:center;padding-bottom:4px">
+        <button class="btn-texto" style="padding:8px 14px"
+                onclick="abrirNuevoFijo('ingreso')">Configurar</button>
+        <button class="btn-texto" style="padding:8px 14px;opacity:.6"
+                onclick="omitirFijos()">Ahora no</button>
+      </div>`;
+    return;
+  }
+
+  lista.innerHTML = ordenarLista(suyos, false).map(filaFijo).join('');
+  activarPulsacionLarga('#listaEntra .sus', el => borrarFijo(el.dataset.fijo));
+}
+
+/* --- Cuadro 2: lo que sale solo cada mes, suscripciones incluidas --- */
+function pintarSale(){
+  const lista = document.getElementById('listaSale');
+  const suyos = estado.fijos.filter(f => f.tipo === 'gasto');
+
+  document.getElementById('btnAgregarSale').classList.toggle('oculto', !suyos.length);
+  // El filtro solo tiene sentido cuando hay más de los que caben
+  document.getElementById('filtroFijos').classList
+    .toggle('oculto', suyos.length <= CUANTOS_FIJOS);
+
+  if(!suyos.length){
+    lista.innerHTML = `
+      <div class="vacio" style="padding:14px 8px">
+        El arriendo, la luz, el internet, Netflix…<br>
+        Anótalos una vez y los anoto solos cada mes.
+      </div>
+      <div style="display:flex;justify-content:center;padding-bottom:4px">
+        <button class="btn-texto" style="padding:8px 14px"
+                onclick="abrirNuevoFijo('gasto')">Configurar</button>
+      </div>`;
+    return;
+  }
+
+  const porMonto = estado.ordenFijos === 'monto';
+  ['proximos','monto'].forEach(o =>
+    document.getElementById('ordFijos_'+o).classList.toggle('activo',
+      o === (porMonto ? 'monto' : 'proximos')));
+
+  const orden    = ordenarLista(suyos, porMonto);
   const visibles = fijosExpandidos ? orden : orden.slice(0, CUANTOS_FIJOS);
   const ocultos  = orden.length - visibles.length;
 
-  lista.innerHTML = visibles.map(f => {
-    const pausado = f.activo === false;
-    const hecho   = f.ultimoRegistrado === mes;
-    // "Hecho" no siempre significa anotado: un fijo creado después de su día
-    // queda marcado para no anotar plata hacia atrás. Se dicen cosas distintas.
-    const suyo    = estado.movimientos.find(m => m.fijoId === f.id && m.fecha.slice(0,7) === mes);
-    const fecha   = proximoCobro(f.dia);
-    const dias    = fecha ? diasHasta(fecha) : null;
-    // Anotado no es lo mismo que ocurrido: el mes se anota completo, así que
-    // los de días que no llegan todavía están "programados".
-    const porVenir = suyo && suyo.fecha > hoyISO();
-
-    let sub;
-    if(pausado)            sub = 'Pausado';
-    else if(porVenir)      sub = `Programado para el ${f.dia}`;
-    else if(suyo)          sub = `Anotado el ${f.dia} de ${MESES[new Date().getMonth()]}`;
-    else if(hecho)         sub = `Desde el próximo mes · día ${f.dia}`;
-    else if(dias === 0)    sub = 'Es hoy';
-    else if(dias === 1)    sub = 'Es mañana';
-    else if(dias !== null) sub = `Día ${f.dia} · en ${dias} días`;
-    else                   sub = 'Sin día';
-
-    const clase = f.tipo === 'ingreso' ? 'v-ingreso' : (f.tipo === 'ahorro' ? 'v-ahorro' : 'v-gasto');
-    return `<div class="sus ${!pausado && dias !== null && dias <= 3 && !hecho ? 'pronto' : ''} ${pausado?'pausada':''}"
-                 data-fijo="${f.id}" onclick="editarFijo('${f.id}')">
-        <span class="ico">${emojiDe(f.nombre) ||
-          (f.tipo==='ingreso' ? '💵' : f.tipo==='ahorro' ? '🏦' : '🧾')}</span>
-        <span class="nom">${f.nombre}<small>${sub}</small></span>
-        <span class="val ${clase}">${
-          f.tipo==='ingreso' ? '+' : f.tipo==='ahorro' ? '↑' : '−'}${pesos(f.monto)}</span>
-      </div>`;
-  }).join('');
-
+  lista.innerHTML = visibles.map(filaFijo).join('');
   if(ocultos > 0 || fijosExpandidos){
+    const verMas = ocultos === 1 ? 'Ver el otro' : `Ver los otros ${ocultos}`;
     lista.innerHTML += `<button class="btn-texto" style="padding:9px"
-        onclick="alternarVerFijos()">${ocultos > 0 ? `Ver los otros ${ocultos}` : 'Ver menos'}</button>`;
+        onclick="alternarVerFijos()">${ocultos > 0 ? verMas : 'Ver menos'}</button>`;
   }
-
-  // Sin fila de totales a propósito: ahora los fijos entran en "Disponible este
-  // mes", que es donde uno mira. Repetirlos aquí sería decir lo mismo dos veces.
-  activarPulsacionLarga('#listaFijos .sus', el => borrarFijo(el.dataset.fijo));
+  activarPulsacionLarga('#listaSale .sus', el => borrarFijo(el.dataset.fijo));
 }
 
 function omitirFijos(){
@@ -1401,12 +1455,18 @@ function omitirFijos(){
   guardar(); pintarFijos();
 }
 
-// Desde Ajustes: se vuelve a Inicio con la tarjeta visible, aunque
-// alguna vez hayas dicho "ahora no"
-function irAFijos(){
+function ocultarEntra(){
+  estado.entraOculto = true;
+  guardar(); pintarFijos();
+}
+
+// Desde Ajustes: se vuelve a Inicio con el cuadro visible, aunque alguna vez
+// hayas dicho "ahora no" o lo hayas escondido.
+function irAFijos(tipo){
   estado.fijosOmitido = false;
+  if(tipo === 'ingreso') estado.entraOculto = false;
   guardar(); irA('inicio'); pintarTodo();
-  abrirNuevoFijo();
+  abrirNuevoFijo(tipo);
 }
 
 function borrarFijo(id){
@@ -1424,9 +1484,10 @@ let fijoEditando = null;   // null = creando
 let tipoFijo = 'gasto', catFijo = null, subFijo = null, activoFijo = true;
 let nombreFijoAuto = false;   // ¿el nombre lo puso la app o lo escribiste tú?
 
-function abrirNuevoFijo(){
+// El tipo viene del cuadro desde el que tocaste el "+"
+function abrirNuevoFijo(tipo){
   fijoEditando = null;
-  abrirHojaFijo(null);
+  abrirHojaFijo(null, tipo);
 }
 
 function editarFijo(id){
@@ -1436,7 +1497,7 @@ function editarFijo(id){
   abrirHojaFijo(f);
 }
 
-function abrirHojaFijo(f){
+function abrirHojaFijo(f, tipoPorDefecto){
   document.getElementById('tituloFijo').textContent = f ? 'Editar fijo' : 'Nuevo fijo';
   document.getElementById('btnBorrarFijo').classList.toggle('oculto', !f);
   document.getElementById('inpFijoMonto').value  = f ? Number(f.monto).toLocaleString('es-CL') : '';
@@ -1444,7 +1505,7 @@ function abrirHojaFijo(f){
   document.getElementById('inpFijoDia').value    = f ? f.dia : '';
   // Al editar, el nombre guardado es tuyo y no se toca
   nombreFijoAuto = !f;
-  tipoFijo = f ? f.tipo  : 'gasto';
+  tipoFijo = f ? f.tipo  : (tipoPorDefecto || 'gasto');
   catFijo  = f ? f.catId : null;
   subFijo  = f ? (f.subId || null) : null;
   elegirTipoFijo(tipoFijo);
@@ -1468,11 +1529,11 @@ function elegirTipoFijo(t){
   pintarChipsFijo();
 }
 
-/* Un fijo de gasto solo puede ir a "Gastos fijos". Mostrar las ocho categorías
-   invitaba a poner ahí la feria o la bencina, que no son fijos: cambian todos
-   los meses y romperían el sentido del panel. Los ingresos y el ahorro no se
-   filtran porque de esos tipos hay una sola categoría. */
-const CATS_FIJO_GASTO = ['c2'];
+/* Un fijo de gasto solo puede ir a "Gastos fijos" o "Suscripciones". Mostrar las
+   ocho categorías invitaba a poner ahí la feria o la bencina, que no son fijos:
+   cambian todos los meses y romperían el sentido del cuadro. Los ingresos y el
+   ahorro no se filtran porque de esos tipos hay una sola categoría. */
+const CATS_FIJO_GASTO = ['c2', CAT_SUSCRIPCIONES];
 
 function pintarChipsFijo(){
   let cats = estado.categorias.filter(c => c.tipo === tipoFijo);
@@ -1588,12 +1649,11 @@ function borrarFijoDesdeHoja(){
 }
 
 /* ================================================================
-   4b. SUSCRIPCIONES
+   4b. FECHAS DE COBRO
+   Las suscripciones tenían su propio panel con un botón "Registrar".
+   Eran gastos fijos con otro nombre, así que se unieron a los fijos y
+   de aquel motor solo quedaron estas dos cuentas de fechas.
    ================================================================ */
-
-// Solo aparecen en el panel las que ya configuraste (monto o día de cobro).
-// Las demás existen igual como detalle, listas para usar al registrar.
-const estaConfigurada = s => !!(s.montoMensual || s.diaCobro);
 
 /* Próxima fecha de cobro a partir del día del mes.
    Ojo con el día 31: en los meses que no lo tienen se usa el último día. */
@@ -1609,93 +1669,6 @@ function proximoCobro(dia){
 }
 
 const diasHasta = fecha => Math.round((fecha - new Date().setHours(0,0,0,0)) / 86400000);
-
-// ¿Ya pasó el cobro de este mes y no lo registraste?
-function cobroPendiente(sub){
-  if(!sub.diaCobro || !sub.montoMensual || sub.activa === false) return false;
-  const hoy = new Date();
-  const diasDelMes = new Date(hoy.getFullYear(), hoy.getMonth()+1, 0).getDate();
-  if(hoy.getDate() < Math.min(sub.diaCobro, diasDelMes)) return false;
-  return !estado.movimientos.some(m =>
-    m.subId === sub.id && esDelMesVisto(m.fecha) && m.tipo === 'gasto');
-}
-
-function pintarSuscripciones(){
-  const cat = buscarCat(CAT_SUSCRIPCIONES);
-  const tarjeta = document.getElementById('tarjetaSuscripciones');
-  if(!cat){ tarjeta.classList.add('oculto'); return; }
-
-  tarjeta.classList.remove('oculto');
-  const configuradas = cat.subs.filter(estaConfigurada);
-
-  if(configuradas.length === 0){
-    document.getElementById('listaSuscripciones').innerHTML =
-      `<div class="vacio" style="padding:18px 8px">
-         Anota tus suscripciones con su día de cobro<br>y te aviso antes de que te las cobren.
-       </div>`;
-    document.getElementById('totalSuscripciones').innerHTML = '';
-    return;
-  }
-
-  // Primero las activas, y dentro de ellas la que se cobra antes
-  const orden = configuradas.slice().sort((a,b) => {
-    if((a.activa === false) !== (b.activa === false)) return a.activa === false ? 1 : -1;
-    const fa = proximoCobro(a.diaCobro), fb = proximoCobro(b.diaCobro);
-    if(!fa) return 1; if(!fb) return -1;
-    return fa - fb;
-  });
-
-  document.getElementById('listaSuscripciones').innerHTML = orden.map(s => {
-    const pausada = s.activa === false;
-    const fecha = proximoCobro(s.diaCobro);
-    const dias = fecha ? diasHasta(fecha) : null;
-    const pronto = !pausada && dias !== null && dias <= 3;
-    const pendiente = !pausada && cobroPendiente(s);
-
-    let sub = '';
-    if(pausada)            sub = 'Pausada';
-    else if(pendiente)     sub = `Se cobró el ${s.diaCobro} y no lo registras`;
-    else if(dias === 0)    sub = 'Se cobra hoy';
-    else if(dias === 1)    sub = 'Se cobra mañana';
-    else if(dias !== null) sub = `Día ${s.diaCobro} · en ${dias} días`;
-    else                   sub = 'Sin día de cobro';
-
-    return `<div class="sus ${pronto||pendiente?'pronto':''} ${pausada?'pausada':''}"
-                 onclick="editarSuscripcion('${s.id}')">
-        <span class="ico">${emojiDe(s.nombre) || '💳'}</span>
-        <span class="nom">${s.nombre}<small>${sub}</small></span>
-        ${pendiente
-          ? `<button class="cobrar" onclick="event.stopPropagation();registrarCobro('${s.id}')">Registrar</button>`
-          : ''}
-        <span class="val ${s.montoMensual?'':'sin'}">
-          ${s.montoMensual ? pesos(s.montoMensual) : 'sin monto'}
-        </span>
-      </div>`;
-  }).join('');
-
-  const totalMes = configuradas
-    .filter(s => s.activa !== false)
-    .reduce((t,s) => t + (s.montoMensual || 0), 0);
-  document.getElementById('totalSuscripciones').innerHTML =
-    `<span>Al mes</span><b>${pesos(totalMes)}</b>`;
-}
-
-// Un toque para dejar registrado el cobro que ya ocurrió
-function registrarCobro(subId){
-  const cat = buscarCat(CAT_SUSCRIPCIONES);
-  const sub = cat.subs.find(s => s.id === subId);
-  const hoy = new Date();
-  const diasDelMes = new Date(hoy.getFullYear(), hoy.getMonth()+1, 0).getDate();
-  const dia = String(Math.min(sub.diaCobro, diasDelMes)).padStart(2,'0');
-
-  estado.movimientos.push({
-    id: nuevoId(), monto: sub.montoMensual, tipo: 'gasto',
-    catId: CAT_SUSCRIPCIONES, subId: sub.id,
-    fecha: `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}-${dia}`,
-    nota: ''
-  });
-  guardar(); pintarTodo();
-}
 
 /* --- Lista desplegable de categorías con sus detalles --- */
 function pintarCategorias(movs, totalGastos){
@@ -2654,10 +2627,9 @@ function verTodasSugerencias(){
 
 function usarSugerencia(nombre){
   document.getElementById('inpSubNombre').value = nombre;
-  // Una suscripción necesita monto y día de cobro, así que se muestra el
-  // resto del formulario. Un detalle normal se guarda al toque.
-  if(catParaSub === CAT_SUSCRIPCIONES) mostrarFormularioSub();
-  else guardarSub();
+  // Un detalle es solo un nombre, así que se guarda al toque. Antes las
+  // suscripciones pedían además monto y día; eso ahora va en su fijo.
+  guardarSub();
 }
 
 function escribirOtro(){
@@ -2675,15 +2647,11 @@ function mostrarFormularioSub(){
 // un gasto. En ese caso hay que volver a la hoja del movimiento sin perder nada.
 let subDesdeRegistro = false;
 let subEditando = null;      // null = estamos creando; con id = editando
-let estadoSubActiva = true;
 
-// Prepara la hoja: los campos de suscripción solo se muestran en esa categoría
+// Ahora todas las categorías son iguales: un detalle es solo un nombre.
+// El monto y el día de una suscripción viven en su fijo.
 function prepararHojaSub(catId, sub){
-  const esSuscripcion = catId === CAT_SUSCRIPCIONES;
-  document.getElementById('camposSuscripcion').classList.toggle('oculto', !esSuscripcion);
-  document.getElementById('tituloSub').textContent =
-    sub ? (esSuscripcion ? 'Editar suscripción' : 'Editar detalle')
-        : (esSuscripcion ? 'Nueva suscripción' : 'Nuevo detalle');
+  document.getElementById('tituloSub').textContent = sub ? 'Editar detalle' : 'Nuevo detalle';
   document.getElementById('btnGuardarSub').textContent = sub ? 'Guardar' : 'Agregar';
   document.getElementById('btnBorrarSub').classList.toggle('oculto', !sub);
 
@@ -2696,16 +2664,6 @@ function prepararHojaSub(catId, sub){
   if(!sub) pintarSugerencias(catId);
 
   document.getElementById('inpSubNombre').value = sub ? sub.nombre : '';
-  document.getElementById('inpSubMonto').value =
-    sub && sub.montoMensual ? Number(sub.montoMensual).toLocaleString('es-CL') : '';
-  document.getElementById('inpSubDia').value = sub && sub.diaCobro ? sub.diaCobro : '';
-  elegirEstadoSub(sub ? sub.activa !== false : true);
-}
-
-function elegirEstadoSub(activa){
-  estadoSubActiva = activa;
-  document.getElementById('selSubActiva').classList.toggle('activo', activa);
-  document.getElementById('selSubPausada').classList.toggle('activo', !activa);
 }
 
 function abrirNuevaSub(catId, desdeRegistro){
@@ -2716,8 +2674,6 @@ function abrirNuevaSub(catId, desdeRegistro){
   abrirHoja('hojaSub');
 }
 
-// Sirve para cualquier categoría: una suscripción es solo un detalle que
-// además tiene monto y día de cobro, y prepararHojaSub ya sabe distinguirlas.
 function editarDetalle(catId, subId){
   const cat = buscarCat(catId);
   const sub = cat && cat.subs.find(s => s.id === subId);
@@ -2729,26 +2685,17 @@ function editarDetalle(catId, subId){
   abrirHoja('hojaSub');
 }
 
-const editarSuscripcion = subId => editarDetalle(CAT_SUSCRIPCIONES, subId);
-
 function guardarSub(){
   const nombre = document.getElementById('inpSubNombre').value.trim();
   if(!nombre) return;
-
-  const esSuscripcion = catParaSub === CAT_SUSCRIPCIONES;
-  const extras = esSuscripcion ? {
-    montoMensual: Number(document.getElementById('inpSubMonto').value.replace(/\D/g,'')) || null,
-    diaCobro: Number(document.getElementById('inpSubDia').value) || null,
-    activa: estadoSubActiva
-  } : {};
 
   const cat = buscarCat(catParaSub);
   let sub;
   if(subEditando){
     sub = cat.subs.find(s => s.id === subEditando);
-    Object.assign(sub, {nombre}, extras);
+    sub.nombre = nombre;
   }else{
-    sub = {id: nuevoId(), nombre, ...extras};
+    sub = {id: nuevoId(), nombre};
     cat.subs.push(sub);
   }
   guardar();
