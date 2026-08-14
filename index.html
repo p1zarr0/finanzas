@@ -794,8 +794,10 @@ const CATEGORIAS_INICIALES = [
       {id:'i6',nombre:'Devolución de impuestos'}
   ]},
   // Los detalles del ahorro son metas: sirven para ver para qué estás guardando,
-  // no solo cuánto.
+  // no solo cuánto. "Ahorro" a secas va primero, para cuando apartas plata sin
+  // tener todavía un destino en mente.
   {id:'c6', nombre:'Ahorro',        tipo:'ahorro',  color:'#6FA5A0', icono:'🏦', subs:[
+      {id:'g0',nombre:'Ahorro'},
       {id:'g1',nombre:'Fondo de emergencia'},{id:'g2',nombre:'Vacaciones'},
       {id:'g3',nombre:'Auto'},{id:'g4',nombre:'Casa'},
       {id:'g5',nombre:'Estudios'},{id:'g6',nombre:'Regalos'}
@@ -836,7 +838,7 @@ let estado = {
   //  activo:true, ultimoRegistrado:'2026-08'}
   fijos: [],
   tema: 'auto',
-  version: 8
+  version: 9
 };
 
 /* localStorage = la memoria del navegador. Guarda texto y sobrevive
@@ -969,6 +971,18 @@ function cargar(){
     ['Fondo de emergencia','Vacaciones','Auto','Casa','Estudios','Regalos']
       .forEach(n => sumarDetalle(buscarCat('c6'), n));
     estado.version = 8;
+  }
+
+  if(estado.version < 9){
+    // Faltaba el caso más común: apartar plata sin tener todavía un destino.
+    // Va primero, igual que en una instalación nueva.
+    const aho = buscarCat('c6');
+    if(aho){
+      sumarDetalle(aho, 'Ahorro');
+      const i = aho.subs.findIndex(s => plano(s.nombre) === 'ahorro');
+      if(i > 0) aho.subs.unshift(aho.subs.splice(i, 1)[0]);
+    }
+    estado.version = 9;
   }
 
   if(!estado.transferencias) estado.transferencias = [];
@@ -2588,7 +2602,7 @@ const SUGERENCIAS = {
   'Mascota':      ['Comida de gato','Arena','Veterinario','Juguetes'],
   'Ingresos':     ['Sueldo','Aguinaldo','Bono','Freelance','Arriendo que recibo',
                    'Devolución de impuestos','Comisión','Propinas'],
-  'Ahorro':       ['Fondo de emergencia','Vacaciones','Auto','Casa','Estudios',
+  'Ahorro':       ['Ahorro','Fondo de emergencia','Vacaciones','Auto','Casa','Estudios',
                    'Regalos','Jubilación','Viaje'],
   'Otros':        ['Cine','Streaming','Ropa','Regalo','Libro','Gimnasio','Peluquería','Banco']
 };
