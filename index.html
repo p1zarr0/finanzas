@@ -1843,12 +1843,19 @@ function pintarChipsFijo(){
 
   const cat = catFijo && buscarCat(catFijo);
   const cajaSub = document.getElementById('campoFijoSub');
-  if(!cat || !cat.subs.length){ cajaSub.classList.add('oculto'); return; }
+  if(!cat){ cajaSub.classList.add('oculto'); return; }
+
+  /* El campo se muestra aunque la categoría no tenga ni un detalle: ahí está
+     el "+" para crear el primero, igual que al registrar un movimiento.
+     Suscripciones empieza vacía a propósito (Netflix, Spotify y compañía
+     viven en SUGERENCIAS), así que sin este "+" no había ninguna forma de
+     ponerle nombre a la suscripción desde Recordatorios. */
   cajaSub.classList.remove('oculto');
   document.getElementById('chipsFijoSub').innerHTML = cat.subs.map(s =>
     `<button class="chip ${s.id===subFijo?'activo':''}"
              style="${s.id===subFijo?'background:var(--texto);color:var(--fondo)':''}"
-             onclick="elegirSubFijo('${s.id}')">${emojiDe(s.nombre)}${s.nombre}</button>`).join('');
+             onclick="elegirSubFijo('${s.id}')">${emojiDe(s.nombre)}${s.nombre}</button>`).join('')
+    + `<button class="chip chip-mas" onclick="abrirNuevaSub('${cat.id}', 'fijo')">+</button>`;
 }
 
 /* El nombre se propone solo, pero nunca se pisa el que escribiste tú.
@@ -2242,13 +2249,26 @@ let movEditando = null;   // null = registrando uno nuevo
 let cuotasElegidas = 0;            // 0 = pago único
 let frecuenciaMov = 'mensual';     // 'mensual' | 'anual'
 
+/* Todas las hojas comparten z-index en el CSS, así que sin esto la que
+   quedaba encima era la que estuviera más abajo en el HTML, no la que
+   acabas de abrir: el detalle abierto desde un pago de Recordatorios se
+   dibujaba detrás de la hoja del pago. Cada hoja que se abre sube un piso. */
+const Z_HOJA = 60;
+let pisoHoja = Z_HOJA;
+
 function abrirHoja(id){
   document.getElementById('fondoModal').classList.add('visible');
-  document.getElementById(id).classList.add('visible');
+  const hoja = document.getElementById(id);
+  hoja.style.zIndex = ++pisoHoja;
+  hoja.classList.add('visible');
 }
 function cerrarHojas(){
   document.getElementById('fondoModal').classList.remove('visible');
-  document.querySelectorAll('.hoja').forEach(h => h.classList.remove('visible'));
+  document.querySelectorAll('.hoja').forEach(h => {
+    h.classList.remove('visible');
+    h.style.zIndex = '';
+  });
+  pisoHoja = Z_HOJA;
 }
 
 function abrirMovimiento(){
@@ -2372,7 +2392,7 @@ function pintarChipsSub(cat){
   // El chip de agregar va al final, con borde punteado para que se lea
   // como "crear" y no como una opción más de la lista.
   document.getElementById('chipsSub').innerHTML = chips +
-    `<button class="chip chip-mas" onclick="abrirNuevaSub('${cat.id}', true)">+</button>`;
+    `<button class="chip chip-mas" onclick="abrirNuevaSub('${cat.id}', 'registro')">+</button>`;
 
   activarPulsacionLarga('#chipsSub .chip[data-sub]',
     chip => confirmarBorrarSub(cat.id, chip.dataset.sub));
@@ -3367,9 +3387,11 @@ function mostrarFormularioSub(){
   document.getElementById('btnGuardarSub').classList.remove('oculto');
 }
 
-// desdeRegistro = true cuando se abre con el chip "+" mientras se registra
-// un gasto. En ese caso hay que volver a la hoja del movimiento sin perder nada.
-let subDesdeRegistro = false;
+/* De dónde se abrió la hoja del detalle: 'registro' desde el chip "+" al
+   anotar un movimiento, 'fijo' desde el "+" de un pago de Recordatorios.
+   En los dos casos hay que volver a la hoja de atrás sin perder lo escrito;
+   vacío significa que se abrió desde Categorías y se cierra todo. */
+let subDesde = '';
 let subEditando = null;      // null = estamos creando; con id = editando
 
 // Ahora todas las categorías son iguales: un detalle es solo un nombre.
@@ -3390,9 +3412,9 @@ function prepararHojaSub(catId, sub){
   document.getElementById('inpSubNombre').value = sub ? sub.nombre : '';
 }
 
-function abrirNuevaSub(catId, desdeRegistro){
+function abrirNuevaSub(catId, desde){
   catParaSub = catId;
-  subDesdeRegistro = !!desdeRegistro;
+  subDesde = desde || '';
   subEditando = null;
   prepararHojaSub(catId, null);
   abrirHoja('hojaSub');
@@ -3403,7 +3425,7 @@ function editarDetalle(catId, subId){
   const sub = cat && cat.subs.find(s => s.id === subId);
   if(!sub) return;
   catParaSub = catId;
-  subDesdeRegistro = false;
+  subDesde = '';
   subEditando = subId;
   prepararHojaSub(catId, sub);
   abrirHoja('hojaSub');
@@ -3424,16 +3446,23 @@ function guardarSub(){
   }
   guardar();
 
-  if(subDesdeRegistro){
+  if(subDesde === 'registro'){
     // Cerramos solo esta hoja: la del movimiento sigue abierta detrás,
     // con el monto y la categoría intactos.
     document.getElementById('hojaSub').classList.remove('visible');
     subElegida = sub.id;                       // el recién creado queda elegido
     pintarChipsSub(cat);
-    subDesdeRegistro = false;
+  }else if(subDesde === 'fijo'){
+    // Igual, pero volviendo a la hoja del pago: el detalle recién creado
+    // queda elegido y le presta su nombre al recordatorio ("Netflix").
+    document.getElementById('hojaSub').classList.remove('visible');
+    subFijo = sub.id;
+    proponerNombreFijo(sub.nombre);
+    pintarChipsFijo();
   }else{
     cerrarHojas();
   }
+  subDesde = '';
   subEditando = null;
   pintarEditorCategorias(); pintarTodo();
 }
