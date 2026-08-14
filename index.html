@@ -302,6 +302,22 @@ input[type=date],input[type=text],input[type=number],select{
 }
 .aviso-ocr b{color:var(--texto);font-weight:500}
 
+/* Aviso de lo que la app anotó sola al abrir. Discreto, pero con las
+   dos salidas a mano: corregir el monto o deshacerlo. */
+.aviso-fijos{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  background:var(--tarjeta);border:1px solid var(--linea);border-left:3px solid var(--ingreso);
+  border-radius:14px;padding:12px 14px;margin-bottom:14px;font-size:13.5px;color:var(--suave)
+}
+.aviso-fijos .texto{flex:1;min-width:150px;line-height:1.45}
+.aviso-fijos b{color:var(--texto);font-weight:500}
+.aviso-fijos .acc{display:flex;gap:6px}
+.aviso-fijos button{
+  background:none;border:1px solid var(--linea);border-radius:20px;
+  padding:6px 12px;font:inherit;font-size:12.5px;color:var(--texto);cursor:pointer
+}
+.aviso-fijos button.peligro{color:var(--gasto)}
+
 .oculto{display:none!important}
 .fila-ajuste{display:flex;align-items:center;gap:10px;padding:13px 0;border-bottom:1px solid var(--linea);font-size:14.5px}
 .fila-ajuste:last-child{border-bottom:none}
@@ -339,6 +355,16 @@ input[type=date],input[type=text],input[type=number],select{
         <div><span>Ahorro</span><strong class="v-ahorro" id="totalAhorro">$0</strong></div>
       </div>
       <div class="acumulado" id="acumuladoAhorro"></div>
+    </div>
+
+    <!-- Aviso de lo que la app anotó sola al abrir -->
+    <div class="aviso-fijos oculto" id="avisoFijos"></div>
+
+    <div class="tarjeta" id="tarjetaFijos">
+      <h2 class="seccion titulo-serif">Ingresos y gastos fijos</h2>
+      <div id="listaFijos"></div>
+      <div class="total-subs" id="totalFijos"></div>
+      <button class="btn-texto" id="btnAgregarFijo" onclick="abrirNuevoFijo()">+ Agregar fijo</button>
     </div>
 
     <div class="tarjeta" id="tarjetaSuscripciones">
@@ -441,6 +467,17 @@ input[type=date],input[type=text],input[type=number],select{
     <div class="tarjeta">
       <div id="editorCategorias"></div>
       <button class="btn-texto" onclick="abrirNuevaCategoria()">+ Nueva categoría</button>
+    </div>
+
+    <div class="tarjeta">
+      <h2 class="seccion titulo-serif">Automático</h2>
+      <div class="fila-ajuste">
+        <span class="nom">Ingresos y gastos fijos</span>
+        <button class="mini" onclick="irAFijos()">+</button>
+      </div>
+      <p style="color:var(--suave);font-size:12px;padding:8px 0 2px;line-height:1.5">
+        El sueldo, el arriendo, el plan de celular. Se anotan solos cada mes.
+      </p>
     </div>
 
     <div class="tarjeta">
@@ -554,6 +591,7 @@ input[type=date],input[type=text],input[type=number],select{
   </div>
 
   <button class="btn-principal" id="btnGuardarCat" onclick="guardarCategoria()">Crear categoría</button>
+  <button class="btn-texto oculto" id="btnBorrarCat" onclick="borrarCategoriaDesdeHoja()">Eliminar categoría</button>
 </div>
 
 <!-- ===================== HOJA: TRANSFERENCIA ===================== -->
@@ -631,6 +669,59 @@ input[type=date],input[type=text],input[type=number],select{
   <button class="btn-texto oculto" id="btnBorrarSub" onclick="borrarSubEditada()">Eliminar</button>
 </div>
 
+<!-- ===================== HOJA: INGRESO O GASTO FIJO ===================== -->
+<div class="hoja" id="hojaFijo">
+  <div class="asa"></div>
+  <h2 class="seccion titulo-serif" style="text-align:center;margin-bottom:20px" id="tituloFijo">Nuevo fijo</h2>
+
+  <!-- El monto primero, igual que al registrar un movimiento -->
+  <div class="campo">
+    <label>Cuánto es</label>
+    <input type="text" inputmode="numeric" id="inpFijoMonto" placeholder="$ 0"
+           oninput="formatearMonto(this)">
+  </div>
+
+  <div class="campo">
+    <label>Tipo</label>
+    <div class="selector" style="margin-bottom:0">
+      <button id="selFijo_gasto"   onclick="elegirTipoFijo('gasto')">Gasto</button>
+      <button id="selFijo_ingreso" onclick="elegirTipoFijo('ingreso')">Ingreso</button>
+      <button id="selFijo_ahorro"  onclick="elegirTipoFijo('ahorro')">Ahorro</button>
+    </div>
+  </div>
+
+  <div class="campo">
+    <label>Categoría</label>
+    <div class="chips" id="chipsFijoCat"></div>
+  </div>
+
+  <div class="campo oculto" id="campoFijoSub">
+    <label>Detalle</label>
+    <div class="chips" id="chipsFijoSub"></div>
+  </div>
+
+  <div class="campo">
+    <label>Nombre</label>
+    <input type="text" id="inpFijoNombre" placeholder="Ej: Sueldo">
+  </div>
+
+  <div class="campo">
+    <label>Qué día del mes</label>
+    <input type="number" min="1" max="31" id="inpFijoDia" placeholder="Ej: 5">
+  </div>
+
+  <div class="campo">
+    <label>Estado</label>
+    <div class="selector" style="margin-bottom:0">
+      <button id="selFijoActivo"  class="activo" onclick="elegirEstadoFijo(true)">Activo</button>
+      <button id="selFijoPausado" onclick="elegirEstadoFijo(false)">Pausado</button>
+    </div>
+  </div>
+
+  <button class="btn-principal" onclick="guardarFijo()">Guardar</button>
+  <button class="btn-texto oculto" id="btnBorrarFijo" onclick="borrarFijoDesdeHoja()">Eliminar</button>
+</div>
+
 <!-- Librería de lectura de texto. Está guardada en el proyecto, no se baja
      de internet: por eso el escáner funciona sin conexión. -->
 <script src="lib/tesseract.min.js"></script>
@@ -644,16 +735,20 @@ input[type=date],input[type=text],input[type=number],select{
    ================================================================ */
 
 const PALETA = ['#C97B84','#7A9E7E','#8FA8C4','#D9A566','#A98BA8','#6FA5A0','#C4899B','#8C9E6E'];
-const ICONOS = ['🍽','🏠','💡','🚌','🛍','💊','🎬','📚','☕','🎁','💰','✈️','🐾','🧾'];
+const ICONOS = ['🍽','🏠','🏡','💡','🚌','🛍','💊','🎬','📚','☕','🎁','💰','✈️','🐾','🧾'];
 
 const CATEGORIAS_INICIALES = [
   {id:'c1', nombre:'Alimentación',  tipo:'gasto',   color:'#C97B84', icono:'🍽', subs:[
       {id:'a1',nombre:'Supermercado'},{id:'a2',nombre:'Feria'},{id:'a3',nombre:'Panadería'},
       {id:'a4',nombre:'Almuerzo'},{id:'a5',nombre:'Café'},{id:'a6',nombre:'Delivery'}
   ]},
-  {id:'c2', nombre:'Gastos fijos',  tipo:'gasto',   color:'#8FA8C4', icono:'🏠', subs:[
-      {id:'s1',nombre:'Luz'},{id:'s2',nombre:'Agua'},{id:'s3',nombre:'Gas'},
-      {id:'s4',nombre:'Gastos comunes'},{id:'s5',nombre:'Arriendo'}
+  // Gastos fijos = lo contractual, el monto es el mismo todos los meses y solo
+  // cambia cuando lo cambia el contrato o la ley (reajustes, contribuciones).
+  {id:'c2', nombre:'Gastos fijos',  tipo:'gasto',   color:'#8FA8C4', icono:'🧾', subs:[
+      {id:'s5',nombre:'Arriendo'},{id:'f1',nombre:'Dividendo'},
+      {id:'f2',nombre:'Crédito de consumo'},{id:'f3',nombre:'Plan de celular'},
+      {id:'f4',nombre:'Internet'},{id:'f5',nombre:'Contribuciones'},
+      {id:'s4',nombre:'Gastos comunes'},{id:'f6',nombre:'Seguro'}
   ]},
   {id:'c3', nombre:'Gastos varios', tipo:'gasto',   color:'#D9A566', icono:'🛍', subs:[
       {id:'v1',nombre:'Ropa'},{id:'v2',nombre:'Regalo'},{id:'v3',nombre:'Cine'},
@@ -671,6 +766,12 @@ const CATEGORIAS_INICIALES = [
   {id:'c8', nombre:'Mascota',       tipo:'gasto',   color:'#8C9E6E', icono:'🐱', subs:[
       {id:'p1',nombre:'Comida de gato'},{id:'p2',nombre:'Arena'},
       {id:'p3',nombre:'Veterinario'},{id:'p4',nombre:'Juguetes'}
+  ]},
+  // Hogar = los servicios que llegan todos los meses pero con monto distinto
+  // según cuánto gastaste. Por eso no van junto a los fijos.
+  {id:'c9', nombre:'Hogar',         tipo:'gasto',   color:'#C4899B', icono:'🏡', subs:[
+      {id:'s1',nombre:'Luz'},{id:'s2',nombre:'Agua'},{id:'s3',nombre:'Gas'},
+      {id:'h1',nombre:'Basura'},{id:'h2',nombre:'Calefacción'}
   ]}
 ];
 
@@ -681,8 +782,12 @@ let estado = {
   movimientos: [],           // {id, monto, tipo, catId, subId, fecha:'2026-08-12', nota}
   // {id, monto, tipo:'meDeben'|'debo', persona, nota, fecha, pagada}
   transferencias: [],
+  // Ingresos y gastos que se repiten solos todos los meses. Ver revisarFijos().
+  // {id, nombre, monto, dia, tipo:'ingreso'|'gasto'|'ahorro', catId, subId,
+  //  activo:true, ultimoRegistrado:'2026-08'}
+  fijos: [],
   tema: 'auto',
-  version: 4
+  version: 5
 };
 
 /* localStorage = la memoria del navegador. Guarda texto y sobrevive
@@ -693,8 +798,10 @@ function guardar(){ localStorage.setItem(CLAVE, JSON.stringify(estado)); }
 
 function cargar(){
   const guardado = localStorage.getItem(CLAVE);
+  let versionAntes = null;
   if(guardado){
     try{ estado = JSON.parse(guardado); }catch(e){ console.warn('Datos corruptos, se empieza de cero'); }
+    versionAntes = estado.version || 0;
   }
   // Datos guardados antes de que existiera el ahorro: se la agregamos
   // al vuelo para que no haya que migrar nada a mano.
@@ -734,7 +841,51 @@ function cargar(){
     estado.version = 4;
   }
 
+  if(estado.version < 5){
+    // "Gastos fijos" mezclaba dos cosas distintas: el arriendo (mismo monto todos
+    // los meses) con la luz (distinta cada mes). Se separan en dos categorías.
+    agregarUnaVez('c9');
+    const fijos = buscarCat('c2'), hogar = buscarCat('c9');
+
+    if(fijos && hogar){
+      const aHogar = ['luz','agua','gas','basura','calefaccion'];
+      const esDeHogar = s => aHogar.includes(
+        s.nombre.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,''));
+
+      // Se mueven conservando el id: así los movimientos ya anotados siguen
+      // apuntando al mismo detalle y no se pierde nada.
+      fijos.subs.filter(esDeHogar).forEach(s => {
+        if(!hogar.subs.some(h => h.id === s.id || h.nombre === s.nombre)) hogar.subs.push(s);
+      });
+      const idsMovidos = fijos.subs.filter(esDeHogar).map(s => s.id);
+      fijos.subs = fijos.subs.filter(s => !esDeHogar(s));
+
+      // Lo delicado: el movimiento guarda catId Y subId. Si solo moviéramos el
+      // detalle, los gastos viejos de luz quedarían colgando de una categoría
+      // que ya no los tiene y desaparecerían de los gráficos.
+      estado.movimientos.forEach(m => {
+        if(m.catId === 'c2' && idsMovidos.includes(m.subId)) m.catId = 'c9';
+      });
+
+      // Los detalles nuevos solo se agregan si no los tenías ya con otro nombre
+      const sumar = (cat, nombre) => {
+        if(!cat.subs.some(s => s.nombre.toLowerCase() === nombre.toLowerCase()))
+          cat.subs.push({id: nuevoId(), nombre});
+      };
+      ['Dividendo','Crédito de consumo','Plan de celular','Internet','Contribuciones','Seguro']
+        .forEach(n => sumar(fijos, n));
+      ['Basura','Calefacción'].forEach(n => sumar(hogar, n));
+      if(fijos.icono === '🏠') fijos.icono = '🧾';
+    }
+    estado.version = 5;
+  }
+
   if(!estado.transferencias) estado.transferencias = [];
+  if(!estado.fijos) estado.fijos = [];
+
+  // Si se migró algo, se guarda de inmediato. Si no, la migración volvería a
+  // correr en cada apertura y podría devolverte categorías que borraste.
+  if(versionAntes !== null && estado.version !== versionAntes) guardar();
 }
 
 /* ================================================================
@@ -783,6 +934,9 @@ const EMOJIS_PALABRA = {
   // Servicios del hogar
   luz:'💡', electricidad:'💡', agua:'💧', gas:'🔥', internet:'📶', telefono:'📱',
   arriendo:'🏠', comunes:'🏢', basura:'🗑', calefaccion:'🔥',
+  // Gastos fijos: los que cambian solo por contrato o por ley
+  dividendo:'🏦', hipotecario:'🏠', credito:'💳', contribuciones:'🧾',
+  seguro:'🛡', celular:'📱', sueldo:'💵', plan:'📱',
   // Transporte
   bencina:'⛽', combustible:'⛽', micro:'🚌', bus:'🚌', metro:'🚇', taxi:'🚕',
   peaje:'🛣', estacionamiento:'🅿️', bicicleta:'🚲', mecanico:'🔧', pasaje:'🎫',
@@ -872,6 +1026,8 @@ function pintarTodo(){
 
   pintarDona(delMes, gastos);
   pintarComparacion(gastos);
+  pintarAvisoFijos();
+  pintarFijos();
   pintarSuscripciones();
   pintarCategorias(delMes, gastos);
   pintarMovimientos();
@@ -922,6 +1078,320 @@ function pintarDona(movs, totalGastos){
 
   svg.innerHTML = svgHTML;
   leyenda.innerHTML = leyHTML;
+}
+
+/* ================================================================
+   4a. INGRESOS Y GASTOS FIJOS
+   Lo que se repite igual todos los meses: el sueldo el día 5, el
+   arriendo, el plan de celular. Tú lo configuras una vez y la app
+   lo anota sola.
+
+   OJO, una limitación importante: una app web no ejecuta nada
+   mientras está cerrada. No hay nadie que despierte el día 5 a
+   medianoche. Lo que hacemos es revisar al abrir: si el día ya
+   pasó y no está anotado, se anota en ese momento. En la práctica
+   da lo mismo, porque ves el mes completo apenas abres la app.
+   ================================================================ */
+
+// El mes en formato '2026-08'. Es la marca que evita anotar dos veces.
+function mesClave(fecha){
+  const d = fecha || new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+}
+
+// Qué se registró solo la última vez que se abrió la app
+let fijosRecienRegistrados = [];
+
+function revisarFijos(){
+  fijosRecienRegistrados = [];
+  const hoy = new Date();
+  const mes = mesClave(hoy);
+  const diasDelMes = new Date(hoy.getFullYear(), hoy.getMonth()+1, 0).getDate();
+
+  estado.fijos.forEach(f => {
+    if(f.activo === false || !f.monto || !f.dia) return;
+    // Ya se anotó este mes. Guardamos el mes y no "¿existe el movimiento?"
+    // a propósito: si borraste el sueldo a mano, no queremos que reaparezca.
+    if(f.ultimoRegistrado === mes) return;
+
+    // El día 31 no existe en todos los meses: se usa el último día
+    const dia = Math.min(f.dia, diasDelMes);
+    if(hoy.getDate() < dia) return;
+
+    const mov = {
+      id: nuevoId(), monto: f.monto, tipo: f.tipo,
+      catId: f.catId, subId: f.subId || null,
+      fecha: `${mes}-${String(dia).padStart(2,'0')}`,
+      nota: '', fijoId: f.id
+    };
+    estado.movimientos.push(mov);
+    f.ultimoRegistrado = mes;
+    fijosRecienRegistrados.push({fijo: f, movId: mov.id});
+  });
+
+  // Nada de rellenar los meses que no abriste la app: inventar movimientos
+  // en meses ya cerrados desordenaría el historial y las comparaciones.
+  if(fijosRecienRegistrados.length) guardar();
+}
+
+function pintarAvisoFijos(){
+  const caja = document.getElementById('avisoFijos');
+  if(!fijosRecienRegistrados.length){ caja.classList.add('oculto'); return; }
+
+  caja.classList.remove('oculto');
+  const mesNombre = MESES[new Date().getMonth()];
+
+  if(fijosRecienRegistrados.length === 1){
+    const {fijo, movId} = fijosRecienRegistrados[0];
+    caja.innerHTML = `
+      <div class="texto">Anoté tu <b>${fijo.nombre}</b> de ${mesNombre} · ${pesos(fijo.monto)}</div>
+      <div class="acc">
+        <button onclick="editarMovimiento('${movId}')">Editar</button>
+        <button class="peligro" onclick="deshacerFijos()">Deshacer</button>
+      </div>`;
+  }else{
+    caja.innerHTML = `
+      <div class="texto">Anoté <b>${fijosRecienRegistrados.length} movimientos fijos</b> de ${mesNombre}</div>
+      <div class="acc">
+        <button onclick="irA('movimientos')">Ver</button>
+        <button class="peligro" onclick="deshacerFijos()">Deshacer</button>
+      </div>`;
+  }
+}
+
+// Borra lo que la app anotó sola y suelta la marca del mes, para que
+// no vuelva a aparecer al recargar.
+function deshacerFijos(){
+  fijosRecienRegistrados.forEach(({fijo, movId}) => {
+    estado.movimientos = estado.movimientos.filter(m => m.id !== movId);
+    const f = estado.fijos.find(x => x.id === fijo.id);
+    if(f) f.ultimoRegistrado = mesClave();   // se deja el mes: no lo vuelve a anotar
+  });
+  fijosRecienRegistrados = [];
+  guardar(); pintarTodo();
+}
+
+function pintarFijos(){
+  const tarjeta = document.getElementById('tarjetaFijos');
+  const lista   = document.getElementById('listaFijos');
+  const totales = document.getElementById('totalFijos');
+
+  // "Ahora no": la tarjeta se esconde, pero se llega igual desde Ajustes
+  if(!estado.fijos.length && estado.fijosOmitido){
+    tarjeta.classList.add('oculto'); return;
+  }
+  tarjeta.classList.remove('oculto');
+  // Cuando está vacía, la invitación ya trae su propio botón "Configurar"
+  document.getElementById('btnAgregarFijo').classList.toggle('oculto', !estado.fijos.length);
+
+  if(!estado.fijos.length){
+    lista.innerHTML = `
+      <div class="vacio" style="padding:14px 8px">
+        ¿Recibes tu sueldo un día fijo del mes?<br>
+        Configúralo una vez y lo anoto solo.
+      </div>
+      <div style="display:flex;gap:8px;justify-content:center;padding-bottom:4px">
+        <button class="btn-texto" style="padding:8px 14px" onclick="abrirNuevoFijo()">Configurar</button>
+        <button class="btn-texto" style="padding:8px 14px;opacity:.6" onclick="omitirFijos()">Ahora no</button>
+      </div>`;
+    totales.innerHTML = '';
+    return;
+  }
+
+  const mes = mesClave();
+  const orden = estado.fijos.slice().sort((a,b) => {
+    if((a.activo === false) !== (b.activo === false)) return a.activo === false ? 1 : -1;
+    return (a.dia || 32) - (b.dia || 32);
+  });
+
+  lista.innerHTML = orden.map(f => {
+    const pausado = f.activo === false;
+    const hecho   = f.ultimoRegistrado === mes;
+    // "Hecho" no siempre significa anotado: un fijo creado después de su día
+    // queda marcado para no anotar plata hacia atrás. Se dicen cosas distintas.
+    const anotado = estado.movimientos.some(m => m.fijoId === f.id && m.fecha.slice(0,7) === mes);
+    const fecha   = proximoCobro(f.dia);
+    const dias    = fecha ? diasHasta(fecha) : null;
+
+    let sub;
+    if(pausado)            sub = 'Pausado';
+    else if(anotado)       sub = `Anotado el ${f.dia} de ${MESES[new Date().getMonth()]}`;
+    else if(hecho)         sub = `Desde el próximo mes · día ${f.dia}`;
+    else if(dias === 0)    sub = 'Es hoy';
+    else if(dias === 1)    sub = 'Es mañana';
+    else if(dias !== null) sub = `Día ${f.dia} · en ${dias} días`;
+    else                   sub = 'Sin día';
+
+    const clase = f.tipo === 'ingreso' ? 'v-ingreso' : (f.tipo === 'ahorro' ? 'v-ahorro' : 'v-gasto');
+    return `<div class="sus ${!pausado && dias !== null && dias <= 3 && !hecho ? 'pronto' : ''} ${pausado?'pausada':''}"
+                 data-fijo="${f.id}" onclick="editarFijo('${f.id}')">
+        <span class="ico">${emojiDe(f.nombre) || (f.tipo==='ingreso'?'💵':'🧾')}</span>
+        <span class="nom">${f.nombre}<small>${sub}</small></span>
+        <span class="val ${clase}">${f.tipo==='ingreso'?'+':'−'}${pesos(f.monto)}</span>
+      </div>`;
+  }).join('');
+
+  const suma = tipo => estado.fijos
+    .filter(f => f.activo !== false && f.tipo === tipo)
+    .reduce((t,f) => t + (f.monto||0), 0);
+  const entra = suma('ingreso');
+  const sale  = suma('gasto') + suma('ahorro');
+  totales.innerHTML =
+    `<span>Al mes</span><b><span class="v-ingreso">+${pesos(entra)}</span>
+     &nbsp;<span class="v-gasto">−${pesos(sale)}</span></b>`;
+
+  activarPulsacionLarga('#listaFijos .sus', el => borrarFijo(el.dataset.fijo));
+}
+
+function omitirFijos(){
+  estado.fijosOmitido = true;
+  guardar(); pintarFijos();
+}
+
+// Desde Ajustes: se vuelve a Inicio con la tarjeta visible, aunque
+// alguna vez hayas dicho "ahora no"
+function irAFijos(){
+  estado.fijosOmitido = false;
+  guardar(); irA('inicio'); pintarTodo();
+  abrirNuevoFijo();
+}
+
+function borrarFijo(id){
+  const f = estado.fijos.find(x => x.id === id);
+  if(!f) return;
+  // Solo se deja de repetir: los movimientos ya anotados se quedan,
+  // porque esa plata sí se movió de verdad.
+  if(!confirm(`¿Dejar de anotar "${f.nombre}" todos los meses?\n\nLo que ya se anotó no se borra.`)) return;
+  estado.fijos = estado.fijos.filter(x => x.id !== id);
+  guardar(); pintarTodo();
+}
+
+/* --- Hoja para crear o editar un fijo --- */
+let fijoEditando = null;   // null = creando
+let tipoFijo = 'gasto', catFijo = null, subFijo = null, activoFijo = true;
+
+function abrirNuevoFijo(){
+  fijoEditando = null;
+  abrirHojaFijo(null);
+}
+
+function editarFijo(id){
+  const f = estado.fijos.find(x => x.id === id);
+  if(!f) return;
+  fijoEditando = id;
+  abrirHojaFijo(f);
+}
+
+function abrirHojaFijo(f){
+  document.getElementById('tituloFijo').textContent = f ? 'Editar fijo' : 'Nuevo fijo';
+  document.getElementById('btnBorrarFijo').classList.toggle('oculto', !f);
+  document.getElementById('inpFijoMonto').value  = f ? Number(f.monto).toLocaleString('es-CL') : '';
+  document.getElementById('inpFijoNombre').value = f ? f.nombre : '';
+  document.getElementById('inpFijoDia').value    = f ? f.dia : '';
+  tipoFijo = f ? f.tipo  : 'gasto';
+  catFijo  = f ? f.catId : null;
+  subFijo  = f ? (f.subId || null) : null;
+  elegirTipoFijo(tipoFijo);
+  elegirEstadoFijo(f ? f.activo !== false : true);
+  abrirHoja('hojaFijo');
+}
+
+function elegirEstadoFijo(v){
+  activoFijo = v;
+  document.getElementById('selFijoActivo').classList.toggle('activo', v);
+  document.getElementById('selFijoPausado').classList.toggle('activo', !v);
+}
+
+function elegirTipoFijo(t){
+  tipoFijo = t;
+  ['gasto','ingreso','ahorro'].forEach(x =>
+    document.getElementById('selFijo_'+x).classList.toggle('activo', x === t));
+  // Al cambiar de tipo, la categoría elegida puede dejar de tener sentido
+  const cat = catFijo && buscarCat(catFijo);
+  if(!cat || cat.tipo !== t){ catFijo = null; subFijo = null; }
+  pintarChipsFijo();
+}
+
+function pintarChipsFijo(){
+  const cats = estado.categorias.filter(c => c.tipo === tipoFijo);
+  document.getElementById('chipsFijoCat').innerHTML = cats.map(c =>
+    `<button class="chip ${c.id===catFijo?'activo':''}"
+             style="${c.id===catFijo?`background:${c.color};color:#fff;border-color:${c.color}`:''}"
+             onclick="elegirCatFijo('${c.id}')">${c.icono} ${c.nombre}</button>`).join('')
+    || `<div class="vacio" style="padding:8px">No tienes categorías de este tipo.</div>`;
+
+  const cat = catFijo && buscarCat(catFijo);
+  const cajaSub = document.getElementById('campoFijoSub');
+  if(!cat || !cat.subs.length){ cajaSub.classList.add('oculto'); return; }
+  cajaSub.classList.remove('oculto');
+  document.getElementById('chipsFijoSub').innerHTML = cat.subs.map(s =>
+    `<button class="chip ${s.id===subFijo?'activo':''}"
+             style="${s.id===subFijo?'background:var(--texto);color:var(--fondo)':''}"
+             onclick="elegirSubFijo('${s.id}')">${emojiDe(s.nombre)}${s.nombre}</button>`).join('');
+}
+
+function elegirCatFijo(id){
+  catFijo = id; subFijo = null;
+  // Si el fijo no tiene nombre todavía, se propone el de la categoría
+  const inp = document.getElementById('inpFijoNombre');
+  if(!inp.value.trim()) inp.value = buscarCat(id).nombre;
+  pintarChipsFijo();
+}
+
+function elegirSubFijo(id){
+  subFijo = (subFijo === id) ? null : id;
+  const inp = document.getElementById('inpFijoNombre');
+  const cat = buscarCat(catFijo);
+  const sub = cat.subs.find(s => s.id === id);
+  // El detalle es más específico que la categoría: manda como nombre
+  if(subFijo && (!inp.value.trim() || inp.value.trim() === cat.nombre)) inp.value = sub.nombre;
+  pintarChipsFijo();
+}
+
+function guardarFijo(){
+  const monto = Number(document.getElementById('inpFijoMonto').value.replace(/\D/g,'')) || 0;
+  const nombre = document.getElementById('inpFijoNombre').value.trim();
+  const dia = Number(document.getElementById('inpFijoDia').value) || 0;
+
+  if(!monto){ alert('Escribe el monto.'); return; }
+  if(!catFijo){ alert('Elige una categoría.'); return; }
+  if(dia < 1 || dia > 31){ alert('El día tiene que estar entre 1 y 31.'); return; }
+
+  const datos = {
+    nombre: nombre || buscarCat(catFijo).nombre,
+    monto, dia, tipo: tipoFijo, catId: catFijo, subId: subFijo,
+    activo: activoFijo
+  };
+
+  if(fijoEditando){
+    Object.assign(estado.fijos.find(f => f.id === fijoEditando), datos);
+  }else{
+    // Un fijo nuevo no anota nada hacia atrás por su cuenta: quizá ya lo
+    // anotaste a mano y quedaría duplicado. Si el día ya pasó, se pregunta.
+    const hoy = new Date();
+    const yaPaso = hoy.getDate() >= dia;
+    const nuevo = {id: nuevoId(), ...datos, ultimoRegistrado: yaPaso ? mesClave(hoy) : null};
+    estado.fijos.push(nuevo);
+
+    if(yaPaso && datos.activo &&
+       confirm(`El día ${dia} ya pasó.\n\n¿Anoto también el de ${MESES[hoy.getMonth()]}?`)){
+      estado.movimientos.push({
+        id: nuevoId(), monto: datos.monto, tipo: datos.tipo,
+        catId: datos.catId, subId: datos.subId || null,
+        fecha: `${mesClave(hoy)}-${String(dia).padStart(2,'0')}`,
+        nota: '', fijoId: nuevo.id
+      });
+    }
+  }
+  fijoEditando = null;
+  guardar(); cerrarHojas(); pintarTodo();
+}
+
+function borrarFijoDesdeHoja(){
+  const id = fijoEditando;
+  fijoEditando = null;
+  cerrarHojas();
+  borrarFijo(id);
 }
 
 /* ================================================================
@@ -1774,8 +2244,10 @@ let tipoCatNueva = 'gasto', colorElegido = PALETA[0], iconoElegido = ICONOS[0], 
 
 function pintarEditorCategorias(){
   document.getElementById('editorCategorias').innerHTML = estado.categorias.map(cat => {
+    // Un toque lo renombra; manteniendo el dedo se borra (el gesto de siempre)
     const subs = cat.subs.map(s => `
-      <div class="sub borrable" data-cat="${cat.id}" data-sub="${s.id}">
+      <div class="sub borrable" data-cat="${cat.id}" data-sub="${s.id}"
+           onclick="editarDetalle('${cat.id}','${s.id}')">
         <span class="nom">${emojiDe(s.nombre)}${s.nombre}</span>
       </div>`).join('');
     return `<div class="cat abierta">
@@ -1819,6 +2291,9 @@ function abrirHojaCategoria(cat){
   document.getElementById('tituloCategoria').textContent =
     cat ? 'Editar categoría' : 'Nueva categoría';
   document.getElementById('btnGuardarCat').textContent = cat ? 'Guardar' : 'Crear categoría';
+  // Borrar manteniendo el dedo sobre la fila sigue funcionando, pero ese gesto
+  // no se descubre solo: al editar hay además un botón a la vista.
+  document.getElementById('btnBorrarCat').classList.toggle('oculto', !cat || catDesdeRegistro);
   document.getElementById('inpCatNombre').value = cat ? cat.nombre : '';
   tipoCatNueva  = cat ? cat.tipo  : 'gasto';
   colorElegido  = cat ? cat.color : PALETA[0];
@@ -1900,7 +2375,18 @@ function borrarCategoria(id){
   if(!confirm(aviso)) return;
   estado.categorias = estado.categorias.filter(c => c.id !== id);
   estado.movimientos = estado.movimientos.filter(m => m.catId !== id);
+  // Un fijo apunta a su categoría: sin ella no sabría dónde anotar
+  estado.fijos = estado.fijos.filter(f => f.catId !== id);
   guardar(); pintarEditorCategorias(); pintarTodo();
+}
+
+// Mismo borrado, pero desde el botón de la hoja de edición
+function borrarCategoriaDesdeHoja(){
+  const id = catEditando;
+  if(!id) return;
+  catEditando = null;
+  cerrarHojas();
+  borrarCategoria(id);
 }
 
 /* ---- Vocabulario ofrecido al crear un detalle ----
@@ -1908,7 +2394,8 @@ function borrarCategoria(id){
    El emoji lo pone emojiDe(), así que no hay que repetirlo aquí. */
 const SUGERENCIAS = {
   'Alimentación': ['Supermercado','Feria','Panadería','Carnicería','Almuerzo','Restaurante','Café','Once','Delivery'],
-  'Servicios':    ['Luz','Agua','Gas','Internet','Teléfono','Arriendo','Gastos comunes','Basura'],
+  'Servicios':    ['Luz','Agua','Gas','Internet','Plan de celular','Arriendo','Dividendo',
+                   'Crédito de consumo','Contribuciones','Seguro','Gastos comunes','Basura','Calefacción'],
   'Transporte':   ['Bencina','Micro','Metro','Taxi','Peaje','Estacionamiento','Mecánico','Pasajes'],
   'Salud':        ['Farmacia','Médico','Dentista','Óptica','Exámenes'],
   'Suscripciones':['Netflix','Spotify','Disney+','Crunchyroll','YouTube Premium','ChatGPT','Claude','Meli+','Jumbo Prime','Amazon Prime','Max','iCloud'],
@@ -1920,7 +2407,7 @@ const SUGERENCIAS = {
 // no tienen grupo conocido: a esas se les muestra la lista completa.
 const GRUPO_DE_CATEGORIA = {
   c1:'Alimentación', c2:'Servicios', c3:'Otros', c4:'Transporte',
-  c7:'Suscripciones', c8:'Mascota'
+  c7:'Suscripciones', c8:'Mascota', c9:'Servicios'
 };
 
 let mostrandoTodas = false;
@@ -2024,16 +2511,20 @@ function abrirNuevaSub(catId, desdeRegistro){
   abrirHoja('hojaSub');
 }
 
-function editarSuscripcion(subId){
-  const cat = buscarCat(CAT_SUSCRIPCIONES);
-  const sub = cat.subs.find(s => s.id === subId);
+// Sirve para cualquier categoría: una suscripción es solo un detalle que
+// además tiene monto y día de cobro, y prepararHojaSub ya sabe distinguirlas.
+function editarDetalle(catId, subId){
+  const cat = buscarCat(catId);
+  const sub = cat && cat.subs.find(s => s.id === subId);
   if(!sub) return;
-  catParaSub = CAT_SUSCRIPCIONES;
+  catParaSub = catId;
   subDesdeRegistro = false;
   subEditando = subId;
-  prepararHojaSub(CAT_SUSCRIPCIONES, sub);
+  prepararHojaSub(catId, sub);
   abrirHoja('hojaSub');
 }
+
+const editarSuscripcion = subId => editarDetalle(CAT_SUSCRIPCIONES, subId);
 
 function guardarSub(){
   const nombre = document.getElementById('inpSubNombre').value.trim();
@@ -2090,6 +2581,7 @@ function borrarSub(catId, subId){
   cat.subs = cat.subs.filter(s => s.id !== subId);
   // Los movimientos que usaban ese detalle quedan en la categoría, sin detalle
   estado.movimientos.forEach(m => { if(m.subId === subId) m.subId = null; });
+  estado.fijos.forEach(f => { if(f.subId === subId) f.subId = null; });
   guardar(); pintarEditorCategorias(); pintarTodo();
 }
 
@@ -2160,6 +2652,8 @@ function borrarTodo(){
 
 cargar();
 aplicarTema(estado.tema || 'auto');
+// Antes de pintar: si pasó el día de algún fijo, se anota ahora
+revisarFijos();
 pintarTodo();
 
 // La tecla Escape cierra las hojas (útil en el computador)
