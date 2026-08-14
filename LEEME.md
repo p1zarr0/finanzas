@@ -4,6 +4,10 @@ App de finanzas personales. Registro de gastos, ahorro, ingresos y gastos fijos 
 anotan solos, suscripciones con recordatorio de cobro, análisis por categoría, deudas
 pendientes y escáner de boletas.
 
+Las categorías separan lo que se comporta distinto: **Gastos fijos** (contractual) de
+**Hogar** (luz, agua, gas), y **Auto** (bencina, mantención, permiso) de **Locomoción**
+(micro, metro, taxi). Así se ve cuánto cuesta cada cosa de verdad.
+
 Los datos se guardan **solo en el dispositivo**, en la memoria del navegador.
 No hay servidor, no hay cuenta, nada sale de tu teléfono.
 

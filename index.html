@@ -735,7 +735,7 @@ input[type=date],input[type=text],input[type=number],select{
    ================================================================ */
 
 const PALETA = ['#C97B84','#7A9E7E','#8FA8C4','#D9A566','#A98BA8','#6FA5A0','#C4899B','#8C9E6E'];
-const ICONOS = ['🍽','🏠','🏡','💡','🚌','🛍','💊','🎬','📚','☕','🎁','💰','✈️','🐾','🧾'];
+const ICONOS = ['🍽','🏠','🏡','💡','🚌','🚗','🛍','💊','🎬','📚','☕','🎁','💰','✈️','🐾','🧾'];
 
 const CATEGORIAS_INICIALES = [
   {id:'c1', nombre:'Alimentación',  tipo:'gasto',   color:'#C97B84', icono:'🍽', subs:[
@@ -754,9 +754,10 @@ const CATEGORIAS_INICIALES = [
       {id:'v1',nombre:'Ropa'},{id:'v2',nombre:'Regalo'},{id:'v3',nombre:'Cine'},
       {id:'v4',nombre:'Libro'},{id:'v5',nombre:'Peluquería'}
   ]},
-  {id:'c4', nombre:'Transporte',    tipo:'gasto',   color:'#7A9E7E', icono:'🚌', subs:[
-      {id:'t1',nombre:'Bencina'},{id:'t2',nombre:'Micro'},{id:'t3',nombre:'Metro'},
-      {id:'t4',nombre:'Taxi'},{id:'t5',nombre:'Estacionamiento'}
+  // Locomoción = moverse sin auto propio. Son gastos chicos y de todos los días.
+  {id:'c4', nombre:'Locomoción',    tipo:'gasto',   color:'#7A9E7E', icono:'🚌', subs:[
+      {id:'t2',nombre:'Micro'},{id:'t3',nombre:'Metro'},{id:'t4',nombre:'Taxi'},
+      {id:'l1',nombre:'Colectivo'},{id:'l2',nombre:'Uber'},{id:'l3',nombre:'Bip!'}
   ]},
   {id:'c5', nombre:'Ingresos',      tipo:'ingreso', color:'#7A9E7E', icono:'💰', subs:[]},
   {id:'c6', nombre:'Ahorro',        tipo:'ahorro',  color:'#6FA5A0', icono:'🏦', subs:[]},
@@ -772,6 +773,15 @@ const CATEGORIAS_INICIALES = [
   {id:'c9', nombre:'Hogar',         tipo:'gasto',   color:'#C4899B', icono:'🏡', subs:[
       {id:'s1',nombre:'Luz'},{id:'s2',nombre:'Agua'},{id:'s3',nombre:'Gas'},
       {id:'h1',nombre:'Basura'},{id:'h2',nombre:'Calefacción'}
+  ]},
+  // Auto = lo que cuesta tener el auto. Va aparte de la locomoción porque son
+  // gastos grandes y de vez en cuando, no chicos y diarios.
+  {id:'c10', nombre:'Auto',         tipo:'gasto',   color:'#6FA5A0', icono:'🚗', subs:[
+      {id:'t1',nombre:'Bencina'},{id:'t5',nombre:'Estacionamiento'},
+      {id:'u1',nombre:'Mantención'},{id:'u2',nombre:'Peaje'},{id:'u3',nombre:'TAG'},
+      {id:'u4',nombre:'Permiso de circulación'},{id:'u5',nombre:'Revisión técnica'},
+      {id:'u6',nombre:'Seguro del auto'},{id:'u7',nombre:'Neumáticos'},
+      {id:'u8',nombre:'Mecánico'},{id:'u9',nombre:'Lavado'}
   ]}
 ];
 
@@ -787,7 +797,7 @@ let estado = {
   //  activo:true, ultimoRegistrado:'2026-08'}
   fijos: [],
   tema: 'auto',
-  version: 5
+  version: 6
 };
 
 /* localStorage = la memoria del navegador. Guarda texto y sobrevive
@@ -817,6 +827,38 @@ function cargar(){
       estado.categorias.push(CATEGORIAS_INICIALES.find(c => c.id === id));
     }
   };
+
+  // Sin tilde y en minúscula, para comparar "Mantención" con "mantencion"
+  const plano = t => t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+
+  /* Parte una categoría en dos. Se usó para separar Hogar de Gastos fijos y
+     después Auto de Locomoción, y es la parte delicada de toda migración:
+     un movimiento guarda catId Y subId. Si solo moviéramos el detalle, los
+     gastos viejos quedarían colgando de una categoría que ya no los tiene
+     y desaparecerían de los totales y de los gráficos. */
+  const moverDetalles = (idDesde, idHacia, nombres) => {
+    const desde = buscarCat(idDesde), hacia = buscarCat(idHacia);
+    if(!desde || !hacia) return;
+    const seMueve = s => nombres.includes(plano(s.nombre));
+
+    // Se mueven conservando el id: los movimientos siguen apuntando al mismo detalle
+    const movidos = desde.subs.filter(seMueve);
+    movidos.forEach(s => {
+      if(!hacia.subs.some(h => h.id === s.id || plano(h.nombre) === plano(s.nombre)))
+        hacia.subs.push(s);
+    });
+    const ids = movidos.map(s => s.id);
+    desde.subs = desde.subs.filter(s => !seMueve(s));
+    estado.movimientos.forEach(m => { if(m.catId === idDesde && ids.includes(m.subId)) m.catId = idHacia; });
+    (estado.fijos || []).forEach(f => { if(f.catId === idDesde && ids.includes(f.subId)) f.catId = idHacia; });
+  };
+
+  // Agrega un detalle solo si no lo tienes ya con ese nombre
+  const sumarDetalle = (cat, nombre) => {
+    if(cat && !cat.subs.some(s => plano(s.nombre) === plano(nombre)))
+      cat.subs.push({id: nuevoId(), nombre});
+  };
+
   if(!estado.version){ agregarUnaVez('c7'); estado.version = 2; }
   if(estado.version < 3){ agregarUnaVez('c8'); estado.version = 3; }
 
@@ -845,39 +887,33 @@ function cargar(){
     // "Gastos fijos" mezclaba dos cosas distintas: el arriendo (mismo monto todos
     // los meses) con la luz (distinta cada mes). Se separan en dos categorías.
     agregarUnaVez('c9');
+    moverDetalles('c2', 'c9', ['luz','agua','gas','basura','calefaccion']);
+
     const fijos = buscarCat('c2'), hogar = buscarCat('c9');
+    ['Dividendo','Crédito de consumo','Plan de celular','Internet','Contribuciones','Seguro']
+      .forEach(n => sumarDetalle(fijos, n));
+    ['Basura','Calefacción'].forEach(n => sumarDetalle(hogar, n));
+    if(fijos && fijos.icono === '🏠') fijos.icono = '🧾';
 
-    if(fijos && hogar){
-      const aHogar = ['luz','agua','gas','basura','calefaccion'];
-      const esDeHogar = s => aHogar.includes(
-        s.nombre.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,''));
-
-      // Se mueven conservando el id: así los movimientos ya anotados siguen
-      // apuntando al mismo detalle y no se pierde nada.
-      fijos.subs.filter(esDeHogar).forEach(s => {
-        if(!hogar.subs.some(h => h.id === s.id || h.nombre === s.nombre)) hogar.subs.push(s);
-      });
-      const idsMovidos = fijos.subs.filter(esDeHogar).map(s => s.id);
-      fijos.subs = fijos.subs.filter(s => !esDeHogar(s));
-
-      // Lo delicado: el movimiento guarda catId Y subId. Si solo moviéramos el
-      // detalle, los gastos viejos de luz quedarían colgando de una categoría
-      // que ya no los tiene y desaparecerían de los gráficos.
-      estado.movimientos.forEach(m => {
-        if(m.catId === 'c2' && idsMovidos.includes(m.subId)) m.catId = 'c9';
-      });
-
-      // Los detalles nuevos solo se agregan si no los tenías ya con otro nombre
-      const sumar = (cat, nombre) => {
-        if(!cat.subs.some(s => s.nombre.toLowerCase() === nombre.toLowerCase()))
-          cat.subs.push({id: nuevoId(), nombre});
-      };
-      ['Dividendo','Crédito de consumo','Plan de celular','Internet','Contribuciones','Seguro']
-        .forEach(n => sumar(fijos, n));
-      ['Basura','Calefacción'].forEach(n => sumar(hogar, n));
-      if(fijos.icono === '🏠') fijos.icono = '🧾';
-    }
     estado.version = 5;
+  }
+
+  if(estado.version < 6){
+    // "Transporte" juntaba la micro con la bencina. Tener auto es un gasto
+    // grande y esporádico; moverse en micro es chico y de todos los días.
+    // Mezclarlos escondía cuánto cuesta realmente el auto.
+    agregarUnaVez('c10');
+    moverDetalles('c4', 'c10', ['bencina','combustible','estacionamiento','peaje','mecanico']);
+
+    const loco = buscarCat('c4'), auto = buscarCat('c10');
+    ['Colectivo','Uber','Bip!'].forEach(n => sumarDetalle(loco, n));
+    ['Mantención','Peaje','TAG','Permiso de circulación','Revisión técnica',
+     'Seguro del auto','Neumáticos','Mecánico','Lavado'].forEach(n => sumarDetalle(auto, n));
+    // Solo se renombra si aún se llamaba como venía de fábrica: si tú le
+    // pusiste otro nombre, se respeta.
+    if(loco && loco.nombre === 'Transporte') loco.nombre = 'Locomoción';
+
+    estado.version = 6;
   }
 
   if(!estado.transferencias) estado.transferencias = [];
@@ -940,6 +976,10 @@ const EMOJIS_PALABRA = {
   // Transporte
   bencina:'⛽', combustible:'⛽', micro:'🚌', bus:'🚌', metro:'🚇', taxi:'🚕',
   peaje:'🛣', estacionamiento:'🅿️', bicicleta:'🚲', mecanico:'🔧', pasaje:'🎫',
+  colectivo:'🚖', uber:'🚗', bip:'💳', locomocion:'🚌',
+  // Auto: lo que cuesta tenerlo, aparte de moverse
+  auto:'🚗', mantencion:'🔧', tag:'🛣', permiso:'📋', circulacion:'📋',
+  revision:'🔍', tecnica:'🔍', neumatico:'🛞', lavado:'🧼', patente:'📋',
   // Salud
   farmacia:'💊', remedio:'💊', medico:'🩺', doctor:'🩺', dentista:'🦷',
   optica:'👓', examen:'🧪', kinesiologo:'🩹',
@@ -2396,7 +2436,9 @@ const SUGERENCIAS = {
   'Alimentación': ['Supermercado','Feria','Panadería','Carnicería','Almuerzo','Restaurante','Café','Once','Delivery'],
   'Servicios':    ['Luz','Agua','Gas','Internet','Plan de celular','Arriendo','Dividendo',
                    'Crédito de consumo','Contribuciones','Seguro','Gastos comunes','Basura','Calefacción'],
-  'Transporte':   ['Bencina','Micro','Metro','Taxi','Peaje','Estacionamiento','Mecánico','Pasajes'],
+  'Locomoción':   ['Micro','Metro','Taxi','Colectivo','Uber','Bip!','Pasajes','Bicicleta'],
+  'Auto':         ['Bencina','Estacionamiento','Mantención','Peaje','TAG','Permiso de circulación',
+                   'Revisión técnica','Seguro del auto','Neumáticos','Mecánico','Lavado'],
   'Salud':        ['Farmacia','Médico','Dentista','Óptica','Exámenes'],
   'Suscripciones':['Netflix','Spotify','Disney+','Crunchyroll','YouTube Premium','ChatGPT','Claude','Meli+','Jumbo Prime','Amazon Prime','Max','iCloud'],
   'Mascota':      ['Comida de gato','Arena','Veterinario','Juguetes'],
@@ -2406,8 +2448,8 @@ const SUGERENCIAS = {
 // Qué grupo le toca a cada categoría de fábrica. Las que crea el usuario
 // no tienen grupo conocido: a esas se les muestra la lista completa.
 const GRUPO_DE_CATEGORIA = {
-  c1:'Alimentación', c2:'Servicios', c3:'Otros', c4:'Transporte',
-  c7:'Suscripciones', c8:'Mascota', c9:'Servicios'
+  c1:'Alimentación', c2:'Servicios', c3:'Otros', c4:'Locomoción',
+  c7:'Suscripciones', c8:'Mascota', c9:'Servicios', c10:'Auto'
 };
 
 let mostrandoTodas = false;
