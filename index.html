@@ -759,7 +759,11 @@ const CATEGORIAS_INICIALES = [
       {id:'t2',nombre:'Micro'},{id:'t3',nombre:'Metro'},{id:'t4',nombre:'Taxi'},
       {id:'l1',nombre:'Colectivo'},{id:'l2',nombre:'Uber'},{id:'l3',nombre:'Bip!'}
   ]},
-  {id:'c5', nombre:'Ingresos',      tipo:'ingreso', color:'#7A9E7E', icono:'💰', subs:[]},
+  {id:'c5', nombre:'Ingresos',      tipo:'ingreso', color:'#7A9E7E', icono:'💰', subs:[
+      {id:'i1',nombre:'Sueldo'},{id:'i2',nombre:'Aguinaldo'},{id:'i3',nombre:'Bono'},
+      {id:'i4',nombre:'Freelance'},{id:'i5',nombre:'Arriendo que recibo'},
+      {id:'i6',nombre:'Devolución de impuestos'}
+  ]},
   {id:'c6', nombre:'Ahorro',        tipo:'ahorro',  color:'#6FA5A0', icono:'🏦', subs:[]},
   // Suscripciones empieza vacía a propósito: las 12 plataformas viven en
   // SUGERENCIAS y se agregan cuando tú las ocupas, con su monto y día de cobro.
@@ -797,7 +801,7 @@ let estado = {
   //  activo:true, ultimoRegistrado:'2026-08'}
   fijos: [],
   tema: 'auto',
-  version: 6
+  version: 7
 };
 
 /* localStorage = la memoria del navegador. Guarda texto y sobrevive
@@ -916,6 +920,14 @@ function cargar(){
     estado.version = 6;
   }
 
+  if(estado.version < 7){
+    // La categoría Ingresos venía sin detalles: al elegirla no aparecía nada
+    // y no había forma de separar el sueldo del aguinaldo.
+    ['Sueldo','Aguinaldo','Bono','Freelance','Arriendo que recibo','Devolución de impuestos']
+      .forEach(n => sumarDetalle(buscarCat('c5'), n));
+    estado.version = 7;
+  }
+
   if(!estado.transferencias) estado.transferencias = [];
   if(!estado.fijos) estado.fijos = [];
 
@@ -972,7 +984,10 @@ const EMOJIS_PALABRA = {
   arriendo:'🏠', comunes:'🏢', basura:'🗑', calefaccion:'🔥',
   // Gastos fijos: los que cambian solo por contrato o por ley
   dividendo:'🏦', hipotecario:'🏠', credito:'💳', contribuciones:'🧾',
-  seguro:'🛡', celular:'📱', sueldo:'💵', plan:'📱',
+  seguro:'🛡', celular:'📱', plan:'📱',
+  // Ingresos
+  sueldo:'💵', aguinaldo:'🎁', bono:'💰', freelance:'💻', propina:'🪙',
+  impuestos:'🧾', devolucion:'🧾', pension:'💵', jubilacion:'💵', comision:'💰',
   // Transporte
   bencina:'⛽', combustible:'⛽', micro:'🚌', bus:'🚌', metro:'🚇', taxi:'🚕',
   peaje:'🛣', estacionamiento:'🅿️', bicicleta:'🚲', mecanico:'🔧', pasaje:'🎫',
@@ -1352,13 +1367,31 @@ function elegirTipoFijo(t){
   pintarChipsFijo();
 }
 
+/* Un fijo de gasto solo puede ir a "Gastos fijos". Mostrar las ocho categorías
+   invitaba a poner ahí la feria o la bencina, que no son fijos: cambian todos
+   los meses y romperían el sentido del panel. Los ingresos y el ahorro no se
+   filtran porque de esos tipos hay una sola categoría. */
+const CATS_FIJO_GASTO = ['c2'];
+
 function pintarChipsFijo(){
-  const cats = estado.categorias.filter(c => c.tipo === tipoFijo);
+  let cats = estado.categorias.filter(c => c.tipo === tipoFijo);
+  if(tipoFijo === 'gasto') cats = cats.filter(c => CATS_FIJO_GASTO.includes(c.id));
+  // Si estás editando un fijo viejo que apunta a otra categoría, esa se muestra
+  // igual: si no, al guardar se perdería sin que te dieras cuenta.
+  if(catFijo && !cats.some(c => c.id === catFijo)){
+    const suya = buscarCat(catFijo);
+    if(suya) cats = [suya, ...cats];
+  }
+  // Si quedó una sola opción, no tiene gracia obligarte a tocarla
+  if(!catFijo && cats.length === 1) catFijo = cats[0].id;
+
   document.getElementById('chipsFijoCat').innerHTML = cats.map(c =>
     `<button class="chip ${c.id===catFijo?'activo':''}"
              style="${c.id===catFijo?`background:${c.color};color:#fff;border-color:${c.color}`:''}"
              onclick="elegirCatFijo('${c.id}')">${c.icono} ${c.nombre}</button>`).join('')
-    || `<div class="vacio" style="padding:8px">No tienes categorías de este tipo.</div>`;
+    || `<div class="vacio" style="padding:8px">
+          Necesitas la categoría "Gastos fijos". Créala en ⚙ y vuelve.
+        </div>`;
 
   const cat = catFijo && buscarCat(catFijo);
   const cajaSub = document.getElementById('campoFijoSub');
@@ -2442,6 +2475,8 @@ const SUGERENCIAS = {
   'Salud':        ['Farmacia','Médico','Dentista','Óptica','Exámenes'],
   'Suscripciones':['Netflix','Spotify','Disney+','Crunchyroll','YouTube Premium','ChatGPT','Claude','Meli+','Jumbo Prime','Amazon Prime','Max','iCloud'],
   'Mascota':      ['Comida de gato','Arena','Veterinario','Juguetes'],
+  'Ingresos':     ['Sueldo','Aguinaldo','Bono','Freelance','Arriendo que recibo',
+                   'Devolución de impuestos','Comisión','Propinas'],
   'Otros':        ['Cine','Streaming','Ropa','Regalo','Libro','Gimnasio','Peluquería','Banco']
 };
 
@@ -2449,7 +2484,7 @@ const SUGERENCIAS = {
 // no tienen grupo conocido: a esas se les muestra la lista completa.
 const GRUPO_DE_CATEGORIA = {
   c1:'Alimentación', c2:'Servicios', c3:'Otros', c4:'Locomoción',
-  c7:'Suscripciones', c8:'Mascota', c9:'Servicios', c10:'Auto'
+  c5:'Ingresos', c7:'Suscripciones', c8:'Mascota', c9:'Servicios', c10:'Auto'
 };
 
 let mostrandoTodas = false;
