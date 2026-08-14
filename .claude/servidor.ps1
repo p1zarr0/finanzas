@@ -1,6 +1,11 @@
 ﻿# Servidor web mÃ­nimo para probar la app en el navegador.
 # No instala nada: usa lo que Windows ya trae.
-param([int]$Puerto = 5173)
+param([int]$Puerto = 0)
+
+# Si quien lanza el servidor eligió el puerto (variable PORT), se respeta.
+if ($Puerto -eq 0) {
+  $Puerto = if ($env:PORT) { [int]$env:PORT } else { 5173 }
+}
 
 $raiz = Split-Path -Parent $PSScriptRoot
 $oyente = New-Object System.Net.HttpListener

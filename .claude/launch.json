@@ -9,7 +9,8 @@
         "-ExecutionPolicy", "Bypass",
         "-File", ".claude/servidor.ps1"
       ],
-      "port": 5173
+      "port": 5173,
+      "autoPort": true
     }
   ]
 }
