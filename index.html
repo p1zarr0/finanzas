@@ -1883,30 +1883,68 @@ function confirmarAnioNuevo(){
 
 /* Anota lo que toca del mes. No avisa nada: lo anotado aparece en la lista
    de movimientos como cualquier otro, y ahí mismo se corrige o se borra. */
+/* Cuántos meses hacia atrás se rellenan como máximo. Volver después de dos
+   años no debería inventarte veinticuatro arriendos de golpe: se anotan los
+   doce más recientes y lo anterior se da por perdido. */
+const TOPE_MESES_ATRAS = 12;
+
+/* Qué meses le faltan a esta ficha, del más viejo al más nuevo. Devuelve una
+   fecha por mes, siempre el día 1; el día real lo pone anotarFijoDelMes.
+
+   Antes esto no existía: revisarFijos miraba solo el mes en curso, así que si
+   no abrías la app en todo un mes, ese mes se perdía. La marca saltaba de
+   noviembre a enero y el arriendo de diciembre no se anotaba nunca, dejando
+   ese mes con menos gasto del que hubo. */
+function mesesPorAnotar(f, hoy){
+  const mesHoy = mesClave(hoy);
+  if(f.ultimoRegistrado === mesHoy) return [];
+
+  const esteMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+  // Sin marca previa no hay historia que rellenar: la ficha es nueva
+  if(!f.ultimoRegistrado) return [esteMes];
+
+  const [anio, mesNum] = f.ultimoRegistrado.split('-').map(Number);
+  // mesNum viene en 1-12; como índice 0-11 apunta al mes SIGUIENTE, que es
+  // justo por donde hay que empezar.
+  let d = new Date(anio, mesNum, 1);
+
+  // Si quedaron más meses que el tope, se descartan los más viejos y no los
+  // más nuevos: lo reciente es lo que todavía te sirve para cuadrar.
+  const masViejo = new Date(hoy.getFullYear(), hoy.getMonth() - (TOPE_MESES_ATRAS - 1), 1);
+  if(d < masViejo) d = masViejo;
+
+  const meses = [];
+  while(d <= esteMes){
+    meses.push(new Date(d));
+    d.setMonth(d.getMonth() + 1);
+  }
+  return meses;
+}
+
 function revisarFijos(){
   let anotados = 0;
   const hoy = new Date();
-  const mes = mesClave(hoy);
 
   estado.fijos.forEach(f => {
     if(f.activo === false || !f.monto || !f.dia) return;
-    // Los anuales (la patente, el permiso de circulación) solo en su mes.
-    // La marca de "ya anotado" sirve igual: solo puede coincidir una vez al año.
-    if(f.frecuencia === 'anual' && f.mes && f.mes !== hoy.getMonth() + 1) return;
     // Un mensual del año pasado espera a que digas si sigue. Se salta en vez
     // de anotarse y preguntar después: anotar algo que quizás vas a cancelar
     // te movería el Disponible de enero por nada.
     if(esperaConfirmacion(f, hoy.getFullYear())) return;
-    // Ya se anotó este mes. Guardamos el mes y no "¿existe el movimiento?"
-    // a propósito: si borraste el sueldo a mano, no queremos que reaparezca.
-    if(f.ultimoRegistrado === mes) return;
 
-    anotarFijoDelMes(f, hoy);
-    anotados++;
+    /* Se recorren los meses que falten, no solo el actual. La marca de "ya
+       anotado" se guarda por mes y no se pregunta "¿existe el movimiento?" a
+       propósito: si borraste el sueldo a mano, no queremos que reaparezca. */
+    mesesPorAnotar(f, hoy).forEach(d => {
+      // Los anuales (la patente, el permiso de circulación) solo en su mes.
+      // Se filtra aquí dentro para que al rellenar varios meses se anote el
+      // que le toca y se salten los otros once.
+      if(f.frecuencia === 'anual' && f.mes && f.mes !== d.getMonth() + 1) return;
+      anotarFijoDelMes(f, d);
+      anotados++;
+    });
   });
 
-  // Nada de rellenar los meses que no abriste la app: inventar movimientos
-  // en meses ya cerrados desordenaría el historial y las comparaciones.
   if(anotados) guardar();
 }
 
