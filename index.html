@@ -346,12 +346,10 @@ h2.seccion{font-size:19px;margin-bottom:16px}
   flex:1;width:auto;font-size:var(--t-md);color:var(--texto);font-weight:500;
   letter-spacing:.01em;border-radius:18px;padding:0 4px
 }
-/* Dentro de una tarjeta no puede parecer otra tarjeta encima: se le quita
-   la sombra y se hunde con el color del fondo. */
-.pildora-fechas.en-tarjeta{
-  margin:2px 0 16px;background:var(--hundido);box-shadow:none;
-  border:1px solid var(--linea)
-}
+/* Hubo una variante ".en-tarjeta", hundida y sin sombra, para la copia que
+   vivía dentro del cuadro del gráfico. Ya no existe: hay una sola píldora,
+   se ve igual en las dos pantallas y en las dos va sobre el fondo de la
+   página, que es donde su blanco se despega. */
 
 .vacio{text-align:center;color:var(--suave);padding:34px 16px;font-size:14px}
 .vacio .emo{font-size:32px;display:block;margin-bottom:10px;opacity:.5}
@@ -583,6 +581,17 @@ input[type=date],input[type=text],input[type=number],select{
       </div>
     </header>
 
+    <!-- Las mismas fechas de Movimientos, y la misma píldora: mandan sobre
+         TODO Análisis —el balance, la dona y la lista de categorías—, así que
+         van arriba del todo. Vivían dentro de la tarjeta del gráfico, lo que
+         daba a entender que solo mandaban sobre esa tarjeta; y ahí quedaban
+         blancas sobre blanco, casi invisibles. -->
+    <div class="pildora-fechas">
+      <button onclick="moverRango(-1)" aria-label="Período anterior">‹</button>
+      <button class="rango" onclick="abrirRango()">—</button>
+      <button onclick="moverRango(1)" aria-label="Período siguiente">›</button>
+    </div>
+
     <div class="balance">
       <div class="etiqueta" id="etiquetaBalance">Disponible este mes</div>
       <div class="monto" id="balanceMonto">$0</div>
@@ -600,14 +609,6 @@ input[type=date],input[type=text],input[type=number],select{
 
     <div class="tarjeta" id="tarjetaGrafico">
       <h2 class="seccion titulo">En qué se fue</h2>
-      <!-- Las mismas fechas de Movimientos. Mandan sobre todo Análisis:
-           el balance, la dona y la lista de categorías se calculan con
-           el período que quede elegido aquí. -->
-      <div class="pildora-fechas en-tarjeta">
-        <button onclick="moverRango(-1)" aria-label="Período anterior">‹</button>
-        <button class="rango" onclick="abrirRango()">—</button>
-        <button onclick="moverRango(1)" aria-label="Período siguiente">›</button>
-      </div>
       <div class="grafico">
         <div class="dona">
           <svg width="156" height="156" viewBox="0 0 156 156" id="dona"></svg>
