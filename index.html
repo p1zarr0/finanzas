@@ -2947,22 +2947,37 @@ function mesCompletoDesdeHoja(){
    lo que anotaste antes de que esto existiera. Y significa "de un pago que
    se repite", no "lo anotó la app": por eso también marca aquel con el que
    configuraste la repetición, que es igual de cierto. */
+/* Cada origen es UN emoji, no una palabra en un recuadro. Con palabra, una
+   compra en cuotas importada de la cartola juntaba tres recuadros seguidos
+   —"Cuota 2 de 12", "Programado", "cartola"— apretados en la media columna
+   que deja el monto, y la fila se volvía ilegible. Un emoji ocupa un
+   carácter y no necesita caja.
+
+   Ninguno de los seis se repite en ICONOS ni en EMOJIS_PALABRA, así que
+   nunca vas a ver el mismo dibujo dos veces en la misma fila. Por eso el
+   correo es 📧 y no 🏦: 🏦 ya es el ícono de Ahorro y el emoji de "banco",
+   "dividendo" y "fondo".
+
+   La palabra no se pierde: va en el `title` —el globito del computador— y
+   sobre todo en la hoja que se abre al tocar el movimiento, que es donde
+   de verdad se aprende cuál es cuál. */
 const ETIQUETAS_ORIGEN = {
-  whatsapp: 'WhatsApp',
-  correo:   'banco',
-  cartola:  'cartola',
-  escaner:  '📷',
-  deuda:    '🤝'
+  whatsapp: {emoji:'💬', nombre:'Lo anotaste por WhatsApp'},
+  correo:   {emoji:'📧', nombre:'Llegó de un correo del banco'},
+  cartola:  {emoji:'📄', nombre:'Entró al importar la cartola'},
+  escaner:  {emoji:'📷', nombre:'El monto lo leyó el escáner de la boleta'},
+  deuda:    {emoji:'🤝', nombre:'Salió de saldar una deuda'}
 };
 
+const REPETIDO = {emoji:'🔁', nombre:'De un pago que se repite'};
+
+function origenDe(m){
+  return (m.origen && ETIQUETAS_ORIGEN[m.origen]) || (m.fijoId ? REPETIDO : null);
+}
+
 function selloOrigen(m){
-  const etiqueta = (m.origen && ETIQUETAS_ORIGEN[m.origen]) || (m.fijoId ? '🔁' : '');
-  if(!etiqueta) return '';
-  // Las de palabra van en el recuadro gris de siempre; el emoji solo va
-  // suelto, que es lo único en que se diferencian al dibujarse.
-  return /[a-z]/i.test(etiqueta)
-    ? `<i class="marca">${etiqueta}</i>`
-    : `<i class="sello">${etiqueta}</i>`;
+  const o = origenDe(m);
+  return o ? `<i class="sello" title="${o.nombre}">${o.emoji}</i>` : '';
 }
 
 function pintarMovimientos(){
@@ -3010,11 +3025,19 @@ function pintarMovimientos(){
        "💧 Agua ·" y abajo "Programado". El punto separa dos textos; una
        etiqueta ya viene con su propio recuadro y no lo necesita. */
     const textos = [];
-    if(sub)    textos.push(emojiDe(sub.nombre) + sub.nombre);
-    if(m.nota) textos.push(emojiDe(m.nota) + m.nota);
+    if(sub) textos.push(emojiDe(sub.nombre) + sub.nombre);
+    /* La nota no repite lo que ya dice el detalle. Un gasto dictado por
+       WhatsApp como "almuerzo" cae justamente en el detalle "Almuerzo", y la
+       fila salía "🍽 Almuerzo · 🍽 almuerzo": la misma palabra dos veces, con
+       el mismo dibujo, y una línea más de alto por nada. */
+    if(m.nota && !(sub && PLANO(m.nota) === PLANO(sub.nombre)))
+      textos.push(emojiDe(m.nota) + m.nota);
 
     const marcas = [];
-    if(m.cuota) marcas.push(`<i class="marca">Cuota ${m.cuota.numero} de ${m.cuota.total}</i>`);
+    // "2/12" y no "Cuota 2 de 12": es la etiqueta más ancha de todas y la
+    // que más se repite en las compras con tarjeta. En la hoja del
+    // movimiento, donde hay espacio, sigue estando la frase completa.
+    if(m.cuota) marcas.push(`<i class="marca" title="Cuota ${m.cuota.numero} de ${m.cuota.total}">${m.cuota.numero}/${m.cuota.total}</i>`);
     if(programado) marcas.push('<i class="marca">Programado</i>');
     const deDonde = selloOrigen(m);
     if(deDonde) marcas.push(deDonde);
@@ -3674,17 +3697,33 @@ function editarMovimiento(id){
 
   document.getElementById('campoRepetir').classList.toggle('oculto', !!m.cuota);
 
+  /* Antes esto era un if/else y la cuota tapaba todo lo demás: una compra en
+     cuotas importada de la cartola te contaba lo de las cuotas y se callaba
+     de dónde había salido. Ahora se juntan las frases que apliquen, que no
+     se estorban entre ellas: hablan de cosas distintas.
+
+     Acá es donde se aprende qué significa cada emoji de la lista. En la
+     fila hay un 📄; al tocarla dice "Entró al importar la cartola". */
+  const frases = [];
+
   if(m.cuota){
-    origen.classList.remove('oculto');
-    origen.innerHTML = `Cuota ${m.cuota.numero} de ${m.cuota.total} de un pago de
-                        <b>${pesos(m.cuota.montoTotal)}</b>.`;
-  }else if(fijo && fijo.tipo === 'gasto'){
-    // Los pagos además viven en Recordatorios, y conviene decirlo: apagarlo
-    // aquí también lo saca de allá.
-    origen.classList.remove('oculto');
-    origen.innerHTML = `También está en <b>Recordatorios</b>. Si apagas
-                        “Repetir”, sale de ahí y solo queda el de este mes.`;
+    frases.push(`Cuota ${m.cuota.numero} de ${m.cuota.total} de un pago de
+                 <b>${pesos(m.cuota.montoTotal)}</b>.`);
   }
+  // Los pagos además viven en Recordatorios, y conviene decirlo: apagarlo
+  // aquí también lo saca de allá.
+  if(fijo && fijo.tipo === 'gasto'){
+    frases.push(`También está en <b>Recordatorios</b>. Si apagas
+                 “Repetir”, sale de ahí y solo queda el de este mes.`);
+  }
+  // El 🔁 no se nombra acá: para los gastos lo dice la frase de arriba, y en
+  // el sueldo y el ahorro el interruptor "Repetir" se ve encendido al lado.
+  if(m.origen && ETIQUETAS_ORIGEN[m.origen]){
+    frases.push(ETIQUETAS_ORIGEN[m.origen].nombre + '.');
+  }
+
+  origen.classList.toggle('oculto', frases.length === 0);
+  origen.innerHTML = frases.join('<br>');
 
   const inp = document.getElementById('inpMonto');
   inp.value = String(m.monto); formatearMonto(inp);

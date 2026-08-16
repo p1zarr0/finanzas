@@ -134,21 +134,23 @@ siendo cien por ciento local.
 
 ## De dónde salió cada movimiento
 
-En la lista, al lado del detalle, aparece una etiqueta con el origen:
+Al final de cada fila hay un emoji que dice de dónde salió:
 
-| Etiqueta | Qué significa |
+| | Qué significa |
 |---|---|
-| *(ninguna)* | Lo escribiste tú a mano |
-| `WhatsApp` | Se lo dictaste al bot |
-| `banco` | Llegó de un correo de aviso de compra |
-| `cartola` | Entró al importar la cartola |
+| *(nada)* | Lo escribiste tú a mano |
+| 💬 | Se lo dictaste al bot de WhatsApp |
+| 📧 | Llegó de un correo de aviso de compra |
+| 📄 | Entró al importar la cartola |
 | 📷 | El monto lo leyó el escáner de la boleta |
 | 🔁 | Es de un pago que se repite (arriendo, Netflix, sueldo) |
 | 🤝 | Salió de saldar una deuda en Transferencias |
 
-**Lo manual no lleva etiqueta a propósito.** Si la llevara, el noventa por ciento de la
-lista diría lo mismo y no distinguirías nada: la etiqueta está para lo que llegó sin que
-lo teclearas. Es el mismo criterio de “Programado”.
+**No hay que aprendérselos de memoria: toca el movimiento y te lo dice en palabras.**
+
+**Lo manual no lleva nada a propósito.** Si llevara, el noventa por ciento de la lista
+diría lo mismo y no distinguirías nada: la marca está para lo que llegó sin que lo
+teclearas. Es el mismo criterio de “Programado”.
 
 Dos detalles:
 
@@ -159,7 +161,10 @@ Dos detalles:
 
 El 🔁 funciona hacia atrás con todo lo que ya tenías, porque sale de la ficha de
 Recordatorios. Los demás solo desde que existen: lo que escaneaste o saldaste antes
-aparece sin etiqueta.
+aparece sin marca.
+
+En las compras en cuotas la etiqueta dice **`2/12`** para no ocupar media fila. La frase
+completa —“Cuota 2 de 12 de un pago de $2.998.800”— aparece al tocar el movimiento.
 
 ---
 
