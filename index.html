@@ -649,9 +649,6 @@ input[type=date],input[type=text],input[type=number],select{
            porque habla del período que estás mirando, igual que los tres
            montos de arriba; el acumulado es de siempre. -->
       <div class="acumulado oculto" id="tasaAhorro"></div>
-      <!-- Lo que está anotado pero todavía no ocurre. Va aquí, fuera de los
-           tres montos, porque no es plata que se haya movido: es aviso. -->
-      <div class="acumulado oculto" id="porVenir"></div>
       <div class="acumulado" id="acumuladoAhorro"></div>
     </div>
 
@@ -1662,13 +1659,11 @@ function pintarTodo(){
      lo que uno viene a preguntarle a la app.
 
      Los programados NO desaparecen: siguen en la lista de Movimientos con su
-     etiqueta, porque saber lo que viene sirve. Lo que no hacen es contar como
-     si ya hubiera pasado. */
+     etiqueta y atenuados, que es donde se ve lo que viene. Aquí no cuentan,
+     y aquí tampoco se avisan: decirlo en las dos partes era repetir. */
   const hoy = hoyISO();
-  const enRango = estado.movimientos
-    .filter(m => m.fecha >= rangoDesde && m.fecha <= rangoHasta);
-  const delMes = enRango.filter(m => m.fecha <= hoy);
-  const programados = enRango.length - delMes.length;
+  const delMes = estado.movimientos
+    .filter(m => m.fecha >= rangoDesde && m.fecha <= rangoHasta && m.fecha <= hoy);
   const suma = tipo => delMes.filter(m=>m.tipo===tipo).reduce((s,m)=>s+m.monto,0);
   const ingresos = suma('ingreso'), gastos = suma('gasto'), ahorro = suma('ahorro');
 
@@ -1697,22 +1692,6 @@ function pintarTodo(){
     tasa.innerHTML = pct < 1
       ? `🌱 Estás ahorrando <b>menos del 1%</b> de lo que entra.`
       : `🌱 Estás ahorrando el <b>${Math.round(pct)}%</b> de lo que entra.`;
-  }
-
-  /* Lo que viene y todavía no ocurre, dicho aparte en vez de mezclado en los
-     totales. La razón de anotar el mes completo era poder ver lo que se te
-     viene encima; eso se sigue pudiendo, pero como un dato propio y no
-     inflando un "Disponible" que no es real. Solo se muestra si hay algo. */
-  const porVenirTotal = enRango
-    .filter(m => m.fecha > hoy)
-    .reduce((s,m) => s + (m.tipo === 'ingreso' ? m.monto : -m.monto), 0);
-  const avisoPorVenir = document.getElementById('porVenir');
-  avisoPorVenir.classList.toggle('oculto', programados === 0);
-  if(programados){
-    const signo = porVenirTotal < 0 ? '−' : '+';
-    avisoPorVenir.innerHTML =
-      `📅 Falta que ocurra${programados > 1 ? 'n' : ''} ${programados} ` +
-      `movimiento${programados > 1 ? 's' : ''}: <b>${signo}${pesos(porVenirTotal)}</b>`;
   }
 
   // El acumulado es de todos los meses, no solo del que estás mirando. Y
