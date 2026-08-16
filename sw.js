@@ -10,7 +10,7 @@
    Al publicar un cambio hay que subirle el número a CACHE. Eso obliga
    al teléfono a botar lo viejo y guardar lo nuevo. */
 
-const CACHE = 'finanzas-v15';
+const CACHE = 'finanzas-v16';
 
 // Rutas relativas: el sitio cuelga de un subdirectorio en GitHub Pages
 const ESENCIALES = [
@@ -19,10 +19,6 @@ const ESENCIALES = [
   './manifest.json',
   './icono-192.png',
   './icono-512.png',
-  // La serif de los títulos. Va en la lista y no se deja al azar: sin ella
-  // guardada, la primera apertura sin internet mostraría los títulos en la
-  // serif del sistema, que es de lo que veníamos escapando.
-  './lib/fonts/fraunces-latin.woff2',
   './lib/tesseract.min.js',
   './lib/worker.min.js',
   './lib/tesseract-core-simd-lstm.wasm.js',
