@@ -1650,9 +1650,24 @@ function pintarDona(movs, totalGastos){
   items.forEach(({cat,val}) => {
     const frac = val / totalGastos;
     const largo = frac * C;
+
+    /* El hueco que separa una porción de la siguiente se descuenta del largo
+       de la porción. Ojo con las porciones más chicas que el hueco: la resta
+       daba negativo, y un stroke-dasharray negativo es invalido, asi que el
+       navegador ignora el punteado entero y pinta el circulo completo. Una
+       categoria con menos del 0.4% del gasto tapaba toda la dona de su color.
+
+       Por eso el hueco nunca es mayor que la porción: si no cabe, se achica.
+       La porción queda en cero y no se dibuja, que es lo correcto —es
+       invisible de todos modos a ese tamaño— pero el resto de la dona
+       sobrevive. El acumulado sigue sumando el largo real para que las
+       porciones que vienen no se corran de lugar. */
+    const hueco = Math.min(1.5, largo);
+    const pintado = largo - hueco;
+
     svgHTML += `<circle cx="78" cy="78" r="${R}" fill="none"
                   stroke="${cat.color}" stroke-width="17"
-                  stroke-dasharray="${largo - 1.5} ${C - largo + 1.5}"
+                  stroke-dasharray="${pintado} ${C - pintado}"
                   stroke-dashoffset="${-acumulado}" stroke-linecap="butt"/>`;
     acumulado += largo;
 

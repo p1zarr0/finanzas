@@ -10,7 +10,7 @@
    Al publicar un cambio hay que subirle el número a CACHE. Eso obliga
    al teléfono a botar lo viejo y guardar lo nuevo. */
 
-const CACHE = 'finanzas-v7';
+const CACHE = 'finanzas-v8';
 
 // Rutas relativas: el sitio cuelga de un subdirectorio en GitHub Pages
 const ESENCIALES = [
@@ -24,6 +24,10 @@ const ESENCIALES = [
   './lib/tesseract-core-simd-lstm.wasm.js',
   './lib/tesseract-core-lstm.wasm.js',
   './lib/spa.traineddata.gz'
+  // datos-de-prueba.js NO va aquí a propósito: es una herramienta para
+  // llenar la app desde la consola del computador y ver como se porta con
+  // volumen. index.html no la carga. Si se guardara en el cache viajaria al
+  // telefono sin que nadie la ocupe nunca.
 ];
 
 self.addEventListener('install', evento => {
