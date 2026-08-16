@@ -190,7 +190,7 @@ h2.seccion{font-size:19px;margin-bottom:16px}
 .dia{font-size:12px;color:var(--suave);letter-spacing:.06em;text-transform:uppercase;margin:20px 0 2px}
 
 /* ---------- Suscripciones ---------- */
-.sus{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--linea);cursor:pointer}
+.sus{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--linea);cursor:pointer}
 .sus:last-of-type{border-bottom:none}
 .sus .ico{font-size:19px;width:26px;text-align:center;flex:0 0 26px}
 .sus .nom{flex:1;min-width:0;font-size:14.5px}
@@ -199,6 +199,16 @@ h2.seccion{font-size:19px;margin-bottom:16px}
 .sus .val.sin{color:var(--suave);font-weight:400;font-size:12.5px}
 .sus.pronto .nom small{color:var(--gasto)}
 .sus.pausada{opacity:.42}
+/* "¿Ya lo pagaste?": la pregunta del mes, en un segundo renglón de la misma
+   fila para no apretar el monto. Los botones son chicos a propósito: la
+   respuesta normal es "sí" y no debe competir con el nombre del pago. */
+.sus .acc{flex-basis:100%;display:flex;gap:8px;padding:2px 0 2px 38px}
+.sus .acc button{
+  border:1px solid var(--linea);background:none;border-radius:20px;
+  padding:5px 12px;font:inherit;font-size:12.5px;color:var(--suave);cursor:pointer
+}
+.sus .acc button.si{color:var(--texto);border-color:var(--texto)}
+.sus.sin-pagar .nom small{color:var(--gasto)}
 
 /* ---------- Píldora de fechas ----------
    Parte en el mes completo. Las flechas mueven el período y el texto
@@ -411,9 +421,13 @@ input[type=date],input[type=text],input[type=number],select{
   <div class="pestanas" id="pestanas">
     <button id="tab-movimientos" class="activo" onclick="irA('movimientos')">Movimientos</button>
     <button id="tab-analisis" onclick="irA('analisis')">Análisis</button>
-    <button id="tab-categorias" onclick="irA('categorias')">Categorías</button>
+    <!-- Recordatorios y Transferencias van antes que Categorías: son cosas que
+         se miran seguido, y Categorías se toca una vez cada mucho, cuando
+         quieres crear o renombrar una. Lo que se usa a diario queda a la mano
+         y sin tener que arrastrar la barra. -->
     <button id="tab-recordatorios" onclick="irA('recordatorios')">Recordatorios</button>
     <button id="tab-transferencias" onclick="irA('transferencias')">Transferencias</button>
+    <button id="tab-categorias" onclick="irA('categorias')">Categorías</button>
     <button id="tab-ajustes" onclick="irA('ajustes')">Configuración</button>
   </div>
 </nav>
@@ -440,6 +454,10 @@ input[type=date],input[type=text],input[type=number],select{
         <div><span>Gastos</span><strong class="v-gasto" id="totalGastos">$0</strong></div>
         <div><span>Ahorro</span><strong class="v-ahorro" id="totalAhorro">$0</strong></div>
       </div>
+      <!-- Cuánto de lo que entra estás apartando. Va antes del acumulado
+           porque habla del período que estás mirando, igual que los tres
+           montos de arriba; el acumulado es de siempre. -->
+      <div class="acumulado oculto" id="tasaAhorro"></div>
       <div class="acumulado" id="acumuladoAhorro"></div>
     </div>
 
@@ -558,20 +576,13 @@ input[type=date],input[type=text],input[type=number],select{
   <!-- ===================== PANTALLA: AJUSTES ===================== -->
   <section id="p-ajustes" class="oculto">
 
-    <!-- Lo que entra solo cada mes. Vive en Configuración y no en Recordatorios
-         porque un sueldo no es algo que haya que recordar pagar: se configura
-         una vez al año y se olvida. -->
-    <div class="tarjeta" id="tarjetaEntra" style="margin-top:22px">
-      <h2 class="seccion titulo-serif">Ingresos y ahorros</h2>
-      <div id="listaEntra"></div>
-      <button class="btn-texto mas" id="btnAgregarEntra" onclick="abrirNuevoFijo('ingreso')">+</button>
-      <p style="color:var(--suave);font-size:12px;padding:8px 0 2px;line-height:1.5">
-        El sueldo o lo que apartas para ahorrar, si entra un día fijo del mes.
-        Se anota solo. Los pagos que salen cada mes viven en Recordatorios.
-      </p>
-    </div>
+    <!-- El cuadro "Ingresos y ahorros" vivía aquí. Se fue: el sueldo y el
+         ahorro se configuran al anotarlos, con el interruptor "Repetir
+         automáticamente", y se cambian o se apagan tocando ese mismo
+         movimiento. Tenerlo en dos partes obligaba a escribir lo mismo dos
+         veces y a recordar cuál de las dos mandaba. -->
 
-    <div class="tarjeta">
+    <div class="tarjeta" style="margin-top:22px">
       <h2 class="seccion titulo-serif">Datos</h2>
       <div class="fila-ajuste">
         <span class="nom">Exportar a Excel (CSV)</span>
@@ -623,12 +634,6 @@ input[type=date],input[type=text],input[type=number],select{
   <div class="campo">
     <label>Categoría</label>
     <div class="chips" id="chipsCategoria"></div>
-    <!-- Las tres categorías de Recordatorios no se ofrecen aquí: se configuran
-         allá una vez y se anotan solas. Ver pintarChipsCategoria(). -->
-    <small class="ayuda oculto" id="ayudaRecordatorios">
-      ¿Es una cuenta de todos los meses (arriendo, luz, Netflix)?
-      Se configura una vez en <b>Recordatorios</b> y se anota sola.
-    </small>
   </div>
 
   <div class="campo oculto" id="campoSub">
@@ -671,6 +676,15 @@ input[type=date],input[type=text],input[type=number],select{
     <div class="selector oculto" id="selFrecuencia" style="margin:12px 0 0">
       <button id="selFrec_mensual" class="activo" onclick="elegirFrecuencia('mensual')">Cada mes</button>
       <button id="selFrec_anual" onclick="elegirFrecuencia('anual')">Cada año</button>
+    </div>
+    <!-- Viene puesto con el día de la fecha, que casi siempre es el correcto.
+         Está a la vista para el caso en que no lo sea: el arriendo se paga el
+         5 aunque lo estés anotando el 15. Mismo campo que pide Recordatorios
+         al crear un pago desde su "+". -->
+    <div class="campo oculto" id="campoDiaRepetir" style="margin:14px 0 0">
+      <label>Qué día del mes</label>
+      <input type="number" min="1" max="31" id="inpDiaRepetir"
+             placeholder="Ej: 5" oninput="diaRepetirEscrito()">
     </div>
     <small class="ayuda oculto" id="ayudaRepetir"></small>
   </div>
@@ -908,9 +922,18 @@ const CATEGORIAS_INICIALES = [
       {id:'g3',nombre:'Auto'},{id:'g4',nombre:'Casa'},
       {id:'g5',nombre:'Estudios'},{id:'g6',nombre:'Regalos'}
   ]},
-  // Suscripciones empieza vacía a propósito: las 12 plataformas viven en
-  // SUGERENCIAS y se agregan cuando tú las ocupas, con su monto y día de cobro.
-  {id:'c7', nombre:'Suscripciones', tipo:'gasto',   color:'#A98BA8', icono:'💳', subs:[]},
+  // Las plataformas se muestran igual que los detalles de cualquier otra
+  // categoría. Estuvieron vacías un tiempo porque el panel viejo escondía las
+  // que no tenían monto configurado y no había cómo llegar a ellas; ese panel
+  // ya no existe, y ser la única categoría que aparece en blanco confundía.
+  // Las que no ocupes se borran manteniendo el dedo encima.
+  {id:'c7', nombre:'Suscripciones', tipo:'gasto',   color:'#A98BA8', icono:'💳', subs:[
+      {id:'u1',nombre:'Netflix'},{id:'u2',nombre:'Spotify'},{id:'u3',nombre:'Disney+'},
+      {id:'u4',nombre:'Crunchyroll'},{id:'u5',nombre:'YouTube Premium'},
+      {id:'u6',nombre:'ChatGPT'},{id:'u7',nombre:'Claude'},{id:'u8',nombre:'Meli+'},
+      {id:'u9',nombre:'Jumbo Prime'},{id:'u10',nombre:'Amazon Prime'},
+      {id:'u11',nombre:'Max'},{id:'u12',nombre:'iCloud'}
+  ]},
   {id:'c8', nombre:'Mascota',       tipo:'gasto',   color:'#8C9E6E', icono:'🐱', subs:[
       {id:'p1',nombre:'Comida de gato'},{id:'p2',nombre:'Arena'},
       {id:'p3',nombre:'Veterinario'},{id:'p4',nombre:'Juguetes'}
@@ -955,7 +978,7 @@ let estado = {
   //  activo:true, frecuencia:'mensual'|'anual', mes, ultimoRegistrado:'2026-08'}
   fijos: [],
   tema: 'auto',
-  version: 12
+  version: 13
 };
 
 /* localStorage = la memoria del navegador. Guarda texto y sobrevive
@@ -1156,6 +1179,18 @@ function cargar(){
     estado.version = 12;
   }
 
+  if(estado.version < 13){
+    // Suscripciones era la única categoría que aparecía sin ningún detalle al
+    // elegirla. La versión 4 los había sacado porque el panel de entonces los
+    // escondía; ese panel ya no existe, así que vuelven a la vista.
+    // sumarDetalle respeta las que ya tengas: no duplica por nombre.
+    const susc = buscarCat(CAT_SUSCRIPCIONES);
+    ['Netflix','Spotify','Disney+','Crunchyroll','YouTube Premium','ChatGPT',
+     'Claude','Meli+','Jumbo Prime','Amazon Prime','Max','iCloud']
+      .forEach(n => sumarDetalle(susc, n));
+    estado.version = 13;
+  }
+
   // Si se migró algo, se guarda de inmediato. Si no, la migración volvería a
   // correr en cada apertura y podría devolverte categorías que borraste.
   if(versionAntes !== null && estado.version !== versionAntes) guardar();
@@ -1262,7 +1297,7 @@ function emojiDe(texto){
 
 // El orden manda dos cosas: las pestañas de arriba y hacia dónde lleva
 // cada deslizamiento. Por eso está escrito una sola vez.
-const PANTALLAS = ['movimientos','analisis','categorias','recordatorios','transferencias','ajustes'];
+const PANTALLAS = ['movimientos','analisis','recordatorios','transferencias','categorias','ajustes'];
 
 function irA(pantalla){
   PANTALLAS.forEach(p => {
@@ -1272,10 +1307,9 @@ function irA(pantalla){
   });
   asomarPestana();
   window.scrollTo(0,0);
-  // Los dos cuadros de fijos ya no viven en la misma pantalla: los ingresos
-  // están en Configuración y los pagos en Recordatorios.
+  // Cada pantalla repinta lo suyo al entrar. Configuración ya no repinta nada:
+  // desde que salió el cuadro de ingresos, ahí solo hay botones fijos.
   if(pantalla === 'categorias') pintarEditorCategorias();
-  if(pantalla === 'ajustes') pintarEntra();
   if(pantalla === 'movimientos') pintarMovimientos();
   if(pantalla === 'recordatorios') pintarSale();
   if(pantalla === 'transferencias') pintarTransferencias();
@@ -1374,6 +1408,23 @@ function pintarTodo(){
   elBal.textContent = (disponible < 0 ? '−' : '') + pesos(disponible);
   elBal.style.color = disponible < 0 ? 'var(--gasto)' : 'var(--texto)';
 
+  /* Qué parte de lo que entró estás apartando. Se calcula sobre los ingresos
+     del período, no sobre lo disponible: la pregunta es "de cada peso que
+     recibo, cuánto guardo".
+
+     Sin ingresos en el período no se muestra: sería dividir por cero, y decir
+     "0%" cuando no entró nada sonaría a que lo hiciste mal. Puede pasar del
+     100% si apartaste plata de meses anteriores, y ahí se muestra igual:
+     es lo que de verdad ocurrió. */
+  const tasa = document.getElementById('tasaAhorro');
+  tasa.classList.toggle('oculto', !(ingresos > 0 && ahorro > 0));
+  if(ingresos > 0 && ahorro > 0){
+    const pct = ahorro / ingresos * 100;
+    tasa.innerHTML = pct < 1
+      ? `🌱 Estás ahorrando <b>menos del 1%</b> de lo que entra.`
+      : `🌱 Estás ahorrando el <b>${Math.round(pct)}%</b> de lo que entra.`;
+  }
+
   // El acumulado es de todos los meses, no solo del que estás mirando
   const acumulado = estado.movimientos
     .filter(m => m.tipo === 'ahorro').reduce((s,m)=>s+m.monto,0);
@@ -1460,7 +1511,6 @@ function revisarFijos(){
   let anotados = 0;
   const hoy = new Date();
   const mes = mesClave(hoy);
-  const diasDelMes = new Date(hoy.getFullYear(), hoy.getMonth()+1, 0).getDate();
 
   estado.fijos.forEach(f => {
     if(f.activo === false || !f.monto || !f.dia) return;
@@ -1471,26 +1521,38 @@ function revisarFijos(){
     // a propósito: si borraste el sueldo a mano, no queremos que reaparezca.
     if(f.ultimoRegistrado === mes) return;
 
-    // El día 31 no existe en todos los meses: se usa el último día
-    const dia = Math.min(f.dia, diasDelMes);
-    // Se anota el mes completo, incluso los días que todavía no llegan. Para eso
-    // sirve tener fijos: saber qué te queda después de lo inevitable. Los que aún
-    // no ocurren se marcan como "Programado" en la lista de movimientos.
-
-    const mov = {
-      id: nuevoId(), monto: f.monto, tipo: f.tipo,
-      catId: f.catId, subId: f.subId || null,
-      fecha: `${mes}-${String(dia).padStart(2,'0')}`,
-      nota: '', fijoId: f.id
-    };
-    estado.movimientos.push(mov);
-    f.ultimoRegistrado = mes;
+    anotarFijoDelMes(f, hoy);
     anotados++;
   });
 
   // Nada de rellenar los meses que no abriste la app: inventar movimientos
   // en meses ya cerrados desordenaría el historial y las comparaciones.
   if(anotados) guardar();
+}
+
+/* Anota el movimiento de este mes de un fijo. Vive aparte de revisarFijos
+   porque también se usa cuando confirmas a mano un pago que habías dejado
+   sin pagar. No guarda: eso lo hace quien la llama.
+
+   Se anota el mes completo, incluso los días que todavía no llegan. Para eso
+   sirve tener fijos: saber qué te queda después de lo inevitable. Los que aún
+   no ocurren se marcan como "Programado" en la lista de movimientos. */
+function anotarFijoDelMes(f, hoy){
+  const d = hoy || new Date();
+  const mes = mesClave(d);
+  // El día 31 no existe en todos los meses: se usa el último día
+  const diasDelMes = new Date(d.getFullYear(), d.getMonth()+1, 0).getDate();
+  const dia = Math.min(f.dia, diasDelMes);
+
+  const mov = {
+    id: nuevoId(), monto: f.monto, tipo: f.tipo,
+    catId: f.catId, subId: f.subId || null,
+    fecha: `${mes}-${String(dia).padStart(2,'0')}`,
+    nota: '', fijoId: f.id
+  };
+  estado.movimientos.push(mov);
+  f.ultimoRegistrado = mes;
+  return mov;
 }
 
 /* --- Del movimiento al recordatorio ---
@@ -1511,18 +1573,30 @@ function nombreDeFijo(mov){
 
 /* ¿Ya existe la ficha de este pago? Se busca por categoría y detalle. Cuando
    el movimiento no trae detalle (una suscripción escrita a mano, "Netflix")
-   se compara el nombre, que es lo único que las distingue. */
+   se compara el nombre, que es lo único que las distingue.
+
+   El tipo sale del movimiento y no está fijo en "gasto": así el sueldo que
+   marcas para repetir encuentra el "Sueldo" que ya tenías configurado, en vez
+   de crear un segundo que lo anotaría dos veces cada mes. */
 function fijoEquivalente(mov){
   const nombre = nombreDeFijo(mov);
   return estado.fijos.find(f =>
-    f.tipo === 'gasto' && f.catId === mov.catId &&
+    f.tipo === mov.tipo && f.catId === mov.catId &&
     (mov.subId ? f.subId === mov.subId : !f.subId && f.nombre === nombre));
+}
+
+/* Marca en la ficha que el mes de este movimiento ya quedó anotado, para que
+   revisarFijos no lo anote de nuevo. Se guarda el más nuevo de los dos, para
+   no soltar un mes que ya estaba cubierto. */
+function marcarMesAnotado(fijo, mov){
+  const mesMov = mov.fecha.slice(0,7);
+  if(!fijo.ultimoRegistrado || fijo.ultimoRegistrado < mesMov) fijo.ultimoRegistrado = mesMov;
 }
 
 /* Conecta un movimiento con su ficha de Recordatorios, creándola si no
    estaba. Devuelve {fijo, creado} o null si el movimiento no pertenece
    a esas tres categorías. */
-function sincronizarRecordatorio(mov, frecuencia){
+function sincronizarRecordatorio(mov, frecuencia, dia){
   if(!mov || mov.tipo !== 'gasto' || !CATS_FIJO_GASTO.includes(mov.catId)) return null;
   // Las cuotas ya tienen un movimiento en cada mes: repetirlas las cobraría dos veces
   if(mov.cuota) return null;
@@ -1531,13 +1605,10 @@ function sincronizarRecordatorio(mov, frecuencia){
 
   let fijo = (mov.fijoId && estado.fijos.find(f => f.id === mov.fijoId)) || fijoEquivalente(mov);
   const creado = !fijo;
-  if(!fijo) fijo = crearFijoDesdeMovimiento(mov, frecuencia || 'mensual');
+  if(!fijo) fijo = crearFijoDesdeMovimiento(mov, frecuencia || 'mensual', dia);
 
   mov.fijoId = fijo.id;
-  // El mes de este movimiento ya quedó anotado: así revisarFijos no lo duplica.
-  // Se guarda el más nuevo de los dos, para no soltar un mes ya anotado.
-  const mesMov = mov.fecha.slice(0,7);
-  if(!fijo.ultimoRegistrado || fijo.ultimoRegistrado < mesMov) fijo.ultimoRegistrado = mesMov;
+  marcarMesAnotado(fijo, mov);
   return {fijo, creado};
 }
 
@@ -1589,9 +1660,21 @@ function filaFijo(f){
 
   const anual = f.frecuencia === 'anual';
 
+  /* La app anota el mes completo por adelantado, así que un pago puede estar
+     restando de tu Disponible sin que lo hayas pagado. Por eso, pasado el día,
+     se pregunta una vez al mes: contestando "Todavía no" el movimiento sale
+     del mes y esa plata vuelve a tu bolsillo hasta que confirmes. */
+  const confirmado = f.confirmado === mes;
+  const sinPagar   = f.sinPagar === mes;
+  const preguntar  = f.tipo === 'gasto' && !pausado && !confirmado && !sinPagar &&
+                     suyo && suyo.fecha <= hoyISO();
+
   let sub;
   if(pausado)            sub = 'Pausado';
   else if(porVenir)      sub = `Programado para el ${f.dia}`;
+  else if(sinPagar)      sub = `Sin pagar · vencía el ${f.dia}`;
+  else if(preguntar)     sub = '¿Ya lo pagaste?';
+  else if(confirmado)    sub = `Pagado el ${f.dia} de ${MESES[new Date().getMonth()]}`;
   else if(anual)         sub = suyo ? `Anotado · cada año en ${MESES[(f.mes||1)-1]}`
                                     : `Cada año · ${f.dia} de ${MESES[(f.mes||1)-1]}`;
   else if(suyo)          sub = `Anotado el ${f.dia} de ${MESES[new Date().getMonth()]}`;
@@ -1601,15 +1684,72 @@ function filaFijo(f){
   else if(dias !== null) sub = `Día ${f.dia} · en ${dias} días`;
   else                   sub = 'Sin día';
 
+  // Los botones van dentro de la fila, que abre la ficha al tocarla: por eso
+  // cada uno corta el clic para que no se abra la hoja de edición encima.
+  let acciones = '';
+  if(preguntar){
+    acciones = `<div class="acc">
+        <button class="si" onclick="event.stopPropagation();marcarPagado('${f.id}')">Sí, lo pagué</button>
+        <button onclick="event.stopPropagation();marcarSinPagar('${f.id}')">Todavía no</button>
+      </div>`;
+  }else if(sinPagar){
+    acciones = `<div class="acc">
+        <button class="si" onclick="event.stopPropagation();marcarPagado('${f.id}')">Ya lo pagué</button>
+      </div>`;
+  }
+
   const clase = f.tipo === 'ingreso' ? 'v-ingreso' : (f.tipo === 'ahorro' ? 'v-ahorro' : 'v-gasto');
-  return `<div class="sus ${!pausado && !anual && dias !== null && dias <= 3 && !hecho ? 'pronto' : ''} ${pausado?'pausada':''}"
+  return `<div class="sus ${!pausado && !anual && dias !== null && dias <= 3 && !hecho ? 'pronto' : ''} ${pausado?'pausada':''} ${sinPagar?'sin-pagar':''}"
                data-fijo="${f.id}" onclick="editarFijo('${f.id}')">
       <span class="ico">${emojiDe(f.nombre) ||
         (f.tipo==='ingreso' ? '💵' : f.tipo==='ahorro' ? '🏦' : '🧾')}</span>
       <span class="nom">${f.nombre}<small>${sub}</small></span>
       <span class="val ${clase}">${
         f.tipo==='ingreso' ? '+' : f.tipo==='ahorro' ? '↑' : '−'}${pesos(f.monto)}</span>
+      ${acciones}
     </div>`;
+}
+
+/* "Sí, lo pagué": queda confirmado y no se vuelve a preguntar hasta el mes
+   que viene. Si venía de "Todavía no", el movimiento se anota de nuevo. */
+function marcarPagado(id){
+  const f = estado.fijos.find(x => x.id === id);
+  if(!f) return;
+  const mes = mesClave();
+  const suyo = estado.movimientos.find(m => m.fijoId === id && m.fecha.slice(0,7) === mes);
+  if(!suyo) anotarFijoDelMes(f);
+  f.confirmado = mes;
+  delete f.sinPagar;
+  guardar(); pintarTodo();
+}
+
+/* "Todavía no": el movimiento sale del mes. Esa plata sigue en tu bolsillo,
+   así que no puede estar restando del Disponible. La ficha queda pendiente y
+   la app no la vuelve a anotar sola: el mes ya está marcado como revisado. */
+function marcarSinPagar(id){
+  const mes = mesClave();
+  estado.movimientos = estado.movimientos.filter(m =>
+    !(m.fijoId === id && m.fecha.slice(0,7) === mes));
+  const f = estado.fijos.find(x => x.id === id);
+  if(f){ f.sinPagar = mes; delete f.confirmado; }
+  guardar(); pintarTodo();
+}
+
+/* La fecha que manda en el orden "Próximos". Si el pago de este mes ya está
+   anotado se usa esa fecha, que es la de verdad; si no, el próximo cobro
+   según el día. Lo que ya ocurrió se marca aparte para mandarlo al final:
+   "Próximos" es lo que viene, no lo que ya pasó. */
+function fechaDeOrden(f){
+  const mes = mesClave();
+  // Lo que dijiste que no has pagado es lo más urgente: va primero, con la
+  // fecha en que vencía, que ya pasó y por eso queda arriba de lo que viene.
+  if(f.sinPagar === mes)
+    return {pasado: false, fecha: aFecha(`${mes}-${String(f.dia).padStart(2,'0')}`)};
+
+  const suyo = estado.movimientos.find(m =>
+    m.fijoId === f.id && m.fecha.slice(0,7) === mes);
+  if(suyo) return {pasado: suyo.fecha <= hoyISO(), fecha: aFecha(suyo.fecha)};
+  return {pasado: false, fecha: proximoCobro(f.dia)};
 }
 
 function ordenarLista(lista, porMonto){
@@ -1617,43 +1757,22 @@ function ordenarLista(lista, porMonto){
     // Los pausados siempre al final: no son plata que vaya a moverse
     if((a.activo === false) !== (b.activo === false)) return a.activo === false ? 1 : -1;
     if(porMonto) return (b.monto || 0) - (a.monto || 0);
-    // "Próximos" mira la fecha real, no el número del día: pasado el 20, el
-    // día 1 del mes que viene llega antes que el 28 de este.
-    const fa = proximoCobro(a.dia), fb = proximoCobro(b.dia);
-    if(!fa) return 1; if(!fb) return -1;
-    return fa - fb;
+
+    const A = fechaDeOrden(a), B = fechaDeOrden(b);
+    // Arriba lo que todavía no llega, abajo lo del mes que ya ocurrió
+    if(A.pasado !== B.pasado) return A.pasado ? 1 : -1;
+    if(!A.fecha) return 1; if(!B.fecha) return -1;
+    // Lo que viene, del más cercano al más lejano. Lo que ya pasó, al revés:
+    // arriba lo recién pagado, que es de lo que uno se acuerda.
+    return A.pasado ? B.fecha - A.fecha : A.fecha - B.fecha;
   });
 }
 
+/* Solo queda un cuadro que pintar: "Mis pagos de cada mes". Los ingresos y
+   ahorros que se repiten ya no tienen lista propia — se manejan desde el
+   movimiento que anotan cada mes. */
 function pintarFijos(){
-  pintarEntra();
   pintarSale();
-}
-
-/* --- Lo que entra: vive en Configuración ---
-   Ya no se puede esconder: al estar dentro de ⚙ no le quita espacio a nada,
-   y un cuadro escondido sin botón para traerlo de vuelta se pierde. */
-function pintarEntra(){
-  const lista = document.getElementById('listaEntra');
-  const suyos = estado.fijos.filter(f => f.tipo === 'ingreso' || f.tipo === 'ahorro');
-
-  document.getElementById('btnAgregarEntra').classList.toggle('oculto', !suyos.length);
-
-  if(!suyos.length){
-    lista.innerHTML = `
-      <div class="vacio" style="padding:14px 8px">
-        ¿Recibes tu sueldo un día fijo del mes?<br>
-        Configúralo una vez y lo anoto solo.
-      </div>
-      <div style="display:flex;justify-content:center;padding-bottom:4px">
-        <button class="btn-texto" style="padding:8px 14px"
-                onclick="abrirNuevoFijo('ingreso')">Configurar</button>
-      </div>`;
-    return;
-  }
-
-  lista.innerHTML = ordenarLista(suyos, false).map(filaFijo).join('');
-  activarPulsacionLarga('#listaEntra .sus', el => borrarFijo(el.dataset.fijo));
 }
 
 /* --- Mis pagos de cada mes: gastos fijos y suscripciones --- */
@@ -1698,18 +1817,31 @@ function pintarSale(){
 }
 
 
+/* Quita la ficha y desengancha sus movimientos. No pregunta ni guarda: eso
+   lo hace quien la llama, porque se usa desde dos lados —el botón de
+   Recordatorios y el interruptor de la hoja de movimientos—.
+
+   "marcar" deja los movimientos con una señal para que la sincronización de
+   Recordatorios no vuelva a crear la ficha al abrir la app. Se pide no
+   marcarlos cuando el movimiento acaba de convertirse en un gasto de esas
+   categorías y sí queremos que le hagan una ficha nueva. */
+function dejarDeRepetir(id, marcar){
+  estado.fijos = estado.fijos.filter(x => x.id !== id);
+  estado.movimientos.forEach(m => {
+    if(m.fijoId === id){
+      delete m.fijoId;
+      if(marcar !== false) m.sinRecordatorio = true;
+    }
+  });
+}
+
 function borrarFijo(id){
   const f = estado.fijos.find(x => x.id === id);
   if(!f) return;
   // Solo se deja de repetir: los movimientos ya anotados se quedan,
   // porque esa plata sí se movió de verdad.
   if(!confirm(`¿Dejar de anotar "${f.nombre}" todos los meses?\n\nLo que ya se anotó no se borra.`)) return;
-  estado.fijos = estado.fijos.filter(x => x.id !== id);
-  // Sus movimientos quedan marcados: si no, la sincronización de Recordatorios
-  // volvería a crear la ficha la próxima vez que abras la app.
-  estado.movimientos.forEach(m => {
-    if(m.fijoId === id){ delete m.fijoId; m.sinRecordatorio = true; }
-  });
+  dejarDeRepetir(id);
   guardar(); pintarTodo();
 }
 
@@ -2235,6 +2367,17 @@ function borrarMovimiento(id){
     }
   }
 
+  /* Si el movimiento venía del sueldo o del ahorro, esta es la única puerta a
+     su ficha: borrándolo sin preguntar, el mes que viene volvería a aparecer
+     sin manera de apagarlo hasta entonces. Los pagos no preguntan nada,
+     porque su ficha se sigue viendo en Recordatorios. */
+  const fijo = mov && mov.fijoId && estado.fijos.find(f => f.id === mov.fijoId);
+  if(fijo && fijo.tipo !== 'gasto' &&
+     confirm(`¿Dejar de anotar "${fijo.nombre}" todos los meses?\n\n` +
+             `Aceptar: deja de repetirse.\nCancelar: solo se borra el de este mes.`)){
+    dejarDeRepetir(fijo.id);
+  }
+
   estado.movimientos = estado.movimientos.filter(m => m.id !== id);
   guardar(); pintarTodo();
 }
@@ -2299,7 +2442,10 @@ function formatearMonto(input){
 }
 const leerMonto = () => Number(document.getElementById('inpMonto').value.replace(/\D/g,'')) || 0;
 
-function elegirTipo(tipo){
+// "sinAsomar" viaja hasta elegirCategoria: con Ingreso o Ahorro hay una sola
+// categoría y se marca sola, así que este es el otro camino por el que la hoja
+// podría saltar al abrirse para editar.
+function elegirTipo(tipo, sinAsomar){
   tipoActual = tipo;
   catElegida = null; subElegida = null;
   ['gasto','ingreso','ahorro'].forEach(t => {
@@ -2309,46 +2455,42 @@ function elegirTipo(tipo){
   pintarChipsCategoria();
   document.getElementById('campoSub').classList.add('oculto');
 
-  /* Las cuotas y la repetición son cosa de gastos: un sueldo no se paga en
-     tres veces, y lo que entra todos los meses se configura en
-     Configuración → "Ingresos y ahorros", igual que los pagos viven en
-     Recordatorios. Se apagan además de esconderse: si los dejaste
-     encendidos como gasto y después cambiaste a ingreso, seguían prendidos
-     sin que se vieran y el movimiento se guardaba repartido en cuotas. */
+  /* Las cuotas sí son cosa de gastos: un sueldo no se paga en tres veces.
+     Se apaga además de esconderse: si lo dejaste encendido como gasto y
+     después cambiaste a ingreso, seguía prendido sin que se viera y el
+     movimiento se guardaba repartido en cuotas.
+
+     Repetir, en cambio, vale para los tres tipos. Los pagos quedan listados
+     en Recordatorios; el sueldo y el ahorro no tienen lista propia y se
+     vuelven a cambiar tocando el movimiento que anotan cada mes (ver
+     editarMovimiento). */
   const esGasto = tipo === 'gasto';
-  ['campoCuotas','campoRepetir'].forEach(id =>
-    document.getElementById(id).classList.toggle('oculto', !esGasto));
+  document.getElementById('campoCuotas').classList.toggle('oculto', !esGasto);
   if(!esGasto){
     const cuotas = document.getElementById('tgCuotas');
-    const repetir = document.getElementById('tgRepetir');
     if(cuotas.checked){ cuotas.checked = false; cambiarCuotas(); }
-    if(repetir.checked){ repetir.checked = false; cambiarRepetir(); }
   }
 
   // Con una sola categoría del tipo (Ingresos, Ahorro) no tiene sentido
   // hacer elegir: se marca sola y se ahorra un toque.
   const opciones = estado.categorias.filter(c => c.tipo === tipo);
-  if(opciones.length === 1) elegirCategoria(opciones[0].id);
+  if(opciones.length === 1) elegirCategoria(opciones[0].id, sinAsomar);
   else ajustarRepetir();   // sin categoría todavía: el toggle se esconde
 }
 
-/* Gastos fijos, Hogar y Suscripciones no aparecen al anotar un movimiento:
-   son las cuentas que se configuran en Recordatorios, donde la app las anota
-   sola cada mes. Tener las dos puertas confundía —¿lo anoto acá o allá?— y
-   dejaba pagos sueltos sin recordatorio.
+/* Todas las categorías del tipo se ofrecen, incluidas Gastos fijos, Hogar y
+   Suscripciones. Antes se escondían para empujarte a configurarlas en
+   Recordatorios, pero eso dejaba dos reglas distintas según lo que anotaras.
+   Ahora hay una sola: todo se crea desde aquí, con el "+", y Recordatorios
+   es donde después lo ves, lo editas o lo pausas.
 
-   Editando sí se muestran: así se corrige el monto del mes cuando llega la
-   boleta más cara, que es justo para lo que sirve editar. */
+   Anotar una de esas tres categorías crea su ficha sola (ver
+   sincronizarRecordatorio), así que no hay que acordarse de nada. */
 function pintarChipsCategoria(){
   const cont = document.getElementById('chipsCategoria');
-  const soloRecordatorios = tipoActual === 'gasto' && !movEditando;
-
-  document.getElementById('ayudaRecordatorios')
-    .classList.toggle('oculto', !soloRecordatorios);
 
   cont.innerHTML = estado.categorias
     .filter(c => c.tipo === tipoActual)
-    .filter(c => !soloRecordatorios || !CATS_FIJO_GASTO.includes(c.id))
     .map(c => `<button class="chip ${catElegida===c.id?'activo':''}"
                  style="${catElegida===c.id?`background:${c.color}`:''}"
                  onclick="elegirCategoria('${c.id}')">
@@ -2365,7 +2507,10 @@ function nuevaCategoriaDesdeRegistro(){
   elegirTipoCat(tipoActual);          // ya sabemos si es gasto, ingreso o ahorro
 }
 
-function elegirCategoria(id){
+/* "sinAsomar" lo usa la app cuando rellena la hoja sola (al editar): ahí no
+   hay que mover nada, porque la hoja todavía ni se abre. Cuando el toque es
+   tuyo, el detalle se acerca para que no quede cortado abajo. */
+function elegirCategoria(id, sinAsomar){
   catElegida = id; subElegida = null;
   pintarChipsCategoria();
   ajustarRepetir();
@@ -2377,6 +2522,7 @@ function elegirCategoria(id){
   if(cat){
     campo.classList.remove('oculto');
     pintarChipsSub(cat);
+    if(!sinAsomar) asomarLoQueAparece('campoSub');
   }else{
     campo.classList.add('oculto');
   }
@@ -2459,12 +2605,14 @@ const CUOTAS_COMUNES = [3, 6, 12];
 function resetearOpciones(){
   cuotasElegidas = 0;
   frecuenciaMov = 'mensual';
+  diaRepetirAMano = false;
   document.getElementById('tgCuotas').checked = false;
   document.getElementById('tgRepetir').checked = false;
+  document.getElementById('inpDiaRepetir').value = '';
   ['campoCuotas','campoRepetir'].forEach(id =>
     document.getElementById(id).classList.remove('oculto'));
-  ['chipsCuotas','selFrecuencia','ayudaCuotas','ayudaRepetir','avisoOrigenMov'].forEach(id =>
-    document.getElementById(id).classList.add('oculto'));
+  ['chipsCuotas','selFrecuencia','campoDiaRepetir','ayudaCuotas','ayudaRepetir','avisoOrigenMov']
+    .forEach(id => document.getElementById(id).classList.add('oculto'));
   elegirFrecuencia('mensual');
   ajustarRepetir();
 }
@@ -2517,6 +2665,7 @@ function cambiarCuotas(){
     if(otro.checked){ otro.checked = false; cambiarRepetir(); }
     if(!cuotasElegidas) cuotasElegidas = 3;   // lo más común
     pintarChipsCuotas();
+    asomarLoQueAparece('chipsCuotas');
   }else{
     cuotasElegidas = 0;
   }
@@ -2565,15 +2714,70 @@ function pintarAyudaCuotas(){
     : `${cuotasElegidas} cuotas: la primera de <b>${pesos(partes[0])}</b> y las demás de <b>${pesos(partes[1])}</b>.`;
 }
 
-function cambiarRepetir(){
+// "sinAsomar", igual que en elegirCategoria: al editar lo enciende la app, y
+// arrastrar la hoja hacia abajo al abrirla taparía el monto, que es lo que uno
+// viene a corregir.
+function cambiarRepetir(sinAsomar){
   const encendido = document.getElementById('tgRepetir').checked;
-  document.getElementById('selFrecuencia').classList.toggle('oculto', !encendido);
-  document.getElementById('ayudaRepetir').classList.toggle('oculto', !encendido);
+  ['selFrecuencia','campoDiaRepetir','ayudaRepetir'].forEach(id =>
+    document.getElementById(id).classList.toggle('oculto', !encendido));
   if(encendido){
     const otro = document.getElementById('tgCuotas');
     if(otro.checked){ otro.checked = false; cambiarCuotas(); }
+    proponerDiaRepetir();
     elegirFrecuencia(frecuenciaMov);
+    // Lo que aparece al encenderlo —frecuencia, día y explicación— nace debajo
+    // del borde de la pantalla: en una ventana baja parecía que el interruptor
+    // no hacía nada. Se acerca solo, y de paso se ve que hay algo que revisar.
+    if(!sinAsomar) asomarLoQueAparece('ayudaRepetir');
   }
+}
+
+/* Trae a la vista lo que se acaba de desplegar, sin saltos bruscos. Se espera
+   un cuadro de animación porque el navegador todavía no ha medido lo que
+   recién dejó de estar oculto.
+
+   Se mueve la hoja a mano en vez de usar scrollIntoView(): la que se desplaza
+   es la hoja, no la página, y hay navegadores donde el desplazamiento suave
+   simplemente no ocurre y la hoja se queda como estaba. Restar las dos
+   posiciones y asignar scrollTop es más largo de escribir, pero funciona en
+   todos y se sabe exactamente qué hace. */
+function asomarLoQueAparece(id){
+  requestAnimationFrame(() => {
+    const el = document.getElementById(id);
+    const hoja = el && el.closest('.hoja');
+    if(!hoja) return;
+    // Cuánto sobresale por debajo del borde, más un respiro para que no quede
+    // pegado al canto
+    const falta = el.getBoundingClientRect().bottom -
+                  hoja.getBoundingClientRect().bottom + 16;
+    if(falta > 0) hoja.scrollTop += falta;
+  });
+}
+
+/* El día lo pone la app con el de la fecha, salvo que lo hayas escrito tú:
+   entonces manda el tuyo y no se lo pisa al cambiar la fecha. Es la misma
+   idea que usa el nombre en la hoja de fijos (nombreFijoAuto). */
+let diaRepetirAMano = false;
+
+function diaRepetirEscrito(){
+  diaRepetirAMano = true;
+  if(document.getElementById('tgRepetir').checked) elegirFrecuencia(frecuenciaMov);
+}
+
+function proponerDiaRepetir(){
+  if(diaRepetirAMano) return;
+  const fecha = document.getElementById('inpFecha').value || hoyISO();
+  document.getElementById('inpDiaRepetir').value = Number(fecha.split('-')[2]);
+}
+
+// El día que se guardará en la ficha. Si el campo quedó vacío o con algo
+// imposible, manda la fecha del movimiento: nunca se guarda un fijo sin día.
+function leerDiaRepetir(){
+  const n = parseInt(document.getElementById('inpDiaRepetir').value, 10);
+  if(n >= 1 && n <= 31) return n;
+  const fecha = document.getElementById('inpFecha').value || hoyISO();
+  return Number(fecha.split('-')[2]);
 }
 
 function elegirFrecuencia(f){
@@ -2582,20 +2786,32 @@ function elegirFrecuencia(f){
     document.getElementById('selFrec_' + x).classList.toggle('activo', x === f));
 
   const fecha = document.getElementById('inpFecha').value || hoyISO();
-  const [ , mes, dia] = fecha.split('-').map(Number);
+  const mes = Number(fecha.split('-')[1]);
+  const dia = leerDiaRepetir();
+
+  // Los pagos quedan listados en Recordatorios. El sueldo y el ahorro no
+  // tienen lista propia: se cambian tocando el movimiento de cualquier mes,
+  // así que hay que decirlo o no se encuentran.
+  const donde = tipoActual === 'gasto'
+    ? 'Queda en “Mis pagos de cada mes”.'
+    : 'Para cambiarlo o apagarlo, toca el movimiento de cualquier mes.';
+
   document.getElementById('ayudaRepetir').innerHTML = f === 'mensual'
-    ? `Se anotará solo el día ${dia} de cada mes. Queda en “Mis pagos de cada mes”.`
-    : `Se anotará solo una vez al año, en ${MESES[mes-1]}.`;
+    ? `Se anotará solo el día ${dia} de cada mes. ${donde}`
+    : `Se anotará solo una vez al año, el ${dia} de ${MESES[mes-1]}. ${donde}`;
 }
 
 /* Un movimiento con "Repetir automáticamente" se convierte en un fijo: el
    motor que los anota solos cada mes ya existe, no hace falta otro. El
    nombre sale del detalle o de la categoría, para no pedir un campo más. */
-function crearFijoDesdeMovimiento(datos, frecuencia){
+function crearFijoDesdeMovimiento(datos, frecuencia, diaElegido){
   // Sin frecuencia viene del interruptor de la hoja; con ella, de la
   // sincronización automática de Recordatorios, que siempre es mensual.
   const frec = frecuencia || frecuenciaMov;
-  const [ , mes, dia] = datos.fecha.split('-').map(Number);
+  const [ , mes, diaFecha] = datos.fecha.split('-').map(Number);
+  // El día lo manda el campo de la hoja; la sincronización automática no pasa
+  // ninguno, y ahí el día es el de la fecha del pago.
+  const dia = diaElegido || diaFecha;
 
   const fijo = {
     id: nuevoId(),
@@ -2615,9 +2831,26 @@ function crearFijoDesdeMovimiento(datos, frecuencia){
   return fijo;
 }
 
-// El día y el mes de la explicación salen de la fecha elegida
+/* El otro lado de crearFijoDesdeMovimiento: corregir el movimiento corrige su
+   ficha. Es lo que antes hacías entrando a "Ingresos y ahorros" a editarla a
+   mano; ahora el sueldo se arregla donde lo ves. */
+function actualizarFijoDesdeMovimiento(fijo, mov, renombrar){
+  const mes = Number(mov.fecha.split('-')[1]);
+  fijo.monto = mov.monto;
+  fijo.dia   = leerDiaRepetir();
+  fijo.tipo  = mov.tipo;          // de ingreso a ahorro, o al revés
+  fijo.catId = mov.catId;
+  fijo.subId = mov.subId || null;
+  fijo.frecuencia = frecuenciaMov;
+  fijo.mes = frecuenciaMov === 'anual' ? mes : null;
+  if(renombrar) fijo.nombre = nombreDeFijo(mov);
+}
+
+// Cambiar la fecha arrastra el día propuesto y la explicación de abajo
 function fechaMovCambiada(){
-  if(document.getElementById('tgRepetir').checked) elegirFrecuencia(frecuenciaMov);
+  if(!document.getElementById('tgRepetir').checked) return;
+  proponerDiaRepetir();
+  elegirFrecuencia(frecuenciaMov);
 }
 
 /* Fecha con n meses sumados, cuidando los meses cortos: si empezaste un
@@ -2647,19 +2880,26 @@ function editarMovimiento(id){
   if(aviso) aviso.remove();
   mostrarProgreso(false, '', 0);
 
-  // Editando no se ofrecen los toggles: cambiar una cuota ya anotada no debe
-  // rehacer el plan entero, ni tocar un fijo desde aquí. En cambio se cuenta
-  // de dónde salió el movimiento.
+  /* Las cuotas no se tocan desde aquí: cambiar una ya anotada tendría que
+     rehacer el plan entero. Los pagos fijos tampoco, porque tienen su propia
+     pantalla en Recordatorios.
+
+     El sueldo y el ahorro sí: como ya no hay cuadro en Configuración, esta es
+     su única puerta. Se muestra el interruptor encendido, y apagarlo aquí es
+     lo que antes era borrarlo de aquella lista. */
   resetearOpciones();
-  ['campoCuotas','campoRepetir'].forEach(id =>
-    document.getElementById(id).classList.add('oculto'));
+  document.getElementById('campoCuotas').classList.add('oculto');
   const origen = document.getElementById('avisoOrigenMov');
   const fijo = m.fijoId && estado.fijos.find(f => f.id === m.fijoId);
+  const suyo = fijo && fijo.tipo !== 'gasto';
+
+  document.getElementById('campoRepetir').classList.toggle('oculto', !suyo);
+
   if(m.cuota){
     origen.classList.remove('oculto');
     origen.innerHTML = `Cuota ${m.cuota.numero} de ${m.cuota.total} de un pago de
                         <b>${pesos(m.cuota.montoTotal)}</b>.`;
-  }else if(fijo){
+  }else if(fijo && !suyo){
     origen.classList.remove('oculto');
     origen.innerHTML = `Se repite ${fijo.frecuencia === 'anual' ? 'cada año' : 'cada mes'}.
                         Para cambiar eso, edítalo en Recordatorios.`;
@@ -2670,11 +2910,26 @@ function editarMovimiento(id){
   document.getElementById('inpNota').value = m.nota || '';
   document.getElementById('inpFecha').value = m.fecha;
 
-  elegirTipo(m.tipo);
+  elegirTipo(m.tipo, true);           // la hoja aún no se abre: nada que asomar
   if(m.catId){
-    elegirCategoria(m.catId);
+    elegirCategoria(m.catId, true);
     if(m.subId){ subElegida = m.subId; pintarChipsSub(buscarCat(m.catId)); }
   }
+
+  // Va al final a propósito: el interruptor se enciende cuando la fecha y la
+  // categoría ya están puestas, porque de ahí sale el "día 5 de cada mes" que
+  // se explica debajo.
+  if(suyo){
+    document.getElementById('tgRepetir').checked = true;
+    frecuenciaMov = fijo.frecuencia || 'mensual';
+    // El día sale de la ficha, no de la fecha: pueden no coincidir, que es
+    // justo para lo que sirve el campo. Marcarlo como escrito a mano evita
+    // que se lo pise el día de la fecha del movimiento.
+    document.getElementById('inpDiaRepetir').value = fijo.dia;
+    diaRepetirAMano = true;
+    cambiarRepetir(true);
+  }
+
   abrirHoja('hojaMovimiento');
 }
 
@@ -2700,6 +2955,14 @@ function faltaAlgo(){
   // parte, porque toda la app filtra por fecha. Mejor no dejarlo pasar.
   if(!document.getElementById('inpFecha').value)
     return {aviso:'Elige una fecha', foco:'inpFecha'};
+  // Un día fuera de rango se guardaría como el de la fecha sin avisar, y el
+  // fijo terminaría anotándose un día que tú no elegiste.
+  const inpDia = document.getElementById('inpDiaRepetir');
+  if(document.getElementById('tgRepetir').checked && inpDia.value !== ''){
+    const n = parseInt(inpDia.value, 10);
+    if(!(n >= 1 && n <= 31))
+      return {aviso:'El día tiene que estar entre 1 y 31', foco:'inpDiaRepetir'};
+  }
   return null;
 }
 
@@ -2725,9 +2988,29 @@ function guardarMovimiento(){
 
   if(movEditando){
     const mov = estado.movimientos.find(m => m.id === movEditando);
+    // La ficha del sueldo o del ahorro se maneja desde aquí, así que hay que
+    // mirarla antes de pisar los datos viejos del movimiento.
+    const fijo = mov.fijoId && estado.fijos.find(f => f.id === mov.fijoId);
+    const suyo = fijo && fijo.tipo !== 'gasto';
+    // Si el nombre de la ficha es el que puso la app, sigue el detalle cuando
+    // lo cambias. Si lo escribiste tú, no se toca.
+    const nombreEraAuto = suyo && fijo.nombre === nombreDeFijo(mov);
+    // Deja de ser suyo si apagaste el interruptor o si lo convertiste en gasto
+    const sigueRepitiendo = suyo && datos.tipo !== 'gasto' &&
+                            document.getElementById('tgRepetir').checked;
+
     Object.assign(mov, datos);
+
+    if(suyo && !sigueRepitiendo){
+      // Pasar a gasto no es "no repetir": puede que su ficha la cree
+      // Recordatorios dos líneas más abajo, así que no se marca el movimiento.
+      dejarDeRepetir(fijo.id, datos.tipo !== 'gasto');
+      if(datos.tipo !== 'gasto') avisar('Ya no se repite');
+    }
+
     // Si le cambiaste la categoría a una de Recordatorios, entra ahí ahora
     sincronizarRecordatorio(mov);
+    if(sigueRepitiendo) actualizarFijoDesdeMovimiento(fijo, mov, nombreEraAuto);
     movEditando = null;
   }else if(document.getElementById('tgCuotas').checked && cuotasElegidas > 1){
     // Un movimiento por cuota, cada uno en su mes. Así el balance de cada mes
@@ -2744,10 +3027,15 @@ function guardarMovimiento(){
     avisar(`${n} cuotas anotadas`);
   }else if(document.getElementById('tgRepetir').checked){
     const mov = {id: nuevoId(), ...datos};
-    // Dentro de Recordatorios la ficha se busca antes de crearla, para no
-    // dejar dos "Internet". Fuera (el sueldo, el ahorro) se crea derecho.
-    if(!sincronizarRecordatorio(mov, frecuenciaMov))
-      mov.fijoId = crearFijoDesdeMovimiento(datos, frecuenciaMov).id;
+    const dia = leerDiaRepetir();
+    // Los gastos de Recordatorios entran por su propia puerta. El sueldo y el
+    // ahorro pasan por aquí, y también se busca la ficha antes de crearla:
+    // dos "Sueldo" configurados lo anotarían dos veces todos los meses.
+    if(!sincronizarRecordatorio(mov, frecuenciaMov, dia)){
+      const fijo = fijoEquivalente(mov) || crearFijoDesdeMovimiento(datos, frecuenciaMov, dia);
+      mov.fijoId = fijo.id;
+      marcarMesAnotado(fijo, mov);
+    }
     estado.movimientos.push(mov);
     avisar(frecuenciaMov === 'anual' ? 'Se repetirá cada año' : 'Se repetirá cada mes');
   }else{
