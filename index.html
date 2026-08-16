@@ -427,13 +427,31 @@ h2.seccion{font-size:19px;margin-bottom:16px}
 .vacio{text-align:center;color:var(--suave);padding:34px 16px;font-size:14px}
 .vacio .emo{font-size:32px;display:block;margin-bottom:10px;opacity:.5}
 /* El "+" del centro: la única forma de anotar un movimiento. Va dentro de
-   la tarjeta de movimientos, con la lista debajo. */
+   la tarjeta de movimientos, con la lista debajo.
+
+   La cruz se dibuja con dos barritas y no con el carácter "+". Escrito como
+   texto quedaba 4 px bajo el centro del círculo: el navegador centra la caja
+   de la línea de texto, y el dibujo del "+" no está en el medio de esa caja
+   —se apoya en el eje matemático de la fuente, más arriba de la base—. Se
+   podría empujar 4 px con un transform, pero esos 4 px son de Segoe UI en
+   este computador: en otra fuente o en otro teléfono el número cambia y el
+   "+" volvería a descuadrarse. Dos barras centradas con translate(-50%,-50%)
+   no dependen de ninguna fuente y quedan exactas en todas partes.
+
+   El "+" sigue en el HTML, escondido con font-size:0, para no dejar el botón
+   sin texto. */
 .mas-grande{
+  position:relative;
   width:66px;height:66px;border-radius:50%;border:1px dashed var(--linea);
-  background:var(--tarjeta);color:var(--suave);font-size:32px;font-weight:300;
-  cursor:pointer;display:grid;place-items:center;margin:0 auto 16px;padding:0;
-  font-family:inherit
+  background:var(--tarjeta);color:var(--suave);font-size:0;
+  cursor:pointer;display:block;margin:0 auto 16px;padding:0
 }
+.mas-grande::before,.mas-grande::after{
+  content:'';position:absolute;top:50%;left:50%;
+  background:currentColor;border-radius:1px;
+}
+.mas-grande::before{width:22px;height:1.5px;transform:translate(-50%,-50%)}
+.mas-grande::after{width:1.5px;height:22px;transform:translate(-50%,-50%)}
 /* Con la lista debajo necesita una línea que los separe */
 .mas-grande.con-lista{margin-bottom:14px;padding-bottom:0}
 .separa-lista{border-bottom:1px solid var(--linea);margin:0 -4px 6px}
