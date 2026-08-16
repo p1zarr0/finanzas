@@ -649,6 +649,9 @@ input[type=date],input[type=text],input[type=number],select{
            porque habla del período que estás mirando, igual que los tres
            montos de arriba; el acumulado es de siempre. -->
       <div class="acumulado oculto" id="tasaAhorro"></div>
+      <!-- Lo que está anotado pero todavía no ocurre. Va aquí, fuera de los
+           tres montos, porque no es plata que se haya movido: es aviso. -->
+      <div class="acumulado oculto" id="porVenir"></div>
       <div class="acumulado" id="acumuladoAhorro"></div>
     </div>
 
@@ -1650,9 +1653,22 @@ function pintarTodo(){
   document.getElementById('etiquetaBalance').textContent =
     esMesCompleto() ? 'Disponible este mes' : 'Disponible en estas fechas';
 
-  // Todo Análisis se calcula con las fechas de la píldora, no con el mes
-  const delMes = estado.movimientos
+  /* Todo Análisis se calcula con las fechas de la píldora, no con el mes.
+
+     Y solo con lo que YA OCURRIÓ. La app anota el mes completo por adelantado
+     —el sueldo del 25 aparece aunque estemos a 15— y antes esos movimientos
+     futuros se sumaban a los totales. Eso hacía que el Disponible mostrara
+     plata que todavía no tienes en el bolsillo, que es justo lo contrario de
+     lo que uno viene a preguntarle a la app.
+
+     Los programados NO desaparecen: siguen en la lista de Movimientos con su
+     etiqueta, porque saber lo que viene sirve. Lo que no hacen es contar como
+     si ya hubiera pasado. */
+  const hoy = hoyISO();
+  const enRango = estado.movimientos
     .filter(m => m.fecha >= rangoDesde && m.fecha <= rangoHasta);
+  const delMes = enRango.filter(m => m.fecha <= hoy);
+  const programados = enRango.length - delMes.length;
   const suma = tipo => delMes.filter(m=>m.tipo===tipo).reduce((s,m)=>s+m.monto,0);
   const ingresos = suma('ingreso'), gastos = suma('gasto'), ahorro = suma('ahorro');
 
@@ -1683,9 +1699,26 @@ function pintarTodo(){
       : `🌱 Estás ahorrando el <b>${Math.round(pct)}%</b> de lo que entra.`;
   }
 
-  // El acumulado es de todos los meses, no solo del que estás mirando
+  /* Lo que viene y todavía no ocurre, dicho aparte en vez de mezclado en los
+     totales. La razón de anotar el mes completo era poder ver lo que se te
+     viene encima; eso se sigue pudiendo, pero como un dato propio y no
+     inflando un "Disponible" que no es real. Solo se muestra si hay algo. */
+  const porVenirTotal = enRango
+    .filter(m => m.fecha > hoy)
+    .reduce((s,m) => s + (m.tipo === 'ingreso' ? m.monto : -m.monto), 0);
+  const avisoPorVenir = document.getElementById('porVenir');
+  avisoPorVenir.classList.toggle('oculto', programados === 0);
+  if(programados){
+    const signo = porVenirTotal < 0 ? '−' : '+';
+    avisoPorVenir.innerHTML =
+      `📅 Falta que ocurra${programados > 1 ? 'n' : ''} ${programados} ` +
+      `movimiento${programados > 1 ? 's' : ''}: <b>${signo}${pesos(porVenirTotal)}</b>`;
+  }
+
+  // El acumulado es de todos los meses, no solo del que estás mirando. Y
+  // tampoco cuenta lo que aún no pasa: la frase dice "hasta hoy".
   const acumulado = estado.movimientos
-    .filter(m => m.tipo === 'ahorro').reduce((s,m)=>s+m.monto,0);
+    .filter(m => m.tipo === 'ahorro' && m.fecha <= hoy).reduce((s,m)=>s+m.monto,0);
   document.getElementById('acumuladoAhorro').innerHTML = acumulado
     ? `🏦 Ahorrado hasta hoy: <b>${pesos(acumulado)}</b>`
     : `🏦 Todavía no registras ahorros.`;
@@ -2483,9 +2516,26 @@ function pintarComparacion(gastosMes){
   if(esMesCompleto()){
     const ant = new Date(mesVista.getFullYear(), mesVista.getMonth() - 1, 1);
     const a = ant.getFullYear(), m = ant.getMonth();
+    const ultimoDiaAnt = new Date(a, m+1, 0).getDate();
     desdeAnt = `${a}-${dosCifras(m+1)}-01`;
-    hastaAnt = `${a}-${dosCifras(m+1)}-${dosCifras(new Date(a, m+1, 0).getDate())}`;
-    nombre = MESES[m];
+
+    /* Si el mes que estás mirando es el que va corriendo, sus gastos llegan
+       hasta hoy y no más: el resto no ha ocurrido. Compararlos contra el mes
+       pasado ENTERO diría "gastaste 50% menos" un día 15, cuando lo único que
+       pasa es que el mes va por la mitad. Así que se corta el mes anterior en
+       el mismo día: del 1 al 15 contra del 1 al 15.
+
+       El Math.min es para los meses cortos: un 31 de marzo se compara contra
+       el 28 de febrero, que es todo lo que febrero tiene. */
+    const hoy = new Date();
+    const mirandoEsteMes = mesVista.getFullYear() === hoy.getFullYear() &&
+                           mesVista.getMonth() === hoy.getMonth();
+    const corte = mirandoEsteMes ? Math.min(hoy.getDate(), ultimoDiaAnt) : ultimoDiaAnt;
+
+    hastaAnt = `${a}-${dosCifras(m+1)}-${dosCifras(corte)}`;
+    nombre = mirandoEsteMes && corte < ultimoDiaAnt
+      ? `los primeros ${corte} días de ${MESES[m]}`
+      : MESES[m];
   }else{
     const largo = diasEntre(rangoDesde, rangoHasta) + 1;
     hastaAnt = sumarDias(rangoDesde, -1);
