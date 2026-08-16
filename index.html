@@ -944,6 +944,25 @@ input[type=date],input[type=text],input[type=number],select{
   <button class="btn-texto" onclick="mesCompletoDesdeHoja()">Mes completo</button>
 </div>
 
+<!-- ===================== HOJA: AÑO NUEVO =====================
+     Un fijo mensual configurado una vez se anotaba para siempre. El arriendo
+     sube, el plan de celular se acaba, el sueldo cambia: al año siguiente ya
+     no son los mismos y nadie te lo preguntaba. Esta hoja aparece la primera
+     vez que abres la app en un año nuevo, con lo que se venía repitiendo. -->
+<div class="hoja" id="hojaAnioNuevo">
+  <div class="asa"></div>
+  <h2 class="seccion titulo" style="text-align:center;margin-bottom:6px">
+    Empezó <span id="anioNuevoTitulo">—</span>
+  </h2>
+  <p class="ayuda" style="text-align:center;margin:0 0 20px">
+    Esto se venía anotando solo todos los meses. Apaga lo que ya no siga,
+    y lo demás sigue igual.
+  </p>
+  <div id="listaAnioNuevo"></div>
+  <button class="btn-principal" onclick="confirmarAnioNuevo()">Listo</button>
+  <button class="btn-texto" onclick="cerrarHojas()">Ahora no</button>
+</div>
+
 <!-- ===================== HOJA: INGRESO O GASTO FIJO ===================== -->
 <div class="hoja" id="hojaFijo">
   <div class="asa"></div>
@@ -1127,7 +1146,7 @@ let estado = {
   // no hay nada que guardar: la migración 18 lo borra de los datos viejos.
   // Al subir una migración hay que subir este número también, o una
   // instalación nueva nace "atrasada" y corre migraciones que no necesita.
-  version: 18
+  version: 19
 };
 
 /* localStorage = la memoria del navegador. Guarda texto y sobrevive
@@ -1386,6 +1405,15 @@ function cargar(){
     // pista falsa para quien abra los datos más adelante.
     delete estado.tema;
     estado.version = 18;
+  }
+
+  if(estado.version < 19){
+    // Las fichas que ya existían quedan confirmadas para el año en curso: no
+    // corresponde preguntarte por algo que configuraste hace poco. La primera
+    // renovación llega en enero del año que viene.
+    const anio = new Date().getFullYear();
+    estado.fijos.forEach(f => { if(f.anioOk === undefined) f.anioOk = anio; });
+    estado.version = 19;
   }
 
   // Si se migró algo, se guarda de inmediato. Si no, la migración volvería a
@@ -1750,6 +1778,68 @@ function mesClave(fecha){
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
 }
 
+/* --- La renovación de cada año ---
+   Un fijo mensual configurado una vez se anotaba para siempre. Pero lo que se
+   repite mes a mes se repite dentro de un año: el arriendo sube en marzo, el
+   plan de celular se acaba, el sueldo cambia. Al empezar un año nuevo la app
+   pregunta una vez cuáles siguen.
+
+   "anioOk" es el último año que confirmaste. Mientras sea menor que el año en
+   curso, ese fijo está esperando respuesta y no se anota. Los anuales no
+   entran: ya se preguntan solos una vez al año por definición. */
+function esperaConfirmacion(f, anio){
+  return (f.frecuencia || 'mensual') === 'mensual' &&
+         f.activo !== false &&
+         (f.anioOk || 0) < anio;
+}
+
+function fijosPorConfirmar(){
+  const anio = new Date().getFullYear();
+  return estado.fijos.filter(f => esperaConfirmacion(f, anio));
+}
+
+/* Se llama al arrancar, antes de anotar nada. Si no hay nada que preguntar
+   —el caso normal, todo el año menos enero— no hace absolutamente nada. */
+function preguntarPorElAnio(){
+  const pendientes = fijosPorConfirmar();
+  if(!pendientes.length) return;
+
+  document.getElementById('anioNuevoTitulo').textContent = new Date().getFullYear();
+  document.getElementById('listaAnioNuevo').innerHTML = pendientes.map(f => `
+    <div class="fila-toggle" style="padding:11px 0;border-bottom:1px solid var(--linea)">
+      <span class="nom">${emojiDe(f.nombre) || ''}${f.nombre}
+        <small style="display:block;color:var(--medio);font-size:var(--t-sm)">
+          ${SIGNO[f.tipo] || '−'}${pesos(f.monto)} · día ${f.dia}</small></span>
+      <label class="switch">
+        <input type="checkbox" data-anio="${f.id}" checked><i></i>
+      </label>
+    </div>`).join('');
+  abrirHoja('hojaAnioNuevo');
+}
+
+/* "Listo": los encendidos siguen y quedan confirmados para este año; los
+   apagados se pausan. Pausar y no borrar es a propósito: lo anotado no se
+   toca y puedes volver a encenderlo en Recordatorios. */
+function confirmarAnioNuevo(){
+  const anio = new Date().getFullYear();
+  let siguen = 0, pausados = 0;
+
+  document.querySelectorAll('#listaAnioNuevo input[data-anio]').forEach(chk => {
+    const f = estado.fijos.find(x => x.id === chk.dataset.anio);
+    if(!f) return;
+    f.anioOk = anio;                    // preguntado y respondido: no se repite
+    if(chk.checked){ siguen++; }
+    else { f.activo = false; pausados++; }
+  });
+
+  guardar();
+  cerrarHojas();
+  // Recién ahora se anotan: hasta este momento estaban en espera
+  revisarFijos();
+  pintarTodo();
+  avisar(pausados ? `${siguen} siguen, ${pausados} en pausa` : 'Listo');
+}
+
 /* Anota lo que toca del mes. No avisa nada: lo anotado aparece en la lista
    de movimientos como cualquier otro, y ahí mismo se corrige o se borra. */
 function revisarFijos(){
@@ -1762,6 +1852,10 @@ function revisarFijos(){
     // Los anuales (la patente, el permiso de circulación) solo en su mes.
     // La marca de "ya anotado" sirve igual: solo puede coincidir una vez al año.
     if(f.frecuencia === 'anual' && f.mes && f.mes !== hoy.getMonth() + 1) return;
+    // Un mensual del año pasado espera a que digas si sigue. Se salta en vez
+    // de anotarse y preguntar después: anotar algo que quizás vas a cancelar
+    // te movería el Disponible de enero por nada.
+    if(esperaConfirmacion(f, hoy.getFullYear())) return;
     // Ya se anotó este mes. Guardamos el mes y no "¿existe el movimiento?"
     // a propósito: si borraste el sueldo a mano, no queremos que reaparezca.
     if(f.ultimoRegistrado === mes) return;
@@ -2360,7 +2454,8 @@ function guardarFijo(){
     });
   }else{
     const hoy = new Date();
-    const nuevo = {id: nuevoId(), ...datos, ultimoRegistrado: null};
+    const nuevo = {id: nuevoId(), ...datos,
+                   anioOk: hoy.getFullYear(), ultimoRegistrado: null};
     estado.fijos.push(nuevo);
 
     // Solo se pregunta cuando el día ya pasó: ahí existe el riesgo real de
@@ -3183,6 +3278,9 @@ function crearFijoDesdeMovimiento(datos, frecuencia, diaElegido){
     activo: true,
     frecuencia: frec,
     mes: frec === 'anual' ? mes : null,
+    // El año en que lo configuraste ya está confirmado: acabas de decidirlo.
+    // La pregunta de renovación llega recién en enero del año siguiente.
+    anioOk: Number(datos.fecha.slice(0,4)),
     // El de este mes ya quedó anotado aquí mismo: marcarlo evita el duplicado
     ultimoRegistrado: datos.fecha.slice(0,7)
   };
@@ -4211,10 +4309,14 @@ cargar();
 // Primero las fichas: lo anotado en Gastos fijos, Hogar y Suscripciones
 // entra a Recordatorios con su mes ya marcado, para no anotarlo dos veces
 sincronizarRecordatorios();
-// Después, si pasó el día de algún fijo, se anota ahora
+// Después, si pasó el día de algún fijo, se anota ahora. Los mensuales que
+// están esperando la renovación de enero se saltan solos.
 revisarFijos();
 pintarTodo();
 ajustarEspacioArriba();
+// Y al final la pregunta del año nuevo, si toca: necesita la pantalla ya
+// pintada detrás, y casi siempre no hace nada.
+preguntarPorElAnio();
 
 // La tecla Escape cierra las hojas (útil en el computador)
 document.addEventListener('keydown', e => { if(e.key === 'Escape') cerrarHojas(); });
