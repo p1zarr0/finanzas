@@ -132,6 +132,37 @@ siendo cien por ciento local.
 
 ---
 
+## De dónde salió cada movimiento
+
+En la lista, al lado del detalle, aparece una etiqueta con el origen:
+
+| Etiqueta | Qué significa |
+|---|---|
+| *(ninguna)* | Lo escribiste tú a mano |
+| `WhatsApp` | Se lo dictaste al bot |
+| `banco` | Llegó de un correo de aviso de compra |
+| `cartola` | Entró al importar la cartola |
+| 📷 | El monto lo leyó el escáner de la boleta |
+| 🔁 | Es de un pago que se repite (arriendo, Netflix, sueldo) |
+| 🤝 | Salió de saldar una deuda en Transferencias |
+
+**Lo manual no lleva etiqueta a propósito.** Si la llevara, el noventa por ciento de la
+lista diría lo mismo y no distinguirías nada: la etiqueta está para lo que llegó sin que
+lo teclearas. Es el mismo criterio de “Programado”.
+
+Dos detalles:
+
+- Si el escáner leyó mal y **corregiste el monto a mano**, el movimiento deja de contar
+  como escaneado. Lo que marca el 📷 es que ese número lo puso la máquina.
+- Editar un movimiento **no le cambia el origen**. Un gasto que llegó por WhatsApp sigue
+  diciendo WhatsApp aunque después le cambies la categoría o el monto.
+
+El 🔁 funciona hacia atrás con todo lo que ya tenías, porque sale de la ficha de
+Recordatorios. Los demás solo desde que existen: lo que escaneaste o saldaste antes
+aparece sin etiqueta.
+
+---
+
 ## Respaldo de los datos
 
 Desde la app: **⚙ → Exportar a Excel (CSV)**.

@@ -305,6 +305,10 @@ h2.seccion{font-size:19px;margin-bottom:16px}
   font-style:normal;border:1px solid var(--linea);border-radius:20px;
   padding:1px 7px;font-size:var(--t-xs);letter-spacing:.02em
 }
+/* El origen cuando es un emoji solo. Va sin recuadro y al tamaño de la
+   fila: el recuadro existe para encerrar una palabra, y un dibujo metido
+   ahí, con la letra diminuta de las etiquetas, no se distinguía. */
+.mov .sello{font-style:normal;font-size:var(--t-sm)}
 .mov .flecha{margin-left:2px}
 .dia{font-size:12px;color:var(--suave);letter-spacing:.06em;text-transform:uppercase;margin:20px 0 2px}
 
@@ -2928,6 +2932,39 @@ function mesCompletoDesdeHoja(){
   pintarTodo();
 }
 
+/* --- De dónde salió este movimiento ---
+   Se marca SOLO lo que no escribiste tú. Si "Manual" llevara etiqueta, el
+   noventa por ciento de la lista diría lo mismo y no distinguirías nada:
+   la etiqueta sirve justamente para lo que llegó sin que lo teclearas. Es
+   el mismo criterio de "Programado", que aparece solo cuando pasa algo
+   fuera de lo corriente.
+
+   Los tres primeros van con palabra porque son nuevos y hay que aprenderlos.
+   Los dos últimos con emoji solo: pasan seguido y la fila ya dice bastante.
+
+   El 🔁 no necesita ningún dato guardado. Sale de la ficha de Recordatorios
+   que el movimiento ya trae (fijoId), así que funciona hacia atrás con todo
+   lo que anotaste antes de que esto existiera. Y significa "de un pago que
+   se repite", no "lo anotó la app": por eso también marca aquel con el que
+   configuraste la repetición, que es igual de cierto. */
+const ETIQUETAS_ORIGEN = {
+  whatsapp: 'WhatsApp',
+  correo:   'banco',
+  cartola:  'cartola',
+  escaner:  '📷',
+  deuda:    '🤝'
+};
+
+function selloOrigen(m){
+  const etiqueta = (m.origen && ETIQUETAS_ORIGEN[m.origen]) || (m.fijoId ? '🔁' : '');
+  if(!etiqueta) return '';
+  // Las de palabra van en el recuadro gris de siempre; el emoji solo va
+  // suelto, que es lo único en que se diferencian al dibujarse.
+  return /[a-z]/i.test(etiqueta)
+    ? `<i class="marca">${etiqueta}</i>`
+    : `<i class="sello">${etiqueta}</i>`;
+}
+
 function pintarMovimientos(){
   const cont = document.getElementById('listaMovimientos');
   if(!rangoDesde) rangoMesCompleto();   // la primera vez lo arma solo
@@ -2979,6 +3016,8 @@ function pintarMovimientos(){
     const marcas = [];
     if(m.cuota) marcas.push(`<i class="marca">Cuota ${m.cuota.numero} de ${m.cuota.total}</i>`);
     if(programado) marcas.push('<i class="marca">Programado</i>');
+    const deDonde = selloOrigen(m);
+    if(deDonde) marcas.push(deDonde);
 
     const detalle = [textos.join(' · '), ...marcas].filter(Boolean).join(' ');
     html += `<div class="mov t-${m.tipo} ${programado?'programado':''}" onclick="editarMovimiento('${m.id}')">
@@ -3085,6 +3124,12 @@ let movEditando = null;   // null = registrando uno nuevo
 let cuotasElegidas = 0;            // 0 = pago único
 let frecuenciaMov = 'mensual';     // 'mensual' | 'anual'
 
+/* El monto que leyó el escáner de la boleta, para saber al guardar si el
+   número que quedó lo puso la máquina o lo tecleaste tú. Se compara el
+   monto en vez de guardar un simple "se escaneó": si el escáner se
+   equivocó y lo corregiste a mano, el movimiento ya no es escaneado. */
+let montoDelEscaner = null;
+
 /* Todas las hojas comparten z-index en el CSS, así que sin esto la que
    quedaba encima era la que estuviera más abajo en el HTML, no la que
    acabas de abrir: el detalle abierto desde un pago de Recordatorios se
@@ -3119,6 +3164,7 @@ function abrirMovimiento(){
   document.getElementById('inpFecha').value = hoyISO();
   const aviso = document.getElementById('avisoOCR');
   if(aviso) aviso.remove();                 // limpia el mensaje del escaneo anterior
+  montoDelEscaner = null;
   mostrarProgreso(false, '', 0);
   resetearOpciones();
   elegirTipo('gasto');
@@ -3609,6 +3655,9 @@ function editarMovimiento(id){
   document.getElementById('btnEscanear').classList.add('oculto');
   const aviso = document.getElementById('avisoOCR');
   if(aviso) aviso.remove();
+  // Editando no se puede escanear (el botón se esconde), pero si quedó un
+  // monto del escaneo anterior no puede teñir el movimiento que abres ahora
+  montoDelEscaner = null;
   mostrarProgreso(false, '', 0);
 
   /* Las cuotas no se tocan desde aquí: cambiar una ya anotada tendría que
@@ -3729,6 +3778,12 @@ function guardarMovimiento(){
     fecha: document.getElementById('inpFecha').value,
     nota: document.getElementById('inpNota').value.trim()
   };
+
+  /* Solo se agrega la clave si de verdad viene del escáner. Si se agregara
+     siempre (aunque fuera vacía), al editar un movimiento de la cartola el
+     Object.assign de más abajo le borraría su origen y pasaría a verse como
+     tecleado a mano. Sin la clave, lo que ya tenía se conserva. */
+  if(montoDelEscaner !== null && monto === montoDelEscaner) datos.origen = 'escaner';
 
   if(movEditando){
     const mov = estado.movimientos.find(m => m.id === movEditando);
@@ -3955,7 +4010,8 @@ function saldarConfirmado(t, esIngreso){
     catId: buscarCat(cat) ? cat : estado.categorias.find(c =>
             c.tipo === (esIngreso ? 'ingreso' : 'gasto')).id,
     subId: null, fecha: hoyISO(),
-    nota: [t.persona, t.nota].filter(Boolean).join(' · ')
+    nota: [t.persona, t.nota].filter(Boolean).join(' · '),
+    origen: 'deuda'
   });
   t.pagada = true;
   t.fechaPago = hoyISO();
@@ -4220,6 +4276,7 @@ async function procesarBoleta(input){
       const inp = document.getElementById('inpMonto');
       inp.value = String(hallazgo.monto);
       formatearMonto(inp);
+      montoDelEscaner = hallazgo.monto;
       if(tienda && !document.getElementById('inpNota').value)
         document.getElementById('inpNota').value = tienda;
       avisoOCR(hallazgo.seguro
@@ -4705,9 +4762,10 @@ function pintarCartola(repetidas){
   volver.textContent = delBuzon ? 'Ahora no' : 'Elegir otro archivo';
   volver.onclick = delBuzon ? cerrarHojas : volverACartolaPaso1;
 
+  const uno = filasCartola.length === 1;
   const partes = [delBuzon
-    ? `Te llegaron <b>${filasCartola.length}</b> por WhatsApp y por tus correos del banco.`
-    : `Encontré <b>${filasCartola.length}</b> movimiento${filasCartola.length===1?'':'s'} nuevo${filasCartola.length===1?'':'s'}.`];
+    ? `Te lleg${uno?'ó':'aron'} <b>${filasCartola.length}</b> por WhatsApp o por tus correos del banco.`
+    : `Encontré <b>${filasCartola.length}</b> movimiento${uno?'':'s'} nuevo${uno?'':'s'}.`];
   if(repetidas) partes.push(`Otro${repetidas===1?'':'s'} ${repetidas} ya lo${repetidas===1?'':'s'} tenías.`);
   if(delBuzon && descartadosBuzon)
     partes.push(`No entendí ${descartadosBuzon} más: sin monto no hay gasto.`);
