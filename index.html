@@ -3102,6 +3102,7 @@ function resetearOpciones(){
   frecuenciaMov = 'mensual';
   diaRepetirAMano = false;
   fechaTocadaAMano = false;
+  diaAlAbrir = null;
   document.getElementById('tgCuotas').checked = false;
   document.getElementById('tgRepetir').checked = false;
   document.getElementById('inpDiaRepetir').value = '';
@@ -3263,6 +3264,8 @@ function asomarLoQueAparece(id){
    pisaba el día y configurar un sueldo del 25 lo anotaba hoy. */
 let diaRepetirAMano = false;
 let fechaTocadaAMano = false;
+// El día con el que se abrió la hoja de edición. Ver editarMovimiento().
+let diaAlAbrir = null;
 
 function diaRepetirEscrito(){
   diaRepetirAMano = true;
@@ -3405,28 +3408,29 @@ function editarMovimiento(id){
   mostrarProgreso(false, '', 0);
 
   /* Las cuotas no se tocan desde aquí: cambiar una ya anotada tendría que
-     rehacer el plan entero. Los pagos fijos tampoco, porque tienen su propia
-     pantalla en Recordatorios.
+     rehacer el plan entero.
 
-     El sueldo y el ahorro sí: como ya no hay cuadro en Configuración, esta es
-     su única puerta. Se muestra el interruptor encendido, y apagarlo aquí es
-     lo que antes era borrarlo de aquella lista. */
+     "Repetir" sí se muestra siempre, encendido o apagado según esté. Antes
+     solo aparecía para el sueldo y el ahorro, y a los pagos los mandaba a
+     Recordatorios: había que salir de la hoja, buscar la ficha y entrar de
+     nuevo para algo que se decide aquí. Apagarlo deja el movimiento de este
+     mes tal cual y corta los que vienen. */
   resetearOpciones();
-  document.getElementById('campoCuotas').classList.add('oculto');
   const origen = document.getElementById('avisoOrigenMov');
   const fijo = m.fijoId && estado.fijos.find(f => f.id === m.fijoId);
-  const suyo = fijo && fijo.tipo !== 'gasto';
 
-  document.getElementById('campoRepetir').classList.toggle('oculto', !suyo);
+  document.getElementById('campoRepetir').classList.toggle('oculto', !!m.cuota);
 
   if(m.cuota){
     origen.classList.remove('oculto');
     origen.innerHTML = `Cuota ${m.cuota.numero} de ${m.cuota.total} de un pago de
                         <b>${pesos(m.cuota.montoTotal)}</b>.`;
-  }else if(fijo && !suyo){
+  }else if(fijo && fijo.tipo === 'gasto'){
+    // Los pagos además viven en Recordatorios, y conviene decirlo: apagarlo
+    // aquí también lo saca de allá.
     origen.classList.remove('oculto');
-    origen.innerHTML = `Se repite ${fijo.frecuencia === 'anual' ? 'cada año' : 'cada mes'}.
-                        Para cambiar eso, edítalo en Recordatorios.`;
+    origen.innerHTML = `También está en <b>Recordatorios</b>. Si apagas
+                        “Repetir”, sale de ahí y solo queda el de este mes.`;
   }
 
   const inp = document.getElementById('inpMonto');
@@ -3440,10 +3444,17 @@ function editarMovimiento(id){
     if(m.subId){ subElegida = m.subId; pintarChipsSub(buscarCat(m.catId)); }
   }
 
+  /* Las cuotas se esconden DESPUÉS de elegirTipo, no antes: elegirTipo las
+     muestra para cualquier gasto, así que esconderlas arriba no servía de
+     nada y al editar un gasto aparecía un "Pago en cuotas" que además no
+     hacía nada, porque guardar ignora ese interruptor al editar. Cambiar una
+     cuota ya anotada tendría que rehacer el plan entero. */
+  document.getElementById('campoCuotas').classList.add('oculto');
+
   // Va al final a propósito: el interruptor se enciende cuando la fecha y la
   // categoría ya están puestas, porque de ahí sale el "día 5 de cada mes" que
   // se explica debajo.
-  if(suyo){
+  if(fijo && !m.cuota){
     document.getElementById('tgRepetir').checked = true;
     frecuenciaMov = fijo.frecuencia || 'mensual';
     // El día sale de la ficha, no de la fecha: pueden no coincidir, que es
@@ -3453,6 +3464,11 @@ function editarMovimiento(id){
     diaRepetirAMano = true;
     cambiarRepetir(true);
   }
+  /* Con qué día se abrió la hoja. Sirve para saber si LO CAMBIASTE TÚ: al
+     editar no basta la bandera diaRepetirAMano, porque la pone la propia app
+     al rellenar el campo. Sin esto, guardar un cambio de monto movería el
+     movimiento al día de la ficha aunque tú no hubieras tocado el día. */
+  diaAlAbrir = document.getElementById('inpDiaRepetir').value || null;
 
   abrirHoja('hojaMovimiento');
 }
@@ -3512,34 +3528,60 @@ function guardarMovimiento(){
 
   if(movEditando){
     const mov = estado.movimientos.find(m => m.id === movEditando);
-    // La ficha del sueldo o del ahorro se maneja desde aquí, así que hay que
-    // mirarla antes de pisar los datos viejos del movimiento.
+    // Hay que mirar la ficha antes de pisar los datos viejos del movimiento
     const fijo = mov.fijoId && estado.fijos.find(f => f.id === mov.fijoId);
-    const suyo = fijo && fijo.tipo !== 'gasto';
     // Si el nombre de la ficha es el que puso la app, sigue el detalle cuando
     // lo cambias. Si lo escribiste tú, no se toca.
-    const nombreEraAuto = suyo && fijo.nombre === nombreDeFijo(mov);
-    // Deja de ser suyo si apagaste el interruptor o si lo convertiste en gasto
-    const sigueRepitiendo = suyo && datos.tipo !== 'gasto' &&
-                            document.getElementById('tgRepetir').checked;
+    const nombreEraAuto = fijo && fijo.nombre === nombreDeFijo(mov);
+    // Las cuotas nunca se repiten: ya tienen un movimiento por mes
+    const quiereRepetir = !mov.cuota && document.getElementById('tgRepetir').checked;
+    const dia = leerDiaRepetir();
 
-    // El día mueve el movimiento, salvo que hayas elegido una fecha a mano:
-    // ahí manda la fecha, porque es la más específica de las dos.
-    if(sigueRepitiendo && !fechaTocadaAMano)
-      datos.fecha = fechaConDiaRepetir(datos.fecha, leerDiaRepetir());
+    /* Mover el movimiento a otro día solo si el día lo cambiaste TÚ. Al abrir
+       la hoja el campo viene relleno con el de la ficha, y si bastara con que
+       estuviera puesto, guardar un cambio de monto arrastraría el movimiento
+       al día de la ficha sin que nadie lo pidiera. Y si elegiste una fecha a
+       mano, esa manda: es la más específica de las dos. */
+    const diaCambiado = diaAlAbrir !== null && String(dia) !== String(diaAlAbrir);
+    if(quiereRepetir && diaCambiado && !fechaTocadaAMano)
+      datos.fecha = fechaConDiaRepetir(datos.fecha, dia);
 
     Object.assign(mov, datos);
 
-    if(suyo && !sigueRepitiendo){
-      // Pasar a gasto no es "no repetir": puede que su ficha la cree
-      // Recordatorios dos líneas más abajo, así que no se marca el movimiento.
-      dejarDeRepetir(fijo.id, datos.tipo !== 'gasto');
-      if(datos.tipo !== 'gasto') avisar('Ya no se repite');
+    if(fijo && !quiereRepetir){
+      /* Apagaste el interruptor: se corta hacia adelante y el movimiento de
+         este mes se queda tal cual, con su monto y su fecha. El movimiento
+         queda marcado para que la sincronización de Recordatorios no le
+         vuelva a crear la ficha la próxima vez que abras la app.
+
+         Se marca siempre, incluso si de paso lo convertiste en un gasto de
+         Hogar o Gastos fijos, que son los que normalmente crean ficha solos.
+         Apagar el interruptor es una instrucción tuya y gana sobre esa regla:
+         de lo contrario apagabas "Repetir" y volvía a aparecer en
+         Recordatorios, que es justo lo que pediste evitar. */
+      dejarDeRepetir(fijo.id);
+      avisar('Ya no se repite');
     }
 
-    // Si le cambiaste la categoría a una de Recordatorios, entra ahí ahora
-    sincronizarRecordatorio(mov);
-    if(sigueRepitiendo) actualizarFijoDesdeMovimiento(fijo, mov, nombreEraAuto);
+    if(quiereRepetir){
+      if(fijo){
+        actualizarFijoDesdeMovimiento(fijo, mov, nombreEraAuto);
+      }else{
+        // No se repetía y lo encendiste: se crea la ficha ahora. Los gastos de
+        // Recordatorios entran por su puerta, que busca antes de crear.
+        delete mov.sinRecordatorio;      // lo habías apagado antes; ya no
+        if(!sincronizarRecordatorio(mov, frecuenciaMov, dia)){
+          const nuevo = fijoEquivalente(mov, frecuenciaMov) ||
+                        crearFijoDesdeMovimiento(mov, frecuenciaMov, dia);
+          mov.fijoId = nuevo.id;
+          marcarMesAnotado(nuevo, mov);
+        }
+        avisar(frecuenciaMov === 'anual' ? 'Se repetirá cada año' : 'Se repetirá cada mes');
+      }
+    }else{
+      // Si le cambiaste la categoría a una de Recordatorios, entra ahí ahora
+      sincronizarRecordatorio(mov);
+    }
     movEditando = null;
   }else if(document.getElementById('tgCuotas').checked && cuotasElegidas > 1){
     // Un movimiento por cuota, cada uno en su mes. Así el balance de cada mes
