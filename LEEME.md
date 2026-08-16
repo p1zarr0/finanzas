@@ -114,13 +114,34 @@ enciendes tocando el movimiento.
 
 ---
 
-## Anotar por WhatsApp
+## Que los gastos entren solos
 
-**⚙ → Anotar por WhatsApp.** Le escribes “almuerzo 8500” a un bot y queda anotado la
-próxima vez que abras la app.
+Hay dos formas, y las dos usan el mismo **buzón**. Se configuran en
+**⚙ → Anotar por WhatsApp**, y cómo montarlas está paso a paso en
+[`buzon/LEEME.md`](buzon/LEEME.md).
 
-Esto necesita un **buzón** en la nube, que es lo único de la app que vive fuera del
-teléfono. Cómo montarlo está en [`buzon/LEEME.md`](buzon/LEEME.md), paso a paso.
+### Los correos del banco 📧
+
+Cada compra con tarjeta te llega un aviso por correo. Un script en tu propia cuenta de
+Google los lee cada 15 minutos y deja el monto y el comercio en el buzón. **Es la más
+fácil de las dos: no tiene ningún trámite** y no aparece ningún tercero nuevo, porque
+corre dentro de tu Gmail.
+
+Trae una función `probarLector` que te muestra qué entendió de cada correo **sin mandar
+nada**, para revisar antes de soltarlo.
+
+### El bot de WhatsApp 💬
+
+Le escribes “almuerzo 8500” a un bot y queda anotado la próxima vez que abras la app.
+También entiende “bencina copec 45500”, “+1450000 sueldo” y “ahorro 50000”.
+
+Es la más entretenida de las dos, pero **tiene trámite con Meta**: el número del bot no
+puede ser un número que ya tenga WhatsApp instalado, así que hay que usar el número de
+prueba que Meta regala. Tú le escribes desde tu WhatsApp de siempre.
+
+### Y el buzón, que es lo único que sale del teléfono
+
+Las dos cosas dejan lo que llega en un buzón en la nube, y la app lo vacía al abrirse.
 
 El buzón guarda **solo frases sueltas sin procesar** y las borra apenas la app se las
 lleva (y solas a los 7 días si no la abres). Tu historial, tus categorías, tus totales

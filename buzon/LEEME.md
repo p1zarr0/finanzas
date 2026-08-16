@@ -75,14 +75,73 @@ Toca **Guardar y probar**. Si dice "Conectado", ya está.
 > Esa dirección lleva tu clave dentro, así que trátala como una contraseña: no la
 > pegues en un chat ni en una captura de pantalla.
 
-**Hasta acá ya funciona el lector de correos del banco.** El bot de WhatsApp necesita
-los pasos que siguen.
+---
+
+## Paso 5: el lector de correos del banco
+
+Esto no necesita nada de Meta ni de Cloudflare aparte de lo que ya hiciste. Corre en tu
+**propia cuenta de Google**, leyendo un Gmail que Google ya tiene: no aparece ningún
+tercero nuevo.
+
+1. Entra a <https://script.google.com> → **Nuevo proyecto**.
+2. Borra lo que venga y pega todo [`correos.gs`](correos.gs).
+3. Arriba del archivo, en `CONFIG`, pega la dirección de tu buzón con su clave
+   (la misma que pusiste en la app). Revisa que `BANCOS` tenga los tuyos.
+4. **Antes de soltarlo, pruébalo.** Elige la función `probarLector` y aprieta ▷ Ejecutar.
+   Google te va a pedir permiso para leer tu Gmail; es este script, corriendo en tu
+   cuenta. En “Registro de ejecución” vas a ver algo así:
+
+   ```
+   Correos que calzan: 3
+   --- NO SE MANDÓ NADA. Esto es solo una prueba. ---
+
+   1) Notificación de Compra
+      ENTENDÍ -> gasto de $12.990 en "JUMBO MAIPU"
+   ```
+
+   **No manda nada ni marca ningún correo.** Es para revisar antes.
+5. Si se ve bien, ejecuta `instalarDisparador`. Desde ahí revisa solo cada 15 minutos.
+
+Para detenerlo en cualquier momento: ejecuta `desinstalarDisparador`.
+
+### Si algo sale mal interpretado
+
+La salida de `probarLector` es lo que hay que mirar. Cada línea dice qué entendió de cada
+correo. **Copia la línea, no el correo**, y con eso se corrige el patrón.
+
+Si no aparece ningún correo, casi siempre es que falta el dominio de tu banco en
+`CONFIG.BANCOS`. Abre un aviso de compra y mira de qué dirección llega.
+
+### Qué sabe hacer
+
+Probado contra 17 formatos distintos, incluidos los cuatro bancos, transferencias
+recibidas, abonos de sueldo, correos armados como tabla y montos escritos `$7.500.-`.
+
+Descarta solo lo que no corresponde: compras **rechazadas**, el correo de “si no
+reconoces esta compra”, estados de cuenta y publicidad.
+
+El detalle que más cuesta: los avisos traen dos o tres cifras —lo que gastaste, el cupo
+que te queda, el saldo— y la más grande no es la que interesa. El script mira **todas**
+las cifras con lo que viene escrito antes de cada una, y se queda con la que sigue a la
+palabra que dice qué pasó. Un correo que empieza con “Cupo disponible: $500.000” y
+después dice “compra por $12.990” anota los $12.990.
+
+Lo que no entiende, lo deja pasar y te lo dice. Nunca inventa un monto.
+
+### Lo que llega a tu app
+
+Del correo salen tres cosas: **cuánto, dónde y cuándo**. El texto del correo no se
+guarda en ninguna parte. Los movimientos aparecen con 📧 y, como todo lo del buzón,
+esperan que los confirmes antes de anotarse.
 
 ---
 
-## Paso 5: el bot de WhatsApp
+## Paso 6: el bot de WhatsApp
 
-Acá el obstáculo no es técnico sino de Meta: **el número del bot no puede ser un número
+Esta es la única parte con trámite. Si solo querías que entraran los correos del banco,
+ya terminaste: lo de abajo es opcional.
+
+El obstáculo acá no es técnico sino de Meta: **el número del bot no puede ser un número
 que ya tenga WhatsApp normal instalado**. Por eso se usa el número de prueba que Meta
 regala. Tú le escribes desde tu WhatsApp de siempre; el que cambia es el número que te
 responde.
@@ -101,7 +160,7 @@ responde.
    |---|---|---|
    | `TELEFONO_ID` | Text | el Phone number ID del paso 3 |
    | `TOKEN_WHATSAPP` | Secret | el token de Meta |
-   | `TOKEN_META` | Secret | una palabra que inventes tú (para el paso 5) |
+   | `TOKEN_META` | Secret | una palabra que inventes tú (la vuelves a usar abajo) |
    | `SECRETO_META` | Secret | el *App Secret*, en Settings → Basic de tu app de Meta |
    | `MI_NUMERO` | Text | tu número con código de país y sin +, ej. `56912345678` |
 
