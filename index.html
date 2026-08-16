@@ -1825,11 +1825,23 @@ function nombreDeFijo(mov){
 
    El tipo sale del movimiento y no está fijo en "gasto": así el sueldo que
    marcas para repetir encuentra el "Sueldo" que ya tenías configurado, en vez
-   de crear un segundo que lo anotaría dos veces cada mes. */
-function fijoEquivalente(mov){
+   de crear un segundo que lo anotaría dos veces cada mes.
+
+   "frec" se pasa solo cuando tú elegiste la frecuencia en la hoja. Ahí una
+   ficha anual y una mensual no son la misma cosa aunque compartan categoría:
+   sin esto, configurar un ingreso anual en una categoría donde ya había uno
+   mensual se colgaba de la ficha mensual y terminaba anotándose todos los
+   meses, que es exactamente lo contrario de lo que pediste.
+
+   La sincronización de Recordatorios la llama SIN frecuencia, a propósito: un
+   gasto anotado a mano no declara ninguna, así que cualquier ficha de esa
+   categoría le sirve. Si filtrara, anotar el permiso de circulación crearía
+   una segunda ficha mensual al lado de la anual que ya tenías. */
+function fijoEquivalente(mov, frec){
   const nombre = nombreDeFijo(mov);
   return estado.fijos.find(f =>
     f.tipo === mov.tipo && f.catId === mov.catId &&
+    (!frec || (f.frecuencia || 'mensual') === frec) &&
     (mov.subId ? f.subId === mov.subId : !f.subId && f.nombre === nombre));
 }
 
@@ -3402,7 +3414,8 @@ function guardarMovimiento(){
     // ahorro pasan por aquí, y también se busca la ficha antes de crearla:
     // dos "Sueldo" configurados lo anotarían dos veces todos los meses.
     if(!sincronizarRecordatorio(mov, frecuenciaMov, dia)){
-      const fijo = fijoEquivalente(mov) || crearFijoDesdeMovimiento(datos, frecuenciaMov, dia);
+      const fijo = fijoEquivalente(mov, frecuenciaMov) ||
+                   crearFijoDesdeMovimiento(datos, frecuenciaMov, dia);
       mov.fijoId = fijo.id;
       marcarMesAnotado(fijo, mov);
     }
