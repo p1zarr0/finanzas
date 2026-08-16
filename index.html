@@ -2929,6 +2929,7 @@ function resetearOpciones(){
   cuotasElegidas = 0;
   frecuenciaMov = 'mensual';
   diaRepetirAMano = false;
+  fechaTocadaAMano = false;
   document.getElementById('tgCuotas').checked = false;
   document.getElementById('tgRepetir').checked = false;
   document.getElementById('inpDiaRepetir').value = '';
@@ -3078,10 +3079,18 @@ function asomarLoQueAparece(id){
   });
 }
 
-/* El día lo pone la app con el de la fecha, salvo que lo hayas escrito tú:
-   entonces manda el tuyo y no se lo pisa al cambiar la fecha. Es la misma
-   idea que usa el nombre en la hoja de fijos (nombreFijoAuto). */
+/* Con "Repetir" encendido hay dos campos que hablan de fechas y pueden decir
+   cosas distintas a propósito: la Fecha es cuándo ocurrió ESTE movimiento, y
+   "Qué día del mes" es el día de los meses que vienen. Pueden no coincidir —
+   este mes el sueldo llegó el 10 porque el 25 cayó domingo, pero normalmente
+   es el 25—, así que ninguno puede ganarle al otro por regla fija.
+
+   Manda el que tocaste tú. Estas dos banderas recuerdan cuál fue: la app
+   rellena los dos campos sola, y solo cuentan como elección tuya si los
+   escribiste. Sin esto, o el día pisaba la fecha que elegiste, o la fecha
+   pisaba el día y configurar un sueldo del 25 lo anotaba hoy. */
 let diaRepetirAMano = false;
+let fechaTocadaAMano = false;
 
 function diaRepetirEscrito(){
   diaRepetirAMano = true;
@@ -3186,6 +3195,8 @@ function actualizarFijoDesdeMovimiento(fijo, mov, renombrar){
 
 // Cambiar la fecha arrastra el día propuesto y la explicación de abajo
 function fechaMovCambiada(){
+  // Lo dispara el onchange del campo, o sea que la fecha la elegiste tú
+  fechaTocadaAMano = true;
   if(!document.getElementById('tgRepetir').checked) return;
   proponerDiaRepetir();
   elegirFrecuencia(frecuenciaMov);
@@ -3337,8 +3348,10 @@ function guardarMovimiento(){
     const sigueRepitiendo = suyo && datos.tipo !== 'gasto' &&
                             document.getElementById('tgRepetir').checked;
 
-    // Si sigue repitiéndose, el día manda sobre la fecha, igual que al crearlo
-    if(sigueRepitiendo) datos.fecha = fechaConDiaRepetir(datos.fecha, leerDiaRepetir());
+    // El día mueve el movimiento, salvo que hayas elegido una fecha a mano:
+    // ahí manda la fecha, porque es la más específica de las dos.
+    if(sigueRepitiendo && !fechaTocadaAMano)
+      datos.fecha = fechaConDiaRepetir(datos.fecha, leerDiaRepetir());
 
     Object.assign(mov, datos);
 
@@ -3377,10 +3390,12 @@ function guardarMovimiento(){
        este mes no era cierto.
 
        Con el día puesto, si todavía no llega sale como "Programado" y no
-       cuenta hasta que la fecha ocurra, igual que los meses siguientes. La
-       fecha de la hoja sigue mandando el MES (y en los anuales, cuál mes);
-       el día lo pone este campo. */
-    datos.fecha = fechaConDiaRepetir(datos.fecha, dia);
+       cuenta hasta que la fecha ocurra, igual que los meses siguientes.
+
+       Si en cambio elegiste una fecha a mano, esa manda: puede que este mes
+       el sueldo haya llegado el 10 aunque normalmente sea el 25. La fecha
+       habla de este movimiento; el día, de los meses que vienen. */
+    if(!fechaTocadaAMano) datos.fecha = fechaConDiaRepetir(datos.fecha, dia);
 
     const mov = {id: nuevoId(), ...datos};
     // Los gastos de Recordatorios entran por su propia puerta. El sueldo y el
