@@ -117,12 +117,35 @@
   --peso-monto:700;
 }
 
+/* ---------- La serif de los títulos ----------
+   Fraunces, guardada en lib/fonts/ igual que el escáner. Antes se le pedía
+   Georgia al teléfono, que en Android no existe: caía en Times y los títulos
+   —lo más característico que tiene la app— se veían mal justo en el aparato
+   donde de verdad la usas. Ahora viaja con la app y se ve igual en todos.
+
+   Es una sola fuente "variable": en vez de un archivo por peso, trae ejes que
+   se mueven. El `opsz` (tamaño óptico) es el que importa acá — ajusta el
+   dibujo de la letra según de qué porte se muestre, así "Agosto 2026" a 23px
+   y "Datos" a 19px quedan los dos bien dibujados en vez de que uno de los dos
+   se vea estirado.
+
+   `font-display:swap` deja que el título se pinte de inmediato con la serif
+   del sistema y cambie a Fraunces cuando llegue. Son 66 KB desde el mismo
+   dispositivo, así que el cambio no alcanza a verse; pero si un día se
+   guardara mal, verías el título en Times en vez de no verlo. */
+@font-face{
+  font-family:'Fraunces';
+  src:url('./lib/fonts/fraunces-latin.woff2') format('woff2');
+  font-weight:400 700;
+  font-display:swap;
+}
+
 /* Las dos familias, en un solo lugar. Cambiar la fuente de toda la app es
    cambiar estas dos líneas. La lista larga son los respaldos: si la primera
    no está, el navegador prueba la siguiente. */
 :root{
   --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
-  --serif:Georgia,"Times New Roman",serif;
+  --serif:'Fraunces',Georgia,"Times New Roman",serif;
 }
 
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
