@@ -1089,7 +1089,10 @@ const CATEGORIAS_INICIALES = [
       {id:'t2',nombre:'Micro'},{id:'t3',nombre:'Metro'},{id:'t4',nombre:'Taxi'},
       {id:'l1',nombre:'Colectivo'},{id:'l2',nombre:'Uber'},{id:'l3',nombre:'Bip!'}
   ]},
-  {id:'c5', nombre:'Ingresos',      tipo:'ingreso', color:'#7A9E7E', icono:'💰', subs:[
+  // El mismo verde de --ingreso, para que el círculo del ícono y el monto de
+  // la fila hablen igual. Compartía color exacto con Locomoción, pero como es
+  // de tipo ingreso nunca aparece en la dona de gastos ni al lado de ella.
+  {id:'c5', nombre:'Ingresos',      tipo:'ingreso', color:'#6F9675', icono:'💰', subs:[
       {id:'i1',nombre:'Sueldo'},{id:'i2',nombre:'Aguinaldo'},{id:'i3',nombre:'Bono'},
       {id:'i4',nombre:'Freelance'},{id:'i5',nombre:'Arriendo que recibo'},
       {id:'i6',nombre:'Devolución de impuestos'}
@@ -1141,7 +1144,13 @@ const CATEGORIAS_INICIALES = [
   // Salud = lo que se paga al momento: la consulta, el remedio, los exámenes.
   // El plan de isapre o fonasa no va aquí: es el mismo monto todos los meses,
   // así que vive en "Gastos fijos" con su recordatorio.
-  {id:'c11', nombre:'Salud',        tipo:'gasto',   color:'#A98BA8', icono:'💊', subs:[
+  /* Violeta, no el lila que compartía con Suscripciones. Dos categorías con
+     el MISMO color exacto se veían como dos porciones idénticas en la dona y
+     solo se distinguían por el emoji de la leyenda. Los nueve gastos quedan
+     ahora repartidos por el círculo cromático sin repetirse: 353 rosa, 33
+     ocre, 83 oliva, 127 verde, 174 teal, 212 azul, 250 violeta, 302 lila y
+     342 rosa palo, todos con la misma saturación baja de la paleta. */
+  {id:'c11', nombre:'Salud',        tipo:'gasto',   color:'#9189B8', icono:'💊', subs:[
       {id:'sa1',nombre:'Farmacia'},{id:'sa2',nombre:'Médico'},
       {id:'sa3',nombre:'Dentista'},{id:'sa4',nombre:'Exámenes'},
       {id:'sa5',nombre:'Óptica'}
@@ -1166,7 +1175,7 @@ let estado = {
   // no hay nada que guardar: la migración 18 lo borra de los datos viejos.
   // Al subir una migración hay que subir este número también, o una
   // instalación nueva nace "atrasada" y corre migraciones que no necesita.
-  version: 19
+  version: 20
 };
 
 /* localStorage = la memoria del navegador. Guarda texto y sobrevive
@@ -1434,6 +1443,18 @@ function cargar(){
     const anio = new Date().getFullYear();
     estado.fijos.forEach(f => { if(f.anioOk === undefined) f.anioOk = anio; });
     estado.version = 19;
+  }
+
+  if(estado.version < 20){
+    // Dos pares de categorías tenían el mismo color exacto. Solo se cambian
+    // las que sigan con el de fábrica: si le elegiste uno tú, se respeta.
+    const recolorear = (id, viejo, nuevo) => {
+      const c = buscarCat(id);
+      if(c && c.color === viejo) c.color = nuevo;
+    };
+    recolorear('c11', '#A98BA8', '#9189B8');   // Salud: lila -> violeta
+    recolorear('c5',  '#7A9E7E', '#6F9675');   // Ingresos: al verde de --ingreso
+    estado.version = 20;
   }
 
   // Si se migró algo, se guarda de inmediato. Si no, la migración volvería a
