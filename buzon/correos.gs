@@ -48,9 +48,15 @@ const CONFIG = {
     'somosmach.com'       // MACH
   ],
 
-  // Cuántos días hacia atrás mirar. Con 3 sobra: el disparador corre cada
-  // 15 minutos, y el margen es solo por si Google se salta una vuelta.
-  DIAS: 3,
+  /* Cuántos días hacia atrás mirar cuando corre solo. Con 7 sobra de lejos:
+     el disparador pasa cada 15 minutos, y el margen es por si te quedas sin
+     internet o Google se salta una vuelta. */
+  DIAS: 7,
+
+  /* Cuántos mirar al probar. Es más largo a propósito: la primera vez que
+     ejecutas probarLector quieres VER algo, y si justo no compraste nada en
+     la última semana saldría vacío y parecería que está roto. */
+  DIAS_AL_PROBAR: 60,
 
   // La etiqueta con que se marca lo ya procesado, para no mandarlo dos
   // veces. Se crea sola la primera vez.
@@ -200,15 +206,20 @@ function textoPlano(mensaje) {
     .replace(/&amp;/gi, '&');
 }
 
-function busquedaGmail() {
+/* Al probar se miran más días y NO se excluye lo ya etiquetado: si no,
+   la segunda vez que ejecutas la prueba no te muestra nada, porque la
+   corrida de verdad ya se llevó todo, y parece que dejó de funcionar. */
+function busquedaGmail(esPrueba) {
   const de = CONFIG.BANCOS.map(function (d) { return 'from:' + d; }).join(' OR ');
-  return '(' + de + ') newer_than:' + CONFIG.DIAS + 'd -label:"' + CONFIG.ETIQUETA + '"';
+  const dias = esPrueba ? CONFIG.DIAS_AL_PROBAR : CONFIG.DIAS;
+  return '(' + de + ') newer_than:' + dias + 'd' +
+         (esPrueba ? '' : ' -label:"' + CONFIG.ETIQUETA + '"');
 }
 
 // Recorre los correos y devuelve lo entendido. No manda ni marca nada:
 // eso lo deciden quienes la llaman, que son el lector y la prueba.
-function recolectar() {
-  const hilos = GmailApp.search(busquedaGmail(), 0, 50);
+function recolectar(esPrueba) {
+  const hilos = GmailApp.search(busquedaGmail(esPrueba), 0, 50);
   const salida = [];
 
   hilos.forEach(function (hilo) {
@@ -235,18 +246,18 @@ function recolectar() {
    Si algo sale mal interpretado, esta salida es lo que hay que mirar.
    ================================================================ */
 function probarLector() {
-  const encontrados = recolectar();
+  const encontrados = recolectar(true);
 
-  Logger.log('Búsqueda: ' + busquedaGmail());
+  Logger.log('Búsqueda: ' + busquedaGmail(true));
   Logger.log('Correos que calzan: ' + encontrados.length);
-  Logger.log('--- NO SE MANDÓ NADA. Esto es solo una prueba. ---');
+  Logger.log('--- NO SE MANDÓ NADA NI SE MARCÓ NINGÚN CORREO. Es solo una prueba. ---');
 
   if (!encontrados.length) {
     Logger.log('');
     Logger.log('Si esperabas ver algo, revisa:');
     Logger.log(' - que CONFIG.BANCOS tenga el dominio de tu banco');
     Logger.log('   (mira de qué dirección llega el aviso: "de: xxx@banco.cl")');
-    Logger.log(' - que tengas avisos de los últimos ' + CONFIG.DIAS + ' días');
+    Logger.log(' - que tengas avisos de los últimos ' + CONFIG.DIAS_AL_PROBAR + ' días');
     return;
   }
 
@@ -277,7 +288,7 @@ function revisarCorreos() {
     throw new Error('Falta poner la dirección de tu buzón en CONFIG.BUZON');
   }
 
-  const encontrados = recolectar();
+  const encontrados = recolectar(false);
   if (!encontrados.length) return;
 
   const mensajes = [];
