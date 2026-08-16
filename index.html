@@ -763,6 +763,10 @@ input[type=date],input[type=text],input[type=number],select{
         <button class="mini" onclick="abrirCartola()">↑</button>
       </div>
       <div class="fila-ajuste">
+        <span class="nom">Anotar por WhatsApp</span>
+        <button class="mini" onclick="abrirBuzon()">💬</button>
+      </div>
+      <div class="fila-ajuste">
         <span class="nom">Exportar a Excel (CSV)</span>
         <button class="mini" onclick="exportarCSV()">↓</button>
       </div>
@@ -1018,14 +1022,38 @@ input[type=date],input[type=text],input[type=number],select{
   </div>
 
   <div id="cartolaPaso2" class="oculto">
-    <h2 class="seccion titulo" style="text-align:center;margin-bottom:6px">
-      Revisa antes de guardar
-    </h2>
+    <h2 class="seccion titulo" style="text-align:center;margin-bottom:6px"
+        id="tituloCartolaPaso2">Revisa antes de guardar</h2>
     <p class="resumen-cartola" id="resumenCartola"></p>
     <div class="lista-cartola" id="listaCartola"></div>
     <button class="btn-principal" id="btnGuardarCartola" onclick="guardarCartola()">Guardar</button>
-    <button class="btn-texto" onclick="volverACartolaPaso1()">Elegir otro archivo</button>
+    <button class="btn-texto" id="btnVolverCartola" onclick="volverACartolaPaso1()">Elegir otro archivo</button>
   </div>
+</div>
+
+<!-- ===================== HOJA: CONECTAR EL BUZÓN =====================
+     La única parte de la app que habla con internet. Ver la sección 6d. -->
+<div class="hoja" id="hojaBuzon">
+  <div class="asa"></div>
+  <h2 class="seccion titulo" style="text-align:center;margin-bottom:6px">
+    Anotar por WhatsApp
+  </h2>
+  <p class="ayuda" style="text-align:center;margin:0 0 18px">
+    Le escribes “almuerzo 8500” al bot y queda anotado la próxima vez que
+    abras la app.<br>
+    Pega acá la dirección de tu buzón, con su clave incluida.
+  </p>
+
+  <div class="campo">
+    <label>Dirección del buzón</label>
+    <input type="url" id="inpBuzon" inputmode="url" autocomplete="off"
+           placeholder="https://buzon.tu-cuenta.workers.dev?k=...">
+  </div>
+
+  <p class="ayuda" id="estadoBuzon" style="text-align:center;margin:0 0 16px"></p>
+
+  <button class="btn-principal" onclick="guardarBuzon()">Guardar y probar</button>
+  <button class="btn-texto" onclick="olvidarBuzon()">Desconectar</button>
 </div>
 
 <!-- ===================== HOJA: CONFIRMAR =====================
@@ -4476,6 +4504,37 @@ const COMERCIOS = [
    categoría": un movimiento sin categoría rompe los totales y la dona, y
    además queda invisible. Mejor que caiga en un cajón visible y lo corrijas
    tocándolo, que es el mismo gesto de siempre. */
+/* Segunda pasada: buscar la palabra entre TUS categorías y detalles.
+   La tabla de arriba sabe de comercios ("COPEC"), pero un mensaje escrito a
+   mano dice la cosa por su nombre ("almuerzo 8500"), y ese nombre casi
+   siempre ya existe como detalle en la app. Buscar ahí en vez de en una
+   segunda tabla tiene la ventaja de que se adapta sola: si creas el detalle
+   "Sushi", desde ese momento "sushi 12000" cae solo en su lugar. */
+function buscarPorNombre(desc, tipo){
+  const palabras = new Set();
+  PLANO(desc).split(/[^a-z0-9]+/).forEach(p => {
+    // Las de una o dos letras generan calces por casualidad; desde tres,
+    // que es lo que miden "Luz" y "Gas", ya son palabras de verdad.
+    if(p.length < 3) return;
+    palabras.add(p);
+    palabras.add(p.replace(/s$/, ''));    // "cafes" también es "cafe"
+    palabras.add(p.replace(/es$/, ''));   // "panes" también es "pan"
+  });
+  if(!palabras.size) return null;
+
+  const calza = nombre => PLANO(nombre).split(/[^a-z0-9]+/)
+    .some(p => p.length >= 3 && (palabras.has(p) || palabras.has(p.replace(/s$/, ''))));
+
+  // Los detalles primero: son más precisos que la categoría entera
+  for(const cat of estado.categorias){
+    if(cat.tipo !== tipo) continue;
+    const sub = cat.subs.find(s => calza(s.nombre));
+    if(sub) return {catId: cat.id, subId: sub.id};
+  }
+  const cat = estado.categorias.find(c => c.tipo === tipo && calza(c.nombre));
+  return cat ? {catId: cat.id, subId: null} : null;
+}
+
 function adivinarCategoria(desc, tipo){
   const existe = (catId, subId) => {
     const cat = buscarCat(catId);
@@ -4484,18 +4543,24 @@ function adivinarCategoria(desc, tipo){
     return {catId, subId: sub ? sub.id : null};
   };
 
-  if(tipo === 'gasto' || tipo === 'ingreso'){
-    const limpio = PLANO(desc);
-    for(const [patron, catId, subId] of COMERCIOS){
-      if(!patron.test(limpio)) continue;
-      const cat = buscarCat(catId);
-      // Un ingreso no puede caer en una categoría de gastos aunque el texto
-      // calce: un "PAGO NETFLIX" devuelto sigue siendo plata que entra.
-      if(cat && cat.tipo === tipo) return existe(catId, subId);
-    }
+  const limpio = PLANO(desc);
+  for(const [patron, catId, subId] of COMERCIOS){
+    if(!patron.test(limpio)) continue;
+    const cat = buscarCat(catId);
+    // Un ingreso no puede caer en una categoría de gastos aunque el texto
+    // calce: un "PAGO NETFLIX" devuelto sigue siendo plata que entra.
+    if(cat && cat.tipo === tipo) return existe(catId, subId);
   }
-  return existe(tipo === 'ingreso' ? 'c5' : 'c3', null)
-      || {catId: estado.categorias[0].id, subId: null};
+
+  const porNombre = buscarPorNombre(desc, tipo);
+  if(porNombre) return porNombre;
+
+  // El cajón visible de cada tipo. Ahorro tiene el suyo: un ahorro que
+  // cayera en "Gastos varios" no solo estaría mal puesto, estaría restando
+  // donde no corresponde.
+  const generica = tipo === 'ingreso' ? 'c5' : tipo === 'ahorro' ? CAT_AHORRO : 'c3';
+  return existe(generica, null)
+      || {catId: (estado.categorias.find(c => c.tipo === tipo) || estado.categorias[0]).id, subId: null};
 }
 
 /* --- No anotar dos veces lo mismo ---
@@ -4504,7 +4569,14 @@ function adivinarCategoria(desc, tipo){
    entre una descarga y otra aunque sea la misma compra. */
 const huellaCartola = f => [f.fecha, f.tipo, f.monto, PLANO(f.desc).slice(0, 24)].join('|');
 
-let filasCartola = [];   // lo leído del archivo, esperando tu revisión
+/* Lo leído esperando tu revisión. La pantalla de revisión la comparten el
+   archivo de cartola y el buzón de WhatsApp: las dos cosas terminan en la
+   misma pregunta —"¿esto lo anoto?"— y hacer dos pantallas iguales para
+   contestarla dos veces no tendría sentido. `revisionDesde` es lo único
+   que cambia entre las dos. */
+let filasCartola = [];
+let revisionDesde = 'cartola';   // 'cartola' | 'buzon'
+let descartadosBuzon = 0;        // mensajes del buzón a los que les faltaba el monto
 
 function abrirCartola(){
   volverACartolaPaso1();
@@ -4513,6 +4585,7 @@ function abrirCartola(){
 
 function volverACartolaPaso1(){
   filasCartola = [];
+  revisionDesde = 'cartola';
   document.getElementById('cartolaPaso1').classList.remove('oculto');
   document.getElementById('cartolaPaso2').classList.add('oculto');
 }
@@ -4622,11 +4695,22 @@ function leerCartola(texto){
 }
 
 function pintarCartola(repetidas){
+  const delBuzon = revisionDesde === 'buzon';
   const marcadas = filasCartola.filter(f => f.incluir);
   const dudosas  = filasCartola.filter(f => f.incluir && !f.subId);
 
-  const partes = [`Encontré <b>${filasCartola.length}</b> movimiento${filasCartola.length===1?'':'s'} nuevo${filasCartola.length===1?'':'s'}.`];
+  document.getElementById('tituloCartolaPaso2').textContent =
+    delBuzon ? 'Lo que anotaste por fuera' : 'Revisa antes de guardar';
+  const volver = document.getElementById('btnVolverCartola');
+  volver.textContent = delBuzon ? 'Ahora no' : 'Elegir otro archivo';
+  volver.onclick = delBuzon ? cerrarHojas : volverACartolaPaso1;
+
+  const partes = [delBuzon
+    ? `Te llegaron <b>${filasCartola.length}</b> por WhatsApp y por tus correos del banco.`
+    : `Encontré <b>${filasCartola.length}</b> movimiento${filasCartola.length===1?'':'s'} nuevo${filasCartola.length===1?'':'s'}.`];
   if(repetidas) partes.push(`Otro${repetidas===1?'':'s'} ${repetidas} ya lo${repetidas===1?'':'s'} tenías.`);
+  if(delBuzon && descartadosBuzon)
+    partes.push(`No entendí ${descartadosBuzon} más: sin monto no hay gasto.`);
   if(dudosas.length) partes.push(`No reconocí ${dudosas.length}: quedan en su categoría general y los puedes corregir tocándolos después.`);
   document.getElementById('resumenCartola').innerHTML = partes.join(' ');
 
@@ -4658,6 +4742,12 @@ function alternarFilaCartola(i){
 
 function guardarCartola(){
   const elegidas = filasCartola.filter(f => f.incluir);
+
+  /* Los mensajes del buzón se dan por recibidos aunque los dejes fuera:
+     ya los viste y decidiste. Si no se borraran, el "no, este no" volvería
+     a preguntarte lo mismo cada vez que abres la app. */
+  if(revisionDesde === 'buzon') vaciarDelBuzon(filasCartola.map(f => f.idBuzon));
+
   if(!elegidas.length){ cerrarHojas(); avisar('No se guardó nada'); return; }
 
   if(!estado.cartolaImportada) estado.cartolaImportada = [];
@@ -4667,13 +4757,18 @@ function guardarCartola(){
       id: nuevoId(), monto: f.monto, tipo: f.tipo,
       catId: f.catId, subId: f.subId || null,
       fecha: f.fecha, nota: f.desc,
-      /* Una cartola es historia, no un compromiso. Sin esta marca, el gasto
-         de Entel de julio crearía solo una ficha en Recordatorios y desde
+      /* Lo que entra solo es historia, no un compromiso. Sin esta marca, el
+         gasto de Entel de julio crearía una ficha en Recordatorios y desde
          agosto se anotaría igual todos los meses sin que nadie lo pidiera.
          Si de verdad se repite, lo enciendes tocando el movimiento. */
       sinRecordatorio: true,
-      origen: 'cartola'
+      origen: f.origen || revisionDesde
     });
+    /* La huella lleva la descripción, así que atrapa el mismo mensaje o la
+       misma línea de cartola entrando dos veces. El caso cruzado —lo anotaste
+       por WhatsApp como "almuerzo" y el banco lo manda como "RESTAURANT EL
+       BUEN SABOR"— no lo atrapa, porque el texto no se parece: de ese se
+       encarga la comparación por fecha, tipo y monto que apaga la fila. */
     estado.cartolaImportada.push(huellaCartola(f));
   });
 
@@ -4687,6 +4782,197 @@ function guardarCartola(){
   pintarTodo();
   cerrarHojas();
   avisar(`Se anotaron ${elegidas.length}`);
+}
+
+/* ================================================================
+   6d. EL BUZÓN
+
+   Es lo ÚNICO de la app que habla con internet, y conviene tener claro
+   en qué dirección va el tráfico: la app le PIDE mensajes al buzón y le
+   avisa cuáles ya se llevó. Nunca le manda tus datos. Tu historial, tus
+   categorías, tus totales y tus ahorros no salen del teléfono, igual que
+   siempre.
+
+   Del otro lado, en Cloudflare (ver buzon/worker.js), solo hay frases
+   sueltas sin procesar —"almuerzo 8500", "Compra $12.990 JUMBO"— que se
+   borran apenas la app se las lleva, y solas a los 7 días si no la abres.
+
+   Si nunca configuras la dirección, nada de esta sección se ejecuta y la
+   app sigue siendo exactamente lo que era: cien por ciento local.
+   ================================================================ */
+
+// La dirección incluye su clave secreta, así que se trata como una
+// contraseña: no se muestra entera en pantalla ni se manda a ninguna parte
+// que no sea el buzón mismo.
+const buzonConfigurado = () => !!(estado.buzon && estado.buzon.url);
+
+function abrirBuzon(){
+  document.getElementById('inpBuzon').value = (estado.buzon && estado.buzon.url) || '';
+  document.getElementById('estadoBuzon').textContent = buzonConfigurado()
+    ? 'Conectado. Toca “Guardar y probar” para revisar ahora.' : '';
+  abrirHoja('hojaBuzon');
+}
+
+/* Arma la dirección de cada operación conservando la clave. La clave viene
+   pegada en la URL que te dio el buzón (…?k=…) y hay que arrastrarla a
+   cada llamada, así que se separa acá una sola vez. */
+function urlBuzon(camino){
+  const base = new URL(estado.buzon.url);
+  const clave = base.searchParams.get('k') || '';
+  const destino = new URL(camino, base.origin);
+  if(clave) destino.searchParams.set('k', clave);
+  return destino.href;
+}
+
+async function guardarBuzon(){
+  const escrito = document.getElementById('inpBuzon').value.trim();
+  const aviso = document.getElementById('estadoBuzon');
+
+  if(!escrito){ aviso.textContent = 'Pega la dirección primero.'; return; }
+
+  // Sin https no se guarda: por http la clave viaja a la vista de cualquiera
+  // que comparta la red, y además el navegador ni siquiera dejaría pedir.
+  let url;
+  try{ url = new URL(escrito); }catch(e){ aviso.textContent = 'Esa no es una dirección válida.'; return; }
+  if(url.protocol !== 'https:'){ aviso.textContent = 'La dirección tiene que empezar con https.'; return; }
+
+  estado.buzon = {url: escrito};
+  guardar();
+
+  aviso.textContent = 'Probando…';
+  const traidos = await revisarBuzon(false);
+  if(traidos === null) aviso.textContent = 'No pude conectarme. Revisa la dirección y la clave.';
+  else if(traidos === 0){ aviso.textContent = 'Conectado. No hay nada esperando.'; avisar('Buzón conectado'); }
+}
+
+function olvidarBuzon(){
+  if(!buzonConfigurado()){ cerrarHojas(); return; }
+  preguntar({
+    titulo: '¿Desconectar el buzón?',
+    detalle: `La app deja de revisarlo y vuelve a no hablar con internet.
+              Lo que ya anotaste se queda; lo que esté esperando en el buzón
+              se borra solo a los 7 días.`,
+    ok: 'Desconectar',
+    onSi: () => { delete estado.buzon; guardar(); avisar('Buzón desconectado'); }
+  });
+}
+
+/* --- Entender un mensaje escrito a mano ---
+   "almuerzo 8500", "8500 almuerzo", "+1450000 sueldo". El monto es el
+   número más grande del mensaje y lo demás es la descripción. */
+function interpretarMensaje(texto){
+  const limpio = String(texto || '').trim();
+  if(!limpio) return null;
+  const plano = PLANO(limpio);
+
+  let tipo = 'gasto';
+  if(limpio.startsWith('+') || /\b(sueldo|ingreso|me pagaron|recibi|cobre)\b/.test(plano)) tipo = 'ingreso';
+  if(/\b(ahorro|ahorre|guarde|aparte|meta)\b/.test(plano)) tipo = 'ahorro';
+
+  // Se prueban todos los números del mensaje y gana el mayor: en
+  // "2 cafes 3800" el gasto son 3800, no 2.
+  const montos = (limpio.match(/\d[\d.,]*/g) || []).map(montoChileno).filter(n => n);
+  if(!montos.length) return null;
+  const monto = Math.max(...montos.map(Math.abs));
+
+  // La descripción es el mensaje sin sus números. Se van todos y no solo el
+  // monto: en "2 cafes 3800" el 2 tampoco es parte del nombre del gasto.
+  const desc = limpio
+    .replace(/^\+/, '')
+    .replace(/\$?\d[\d.,]*/g, ' ')
+    .replace(/\s+/g, ' ').trim();
+
+  return {monto, tipo, desc: desc || 'Anotado por WhatsApp'};
+}
+
+// El buzón guarda la hora en UTC; acá interesa el día que era en Chile
+function fechaLocalDe(iso){
+  const d = iso ? new Date(iso) : new Date();
+  if(isNaN(d.getTime())) return hoyISO();
+  const dos = n => String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${dos(d.getMonth()+1)}-${dos(d.getDate())}`;
+}
+
+/* --- Ir a buscar lo que haya ---
+   Devuelve cuántos trajo, o null si no se pudo conectar. En silencio no
+   molesta con avisos: al abrir la app, no poder conectarse es lo normal
+   cuando vas en el metro, y no es una falla que valga interrumpir. */
+async function revisarBuzon(silencioso = true){
+  if(!buzonConfigurado()) return 0;
+
+  let datos;
+  try{
+    // El plazo es corto a propósito: esto corre al abrir la app y no puede
+    // dejarla esperando. Si el buzón no contesta rápido, será a la próxima.
+    const corte = AbortSignal.timeout ? AbortSignal.timeout(8000) : undefined;
+    const respuesta = await fetch(urlBuzon('/pendientes'), {signal: corte, cache: 'no-store'});
+    if(!respuesta.ok) throw new Error('respuesta ' + respuesta.status);
+    datos = await respuesta.json();
+  }catch(e){
+    if(!silencioso) console.warn('Buzón:', e);
+    return null;
+  }
+
+  const pendientes = (datos && datos.pendientes) || [];
+  if(!pendientes.length) return 0;
+
+  const yaImportadas = estado.cartolaImportada || [];
+  const filas = [];
+  const porBorrar = [];    // todo lo que el buzón ya no tiene que guardar
+  let sinEntender = 0;     // de esos, cuántos eran mensajes sin monto
+
+  pendientes.forEach(m => {
+    // El correo del banco llega con el monto ya separado; WhatsApp llega
+    // como frase suelta y hay que interpretarla.
+    const leido = (typeof m.monto === 'number' && m.monto)
+      ? {monto: Math.abs(m.monto), tipo: m.tipo || 'gasto', desc: String(m.texto || '').trim()}
+      : interpretarMensaje(m.texto);
+    /* Un mensaje sin ningún número no es un gasto: es un "hola", o se te
+       olvidó el monto. Se descarta y se dice cuántos fueron, para que no
+       creas que se anotó algo que no se anotó. Si se dejaran en el buzón,
+       volverían a saltarse en cada apertura hasta vencer a los 7 días. */
+    if(!leido){ porBorrar.push(m.id); sinEntender++; return; }
+
+    const f = {
+      fecha: fechaLocalDe(m.fecha), tipo: leido.tipo, monto: leido.monto,
+      desc: leido.desc, idBuzon: m.id, origen: m.de === 'whatsapp' ? 'whatsapp' : 'correo'
+    };
+    // Ya entró antes —el borrado anterior no llegó, o se cortó el internet
+    // justo al confirmar—: se da por recibido de nuevo y no se muestra
+    if(yaImportadas.includes(huellaCartola(f))){ porBorrar.push(m.id); return; }
+    const yaEsta = estado.movimientos.some(x =>
+      x.fecha === f.fecha && x.tipo === f.tipo && x.monto === f.monto);
+    filas.push({...f, ...adivinarCategoria(f.desc, f.tipo), yaEsta, incluir: !yaEsta});
+  });
+
+  vaciarDelBuzon(porBorrar);
+  descartadosBuzon = sinEntender;
+
+  if(!filas.length){
+    if(descartadosBuzon && !silencioso)
+      avisar(`No entendí ${descartadosBuzon} mensaje${descartadosBuzon===1?'':'s'}`);
+    return 0;
+  }
+
+  filasCartola = filas.sort((a, b) => b.fecha.localeCompare(a.fecha));
+  revisionDesde = 'buzon';
+  pintarCartola(0);
+  document.getElementById('cartolaPaso1').classList.add('oculto');
+  document.getElementById('cartolaPaso2').classList.remove('oculto');
+  abrirHoja('hojaCartola');
+  return filas.length;
+}
+
+/* "Ya los tengo". Se manda y no se espera respuesta: si falla, el buzón los
+   sigue teniendo y la próxima vez se descartan solos por la huella. */
+function vaciarDelBuzon(ids){
+  const limpios = (ids || []).filter(Boolean);
+  if(!buzonConfigurado() || !limpios.length) return;
+  fetch(urlBuzon('/listo'), {
+    method: 'POST',
+    headers: {'content-type': 'application/json'},
+    body: JSON.stringify({ids: limpios})
+  }).catch(e => console.warn('Buzón, al confirmar:', e));
 }
 
 /* ================================================================
@@ -5110,6 +5396,18 @@ ajustarEspacioArriba();
 // Y al final la pregunta del año nuevo, si toca: necesita la pantalla ya
 // pintada detrás, y casi siempre no hace nada.
 preguntarPorElAnio();
+
+/* El buzón se revisa al final y sin esperarlo: es lo único que depende de
+   internet, y la app tiene que estar usable aunque no haya señal. Si no
+   configuraste ninguna dirección, esto no hace absolutamente nada. */
+revisarBuzon();
+
+/* Y también al volver a la app sin cerrarla, que en el teléfono es lo
+   habitual: la dejas abierta, le escribes al bot, y vuelves. Sin esto
+   habría que cerrarla y abrirla para que apareciera lo anotado. */
+document.addEventListener('visibilitychange', () => {
+  if(document.visibilityState === 'visible' && !document.querySelector('.hoja.visible')) revisarBuzon();
+});
 
 // La tecla Escape cierra las hojas (útil en el computador)
 document.addEventListener('keydown', e => { if(e.key === 'Escape') cerrarHojas(); });

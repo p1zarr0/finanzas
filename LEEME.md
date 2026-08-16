@@ -9,7 +9,11 @@ Las categorías separan lo que se comporta distinto: **Gastos fijos** (contractu
 (micro, metro, taxi). Así se ve cuánto cuesta cada cosa de verdad.
 
 Los datos se guardan **solo en el dispositivo**, en la memoria del navegador.
-No hay servidor, no hay cuenta, nada sale de tu teléfono.
+No hay cuenta y tu historial no sale de tu teléfono.
+
+La única excepción, y solo si la activas: el **buzón** de WhatsApp y de los correos del
+banco, que guarda en la nube frases sueltas por unos días hasta que la app se las lleva.
+Nunca tu historial. Ver más abajo.
 
 ---
 
@@ -45,6 +49,7 @@ seguir usando la versión vieja de esos archivos.
 | `icono-192.png`, `icono-512.png` | El ícono en la pantalla de inicio. |
 | `lib/` | La librería que lee las boletas. Son 10 MB y no hay que tocarla. |
 | `.claude/servidor.ps1` | Servidor para probar en el computador antes de publicar. |
+| `buzon/` | El buzón de WhatsApp y de los correos del banco. **No se publica con la app**: va a Cloudflare aparte. Ver `buzon/LEEME.md`. |
 
 ---
 
@@ -70,8 +75,15 @@ ejecutar nada mientras está cerrada, así que no hay nadie que despierte el dí
 medianoche: lo que hace es revisar **al abrirla**. Si el día ya pasó y no está anotado,
 lo anota en ese momento y te avisa arriba, con un botón para deshacerlo.
 
-Nunca rellena meses hacia atrás: si no abres la app en dos meses, solo anota el mes en
-curso. Y si borras uno a mano, no vuelve a aparecer.
+Si pasaste meses sin abrirla, rellena los que faltan, no solo el mes en curso: al volver
+en marzo después de no entrar desde diciembre, quedan anotados enero, febrero y marzo.
+Así ningún mes aparece con menos gasto del que de verdad hubo. El tope son los **12
+meses** más recientes: si vuelves después de dos años no te inventa veinticuatro
+arriendos de golpe, anota el último año y lo anterior lo da por perdido. Los anuales (la
+patente, el permiso de circulación) se anotan solo en el mes que les toca, aunque se
+rellenen varios meses de una vez.
+
+Y si borras uno a mano, no vuelve a aparecer.
 
 ---
 
@@ -99,6 +111,24 @@ cualquier otro movimiento. Nada de esto sale del teléfono: el archivo se lee ac
 Un gasto importado **no** crea un recordatorio automático, aunque caiga en Gastos fijos:
 una cartola es historia, no un compromiso. Si de verdad se repite todos los meses, lo
 enciendes tocando el movimiento.
+
+---
+
+## Anotar por WhatsApp
+
+**⚙ → Anotar por WhatsApp.** Le escribes “almuerzo 8500” a un bot y queda anotado la
+próxima vez que abras la app.
+
+Esto necesita un **buzón** en la nube, que es lo único de la app que vive fuera del
+teléfono. Cómo montarlo está en [`buzon/LEEME.md`](buzon/LEEME.md), paso a paso.
+
+El buzón guarda **solo frases sueltas sin procesar** y las borra apenas la app se las
+lleva (y solas a los 7 días si no la abres). Tu historial, tus categorías, tus totales
+y tus ahorros nunca salen del teléfono: la app le *pide* mensajes al buzón, nunca le
+*manda* datos.
+
+**Si no configuras la dirección del buzón, nada de esto se ejecuta** y la app sigue
+siendo cien por ciento local.
 
 ---
 
