@@ -3102,6 +3102,21 @@ function leerDiaRepetir(){
   return Number(fecha.split('-')[2]);
 }
 
+/* Cuando "Repetir" está encendido, el día del movimiento lo manda el campo
+   "Qué día del mes"; la fecha de la hoja solo dice de qué mes se trata. Eran
+   dos campos hablando de lo mismo y ganaba el que no correspondía.
+
+   Se usa al crear y al editar: si cambias el día de un sueldo del 25 al 5, el
+   movimiento se mueve con él. Si no, la ficha decía una cosa y el movimiento
+   que la representa seguía en otro día, y el Disponible no se enteraba.
+
+   El 31 se recorta al último día del mes, igual que anotarFijoDelMes. */
+function fechaConDiaRepetir(fecha, dia){
+  const [anio, mesN] = fecha.split('-').map(Number);
+  const diasDelMes = new Date(anio, mesN, 0).getDate();
+  return `${anio}-${dosCifras(mesN)}-${dosCifras(Math.min(dia, diasDelMes))}`;
+}
+
 function elegirFrecuencia(f){
   frecuenciaMov = f;
   ['mensual','anual'].forEach(x =>
@@ -3321,6 +3336,9 @@ function guardarMovimiento(){
     const sigueRepitiendo = suyo && datos.tipo !== 'gasto' &&
                             document.getElementById('tgRepetir').checked;
 
+    // Si sigue repitiéndose, el día manda sobre la fecha, igual que al crearlo
+    if(sigueRepitiendo) datos.fecha = fechaConDiaRepetir(datos.fecha, leerDiaRepetir());
+
     Object.assign(mov, datos);
 
     if(suyo && !sigueRepitiendo){
@@ -3361,11 +3379,7 @@ function guardarMovimiento(){
        cuenta hasta que la fecha ocurra, igual que los meses siguientes. La
        fecha de la hoja sigue mandando el MES (y en los anuales, cuál mes);
        el día lo pone este campo. */
-    const [anio, mesN] = datos.fecha.split('-').map(Number);
-    // El 31 no existe en todos los meses: se usa el último, igual que hace
-    // anotarFijoDelMes cuando los anota mes a mes.
-    const diasDelMes = new Date(anio, mesN, 0).getDate();
-    datos.fecha = `${anio}-${dosCifras(mesN)}-${dosCifras(Math.min(dia, diasDelMes))}`;
+    datos.fecha = fechaConDiaRepetir(datos.fecha, dia);
 
     const mov = {id: nuevoId(), ...datos};
     // Los gastos de Recordatorios entran por su propia puerta. El sueldo y el
