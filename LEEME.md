@@ -75,6 +75,33 @@ curso. Y si borras uno a mano, no vuelve a aparecer.
 
 ---
 
+## Importar la cartola del banco
+
+**⚙ → Importar cartola del banco.**
+
+Baja la cartola desde el sitio de tu banco en **CSV** y elígela ahí. Si tu banco solo la
+entrega en Excel, ábrela y usa *Guardar como → CSV*. También puedes copiar la tabla
+desde la página del banco y pegarla en el recuadro.
+
+No importa qué banco sea: en vez de conocer el formato de cada uno, la app busca una
+columna que se lea como fecha, otra como monto, y la más larga de texto como
+descripción. Entiende cargos y abonos separados, montos con signo, y cartolas de
+tarjeta de crédito (donde todo viene positivo y todo es gasto).
+
+Antes de guardar nada te muestra la lista para que la revises. **Toca una fila para
+dejarla fuera.** Los movimientos que ya importaste antes no vuelven a aparecer, y los
+que se parecen a algo que escribiste a mano vienen apagados con el aviso
+"ya lo anotaste".
+
+Lo que no reconoce cae en **Gastos varios** o **Ingresos**, y se corrige tocándolo como
+cualquier otro movimiento. Nada de esto sale del teléfono: el archivo se lee acá mismo.
+
+Un gasto importado **no** crea un recordatorio automático, aunque caiga en Gastos fijos:
+una cartola es historia, no un compromiso. Si de verdad se repite todos los meses, lo
+enciendes tocando el movimiento.
+
+---
+
 ## Respaldo de los datos
 
 Desde la app: **⚙ → Exportar a Excel (CSV)**.
