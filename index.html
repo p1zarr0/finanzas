@@ -7,6 +7,36 @@
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="./icono-192.png">
 <title>Mis Finanzas</title>
+
+<!-- Este pedacito tiene que ir ACÁ ARRIBA, antes del <style>, y no puede
+     moverse al resto del código de más abajo.
+
+     El modo oscuro se aplica con :root:not([data-tema="claro"]) dentro de un
+     @media (prefers-color-scheme: dark). Ese "data-tema" lo pone JavaScript,
+     y el resto del JavaScript de la app corre al final del archivo: para
+     entonces el navegador ya pintó la pantalla. Si el teléfono estaba en
+     oscuro, alcanzabas a ver el fondo negro un instante antes de que la app
+     se pusiera clara. Ese era el parpadeo al abrirla.
+
+     Leyendo el tema guardado aquí, el atributo ya está puesto cuando el
+     navegador lee el CSS, y nunca llega a pintar el color equivocado.
+     Va sin librerías ni funciones porque nada de eso existe todavía. -->
+<script>
+(function(){
+  try{
+    var g = localStorage.getItem('misFinanzas_v1');
+    var t = g ? (JSON.parse(g).tema || 'claro') : 'claro';
+    // 'auto' significa seguir al teléfono: se deja sin atributo, que es lo
+    // que hace que el @media de más abajo mande.
+    if(t !== 'auto') document.documentElement.dataset.tema = t;
+    // La barra de estado del teléfono se pinta con esto. Si no se cambia,
+    // en modo oscuro queda una franja clara arriba.
+    var m = document.querySelector('meta[name="theme-color"]');
+    if(m && t === 'oscuro') m.content = '#171512';
+  }catch(e){ /* localStorage bloqueado: se abre en claro, que es el default */ }
+})();
+</script>
+
 <style>
 /* ============================================================
    TOKENS DE COLOR
@@ -2625,12 +2655,20 @@ function pintarMovimientos(){
     // Los fijos se anotan por el mes completo, así que algunos todavía no ocurren.
     // Se marcan para que sepas de un vistazo si la plata ya se movió o no.
     const programado = m.fecha > hoy;
-    const partes = [];
-    if(sub)    partes.push(emojiDe(sub.nombre) + sub.nombre);
-    if(m.nota) partes.push(emojiDe(m.nota) + m.nota);
-    if(m.cuota) partes.push(`<i class="marca">Cuota ${m.cuota.numero} de ${m.cuota.total}</i>`);
-    if(programado) partes.push('<i class="marca">Programado</i>');
-    const detalle = partes.join(' · ');
+    /* El texto y las etiquetas se arman por separado. Iban todos en la misma
+       lista unida con " · ", y cuando la etiqueta no cabía y saltaba de línea,
+       el punto se quedaba colgando solo al final del renglón de arriba:
+       "💧 Agua ·" y abajo "Programado". El punto separa dos textos; una
+       etiqueta ya viene con su propio recuadro y no lo necesita. */
+    const textos = [];
+    if(sub)    textos.push(emojiDe(sub.nombre) + sub.nombre);
+    if(m.nota) textos.push(emojiDe(m.nota) + m.nota);
+
+    const marcas = [];
+    if(m.cuota) marcas.push(`<i class="marca">Cuota ${m.cuota.numero} de ${m.cuota.total}</i>`);
+    if(programado) marcas.push('<i class="marca">Programado</i>');
+
+    const detalle = [textos.join(' · '), ...marcas].filter(Boolean).join(' ');
     html += `<div class="mov t-${m.tipo} ${programado?'programado':''}" onclick="editarMovimiento('${m.id}')">
         <div class="ico" style="background:${(cat?cat.color:'#999')}22">${cat?cat.icono:'•'}</div>
         <div class="info">
@@ -4093,6 +4131,16 @@ function aplicarTema(valor){
   document.documentElement.dataset.tema = (valor === 'auto') ? '' : valor;
   const t = TEMAS.find(x => x.valor === valor) || TEMAS[0];
   document.querySelectorAll('.btn-tema').forEach(b => b.textContent = t.icono);
+
+  /* La franja de estado del teléfono (donde va la hora y la batería) se pinta
+     con este meta. Sin esto quedaba clara siempre, así que en modo oscuro la
+     app terminaba con una banda blanca arriba. En 'auto' se le pregunta al
+     teléfono qué tiene puesto ahora mismo. */
+  const oscuro = valor === 'oscuro' ||
+    (valor === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if(meta) meta.content = oscuro ? '#171512' : '#FAF7F5';
+
   return t;
 }
 
