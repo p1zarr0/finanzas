@@ -944,6 +944,26 @@ input[type=date],input[type=text],input[type=number],select{
   <button class="btn-texto" onclick="mesCompletoDesdeHoja()">Mes completo</button>
 </div>
 
+<!-- ===================== HOJA: BORRAR UN MOVIMIENTO =====================
+     Reemplaza a los confirm() del sistema, que en el teléfono a veces no
+     aparecen y dejaban el botón Eliminar sin hacer nada. Ver
+     borrarMovimiento(). -->
+<div class="hoja" id="hojaBorrar">
+  <div class="asa"></div>
+  <h2 class="seccion titulo" style="text-align:center;margin-bottom:6px">
+    ¿Borrar este movimiento?
+  </h2>
+  <p class="ayuda" id="borrarDetalle" style="text-align:center;margin:0 0 18px"></p>
+  <div class="fila-toggle oculto" id="filaBorrarExtra" style="margin-bottom:18px">
+    <span class="nom" id="borrarExtraNom"></span>
+    <label class="switch">
+      <input type="checkbox" id="tgBorrarExtra"><i></i>
+    </label>
+  </div>
+  <button class="btn-principal" onclick="confirmarBorrado()">Borrar</button>
+  <button class="btn-texto" onclick="cerrarHojas()">Cancelar</button>
+</div>
+
 <!-- ===================== HOJA: AÑO NUEVO =====================
      Un fijo mensual configurado una vez se anotaba para siempre. El arriendo
      sube, el plan de celular se acaba, el sueldo cambia: al año siguiente ya
@@ -2780,36 +2800,81 @@ function pintarMovimientos(){
   cont.innerHTML = html;
 }
 
+/* --- Borrar un movimiento ---
+   Esto eran hasta tres confirm() encadenados y por eso a veces no borraba
+   nada. En el teléfono, Chrome ofrece "impedir que esta página cree más
+   diálogos" apenas aparece el primero, y en algunos casos los suprime del
+   todo: el confirm devuelve false, la función se va por el `return` de la
+   primera línea y no pasa absolutamente nada. Apretabas Eliminar y el
+   movimiento seguía ahí, sin explicación.
+
+   Es el mismo problema que ya habían tenido los alert() al guardar, y se
+   arregla igual: preguntando dentro de la app. Además ahora es una sola
+   pregunta en vez de tres, con lo secundario en un interruptor. */
+let movBorrando = null;
+
 function borrarMovimiento(id){
   const mov = estado.movimientos.find(m => m.id === id);
-  if(!confirm('¿Borrar este movimiento?')) return;
+  if(!mov) return;
+  movBorrando = id;
 
-  // Si es una cuota, casi siempre quieres deshacer la compra entera; pero a
-  // veces solo sobra una, así que se pregunta en vez de decidir por ti.
-  if(mov && mov.cuota){
-    const grupo = mov.cuota.grupo;
-    const cuantas = estado.movimientos.filter(m => m.cuota && m.cuota.grupo === grupo).length;
-    if(cuantas > 1 && confirm(`Este pago tiene ${mov.cuota.total} cuotas.\n\n` +
-                              `Aceptar: borrar las ${cuantas} que quedan.\n` +
-                              `Cancelar: borrar solo esta.`)){
-      estado.movimientos = estado.movimientos.filter(m => !(m.cuota && m.cuota.grupo === grupo));
-      guardar(); pintarTodo(); return;
-    }
+  const detalle = document.getElementById('borrarDetalle');
+  const fila    = document.getElementById('filaBorrarExtra');
+  const tgExtra = document.getElementById('tgBorrarExtra');
+
+  // Cuántas cuotas quedan del mismo pago, si es una cuota
+  const grupo   = mov.cuota && mov.cuota.grupo;
+  const hermanas = grupo
+    ? estado.movimientos.filter(m => m.cuota && m.cuota.grupo === grupo).length : 0;
+  // La ficha del sueldo o del ahorro: esta es su única puerta, porque no
+  // tienen lista propia como los pagos en Recordatorios.
+  const fijo = mov.fijoId && estado.fijos.find(f => f.id === mov.fijoId);
+  const suyo = fijo && fijo.tipo !== 'gasto';
+
+  const cat = buscarCat(mov.catId);
+  detalle.innerHTML = `${SIGNO[mov.tipo] || '−'}${pesos(mov.monto)} · ` +
+                      `${cat ? cat.nombre : 'Sin categoría'} · ${fechaLegible(mov.fecha)}`;
+
+  if(hermanas > 1){
+    // Casi siempre quieres deshacer la compra entera, así que viene encendido
+    fila.classList.remove('oculto');
+    document.getElementById('borrarExtraNom').textContent =
+      `Borrar las ${hermanas} cuotas que quedan`;
+    tgExtra.checked = true;
+  }else if(suyo){
+    // Apagado: borrar el de este mes no debería cancelar el sueldo entero
+    fila.classList.remove('oculto');
+    document.getElementById('borrarExtraNom').textContent =
+      `Dejar de anotar "${fijo.nombre}" cada mes`;
+    tgExtra.checked = false;
+  }else{
+    fila.classList.add('oculto');
+    tgExtra.checked = false;
   }
 
-  /* Si el movimiento venía del sueldo o del ahorro, esta es la única puerta a
-     su ficha: borrándolo sin preguntar, el mes que viene volvería a aparecer
-     sin manera de apagarlo hasta entonces. Los pagos no preguntan nada,
-     porque su ficha se sigue viendo en Recordatorios. */
-  const fijo = mov && mov.fijoId && estado.fijos.find(f => f.id === mov.fijoId);
-  if(fijo && fijo.tipo !== 'gasto' &&
-     confirm(`¿Dejar de anotar "${fijo.nombre}" todos los meses?\n\n` +
-             `Aceptar: deja de repetirse.\nCancelar: solo se borra el de este mes.`)){
-    dejarDeRepetir(fijo.id);
+  abrirHoja('hojaBorrar');
+}
+
+function confirmarBorrado(){
+  const id = movBorrando;
+  const mov = id && estado.movimientos.find(m => m.id === id);
+  if(!mov){ cerrarHojas(); return; }
+
+  const extra = document.getElementById('tgBorrarExtra').checked;
+  const grupo = mov.cuota && mov.cuota.grupo;
+  const fijo  = mov.fijoId && estado.fijos.find(f => f.id === mov.fijoId);
+  const suyo  = fijo && fijo.tipo !== 'gasto';
+
+  if(grupo && extra){
+    estado.movimientos = estado.movimientos.filter(m => !(m.cuota && m.cuota.grupo === grupo));
+  }else{
+    if(suyo && extra) dejarDeRepetir(fijo.id);
+    estado.movimientos = estado.movimientos.filter(m => m.id !== id);
   }
 
-  estado.movimientos = estado.movimientos.filter(m => m.id !== id);
-  guardar(); pintarTodo();
+  movBorrando = null;
+  guardar(); cerrarHojas(); pintarTodo();
+  avisar('Borrado');
 }
 
 /* ================================================================
