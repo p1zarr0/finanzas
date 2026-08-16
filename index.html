@@ -1026,7 +1026,11 @@ const CATEGORIAS_INICIALES = [
   ]},
   // Gastos fijos = lo contractual, el monto es el mismo todos los meses y solo
   // cambia cuando lo cambia el contrato o la ley (reajustes, contribuciones).
-  {id:'c2', nombre:'Gastos fijos',  tipo:'gasto',   color:'#8FA8C4', icono:'🧾', subs:[
+  // Mismo tono azul de antes (212°) pero con la saturación bajada de 31% a
+  // 20%, la de Mascota. Es el unico color frio entre puros calidos y le toca
+  // la porcion mas grande de la dona —ahi va el arriendo—, asi que al 31%
+  // se comia la atencion aunque no fuera el mas saturado de la paleta.
+  {id:'c2', nombre:'Gastos fijos',  tipo:'gasto',   color:'#91A2B6', icono:'🧾', subs:[
       {id:'s5',nombre:'Arriendo'},{id:'f1',nombre:'Dividendo'},
       {id:'f2',nombre:'Crédito de consumo'},{id:'f3',nombre:'Plan de celular'},
       {id:'f4',nombre:'Internet'},{id:'f5',nombre:'Contribuciones'},
@@ -1119,7 +1123,9 @@ let estado = {
   // app se viera de una manera u otra según la hora sin que tú lo pidieras.
   // El 🌗 sigue estando para cambiarlo cuando quieras.
   tema: 'claro',
-  version: 14
+  // Al subir una migración hay que subir este número también, o una
+  // instalación nueva nace "atrasada" y corre migraciones que no necesita.
+  version: 16
 };
 
 /* localStorage = la memoria del navegador. Guarda texto y sobrevive
@@ -1349,6 +1355,19 @@ function cargar(){
     const ah = buscarCat(CAT_AHORRO);
     if(ah && ah.color === '#6FA5A0') ah.color = '#6FA0BC';
     estado.version = 15;
+  }
+
+  if(estado.version < 16){
+    // Los impagos pasan de ser un solo mes a una lista. El que estuviera
+    // guardado se conserva: es una cuenta que dijiste no haber pagado y no
+    // corresponde perderla justo en la migración que existe para no perderlas.
+    estado.fijos.forEach(f => {
+      if(f.sinPagar){ f.impagos = [f.sinPagar]; delete f.sinPagar; }
+    });
+    // Gastos fijos baja de saturación. Solo si sigue con el color de fábrica.
+    const gf = buscarCat('c2');
+    if(gf && gf.color === '#8FA8C4') gf.color = '#91A2B6';
+    estado.version = 16;
   }
 
   // Si se migró algo, se guarda de inmediato. Si no, la migración volvería a
@@ -1747,7 +1766,10 @@ function anotarFijoDelMes(f, hoy){
     nota: '', fijoId: f.id
   };
   estado.movimientos.push(mov);
-  f.ultimoRegistrado = mes;
+  // Solo avanza, nunca retrocede. Al saldar un impago viejo se anota un mes
+  // anterior, y si la marca retrocediera con él, revisarFijos creeria que el
+  // mes actual esta sin anotar y lo anotaria de nuevo.
+  marcarMesAnotado(f, mov);
   return mov;
 }
 
@@ -1859,17 +1881,39 @@ function filaFijo(f){
   /* La app anota el mes completo por adelantado, así que un pago puede estar
      restando de tu Disponible sin que lo hayas pagado. Por eso, pasado el día,
      se pregunta una vez al mes: contestando "Todavía no" el movimiento sale
-     del mes y esa plata vuelve a tu bolsillo hasta que confirmes. */
-  const confirmado = f.confirmado === mes;
-  const sinPagar   = f.sinPagar === mes;
-  const preguntar  = f.tipo === 'gasto' && !pausado && !confirmado && !sinPagar &&
-                     suyo && suyo.fecha <= hoyISO();
+     del mes y esa plata vuelve a tu bolsillo hasta que confirmes.
 
+     Los impagos se guardan en una lista y no como un solo mes. Antes era
+     `f.sinPagar = '2026-08'`, y en septiembre ese valor ya no coincidia con
+     el mes actual: la deuda de agosto desaparecia de la vista sin que nadie
+     la hubiera pagado ni borrado. Una cuenta impaga no se arregla sola con
+     que pase el tiempo, asi que ahora se acumulan hasta que las saldes. */
+  const impagos = (f.impagos || []).slice().sort();
+  const confirmado = f.confirmado === mes;
+  const debeEsteMes = impagos.includes(mes);
+  const preguntar  = f.tipo === 'gasto' && !pausado && !confirmado && !debeEsteMes &&
+                     suyo && suyo.fecha <= hoyISO();
+  // La fila se pinta como "sin pagar" mientras quede cualquier mes debiendo,
+  // sea de este mes o arrastrado de antes.
+  const sinPagar = impagos.length > 0;
+  const nombreMes = clave => MESES[Number(clave.slice(5,7)) - 1];
+
+  /* El orden manda: la fila solo tiene un renglón, así que gana lo más
+     urgente. Una cuenta impaga va antes que "Programado para el 20", porque
+     esa deuda es lo único que pide algo de ti; que el cobro de este mes ya
+     esté agendado es información, no una tarea. Poner el "Programado"
+     primero escondía justo lo que este cambio existe para no esconder. */
   let sub;
   if(pausado)            sub = 'Pausado';
+  // Se pregunta por este mes aunque vengas arrastrando deuda: son cosas
+  // distintas y mezclarlas dejaria un mes sin contestar para siempre.
+  else if(preguntar)     sub = impagos.length
+                             ? `¿Ya lo pagaste? · debes ${impagos.length} mes${impagos.length>1?'es':''}`
+                             : '¿Ya lo pagaste?';
+  else if(impagos.length > 1)
+                         sub = `${impagos.length} meses sin pagar · desde ${nombreMes(impagos[0])}`;
+  else if(sinPagar)      sub = `Sin pagar · vencía el ${f.dia} de ${nombreMes(impagos[0])}`;
   else if(porVenir)      sub = `Programado para el ${f.dia}`;
-  else if(sinPagar)      sub = `Sin pagar · vencía el ${f.dia}`;
-  else if(preguntar)     sub = '¿Ya lo pagaste?';
   else if(confirmado)    sub = `Pagado el ${f.dia} de ${MESES[new Date().getMonth()]}`;
   else if(anual)         sub = suyo ? `Anotado · cada año en ${MESES[(f.mes||1)-1]}`
                                     : `Cada año · ${f.dia} de ${MESES[(f.mes||1)-1]}`;
@@ -1885,12 +1929,17 @@ function filaFijo(f){
   let acciones = '';
   if(preguntar){
     acciones = `<div class="acc">
-        <button class="si" onclick="event.stopPropagation();marcarPagado('${f.id}')">Sí, lo pagué</button>
+        <button class="si" onclick="event.stopPropagation();marcarPagado('${f.id}','${mes}')">Sí, lo pagué</button>
         <button onclick="event.stopPropagation();marcarSinPagar('${f.id}')">Todavía no</button>
       </div>`;
   }else if(sinPagar){
+    // Se salda el más viejo primero, que es como uno paga las deudas. Si
+    // quedan más, la fila sigue ahí pidiendo el siguiente.
+    const viejo = impagos[0];
+    const etiqueta = impagos.length > 1
+      ? `Pagué el de ${nombreMes(viejo)}` : 'Ya lo pagué';
     acciones = `<div class="acc">
-        <button class="si" onclick="event.stopPropagation();marcarPagado('${f.id}')">Ya lo pagué</button>
+        <button class="si" onclick="event.stopPropagation();marcarPagado('${f.id}','${viejo}')">${etiqueta}</button>
       </div>`;
   }
 
@@ -1905,28 +1954,49 @@ function filaFijo(f){
     </div>`;
 }
 
-/* "Sí, lo pagué": queda confirmado y no se vuelve a preguntar hasta el mes
-   que viene. Si venía de "Todavía no", el movimiento se anota de nuevo. */
-function marcarPagado(id){
+/* Da por pagado un mes concreto: el actual cuando contestas "Sí, lo pagué",
+   o el más viejo que debas cuando saldas una deuda arrastrada.
+
+   El movimiento se anota con la fecha de SU mes, no la de hoy. Pagar en
+   octubre el arriendo de agosto es plata que salió en octubre, sí, pero era
+   el gasto de agosto: si se anotara hoy, agosto quedaría para siempre con un
+   arriendo menos y octubre con dos. */
+function marcarPagado(id, mesObjetivo){
   const f = estado.fijos.find(x => x.id === id);
   if(!f) return;
-  const mes = mesClave();
+  const mes = mesObjetivo || mesClave();
+
   const suyo = estado.movimientos.find(m => m.fijoId === id && m.fecha.slice(0,7) === mes);
-  if(!suyo) anotarFijoDelMes(f);
-  f.confirmado = mes;
-  delete f.sinPagar;
+  if(!suyo){
+    const [anio, num] = mes.split('-').map(Number);
+    anotarFijoDelMes(f, new Date(anio, num - 1, 1));
+  }
+
+  f.impagos = (f.impagos || []).filter(x => x !== mes);
+  if(!f.impagos.length) delete f.impagos;
+  // Solo cuenta como "revisado" el mes en curso: saldar agosto no responde
+  // la pregunta de si ya pagaste el de este mes.
+  if(mes === mesClave()) f.confirmado = mes;
+
   guardar(); pintarTodo();
 }
 
 /* "Todavía no": el movimiento sale del mes. Esa plata sigue en tu bolsillo,
-   así que no puede estar restando del Disponible. La ficha queda pendiente y
-   la app no la vuelve a anotar sola: el mes ya está marcado como revisado. */
+   así que no puede estar restando del Disponible. El mes se suma a la lista
+   de impagos y se queda ahí hasta que lo saldes: no se borra solo cuando
+   cambia el mes. La app tampoco lo vuelve a anotar sola, porque el mes ya
+   quedó marcado como revisado en ultimoRegistrado. */
 function marcarSinPagar(id){
   const mes = mesClave();
   estado.movimientos = estado.movimientos.filter(m =>
     !(m.fijoId === id && m.fecha.slice(0,7) === mes));
   const f = estado.fijos.find(x => x.id === id);
-  if(f){ f.sinPagar = mes; delete f.confirmado; }
+  if(f){
+    f.impagos = f.impagos || [];
+    if(!f.impagos.includes(mes)) f.impagos.push(mes);
+    f.impagos.sort();
+    delete f.confirmado;
+  }
   guardar(); pintarTodo();
 }
 
@@ -1938,8 +2008,11 @@ function fechaDeOrden(f){
   const mes = mesClave();
   // Lo que dijiste que no has pagado es lo más urgente: va primero, con la
   // fecha en que vencía, que ya pasó y por eso queda arriba de lo que viene.
-  if(f.sinPagar === mes)
-    return {pasado: false, fecha: aFecha(`${mes}-${String(f.dia).padStart(2,'0')}`)};
+  // Manda el impago más viejo, así lo que llevas más tiempo debiendo sube
+  // por encima de lo que dejaste de pagar recién.
+  const impagos = (f.impagos || []).slice().sort();
+  if(impagos.length)
+    return {pasado: false, fecha: aFecha(`${impagos[0]}-${String(f.dia).padStart(2,'0')}`)};
 
   const suyo = estado.movimientos.find(m =>
     m.fijoId === f.id && m.fecha.slice(0,7) === mes);

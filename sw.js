@@ -10,7 +10,7 @@
    Al publicar un cambio hay que subirle el número a CACHE. Eso obliga
    al teléfono a botar lo viejo y guardar lo nuevo. */
 
-const CACHE = 'finanzas-v8';
+const CACHE = 'finanzas-v9';
 
 // Rutas relativas: el sitio cuelga de un subdirectorio en GitHub Pages
 const ESENCIALES = [
