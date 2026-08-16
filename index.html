@@ -8,34 +8,9 @@
 <link rel="apple-touch-icon" href="./icono-192.png">
 <title>Mis Finanzas</title>
 
-<!-- Este pedacito tiene que ir ACÁ ARRIBA, antes del <style>, y no puede
-     moverse al resto del código de más abajo.
-
-     El modo oscuro se aplica con :root[data-tema="oscuro"]. Ese atributo lo
-     pone JavaScript, y el resto del JavaScript de la app corre al final del
-     archivo: para entonces el navegador ya pintó la pantalla. Sin esto, el
-     primer instante se dibujaba con el tema equivocado.
-
-     Leyendo el tema guardado aquí, el atributo ya está puesto cuando el
-     navegador lee el CSS, y nunca llega a pintar el color equivocado.
-     Va sin librerías ni funciones porque nada de eso existe todavía. -->
-<script>
-(function(){
-  try{
-    var g = localStorage.getItem('misFinanzas_v1');
-    var t = g ? (JSON.parse(g).tema || 'claro') : 'claro';
-    // Solo hay dos modos. El 'auto' de versiones viejas se trata como claro:
-    // este script corre antes que la migración que lo convierte, y sin esta
-    // línea la app se abriría negra una última vez antes de arreglarse sola.
-    if(t !== 'oscuro') t = 'claro';
-    document.documentElement.dataset.tema = t;
-    // La barra de estado del teléfono se pinta con esto. Si no se cambia,
-    // en modo oscuro queda una franja clara arriba.
-    var m = document.querySelector('meta[name="theme-color"]');
-    if(m && t === 'oscuro') m.content = '#171512';
-  }catch(e){ /* localStorage bloqueado: se abre en claro, que es el default */ }
-})();
-</script>
+<!-- Aquí vivía un script que leía el tema guardado antes de que el navegador
+     pintara, para que la app no apareciera negra un instante. Ya no hace
+     falta: hay un solo tema y no existe el color equivocado que evitar. -->
 
 <style>
 /* ============================================================
@@ -84,30 +59,11 @@
   --sombra-alta:0 2px 6px rgba(46,42,40,.07), 0 18px 44px rgba(46,42,40,.09);
 }
 
-/* --- Modo oscuro ---
-   Un solo bloque, y solo cuando TÚ lo elegiste con el botón de arriba.
-
-   Antes esto estaba escrito dos veces: esta copia, y otra dentro de un
-   @media (prefers-color-scheme: dark) para el modo "automático", que seguía
-   al teléfono. Ese modo automático se sacó —era el que hacía que la app
-   apareciera negra sin que nadie se lo pidiera— y con él se fue la copia.
-   Ahora hay un solo lugar donde están los colores oscuros, que además evita
-   el riesgo de que las dos copias se desincronizaran.
-
-   Las sombras casi no se ven sobre un fondo oscuro, así que aquí la tarjeta
-   se despega con un hilo de luz en el borde (el `0 0 0 1px` blanco) en vez
-   de con la sombra. Es el truco estándar para modo oscuro. */
-:root[data-tema="oscuro"]{
-  --fondo:#171512; --tarjeta:#211D1A; --hundido:#1B1714;
-  --linea:#2E2926; --borde:#3C3632;
-  --texto:#F0EAE5; --medio:#B5AAA3; --suave:#8E847E;
-  --gasto:#E0959D;   --gasto-tenue:#332326;
-  --ingreso:#9DC0A1; --ingreso-tenue:#1F2A21;
-  --ahorroC:#93C0D9; --ahorro-tenue:#1A2530;
-  --acento:#F0EAE5;  --acento-texto:#171512;
-  --sombra:0 0 0 1px rgba(255,255,255,.045), 0 8px 24px rgba(0,0,0,.35);
-  --sombra-alta:0 0 0 1px rgba(255,255,255,.06), 0 20px 48px rgba(0,0,0,.5);
-}
+/* La app tiene un solo tema, el claro. Hubo un modo oscuro con su propia
+   copia de todos los colores de arriba y un botón para cambiarlo; se sacó
+   porque no se usaba y era el origen de que la app apareciera negra sin que
+   nadie se lo pidiera. Si algún día se quiere de vuelta, está en el
+   historial: `git log --oneline -- index.html` y buscar "solo claro". */
 
 /* ============================================================
    ESCALA TIPOGRÁFICA
@@ -597,7 +553,6 @@ input[type=date],input[type=text],input[type=number],select{
 <!-- ===================== BARRA DE SECCIONES (fija arriba) ===================== -->
 <nav class="barra-arriba" id="barraArriba">
   <div class="acciones">
-    <button onclick="ciclarTema()" class="btn-tema" aria-label="Apariencia">🌗</button>
     <button onclick="irA('ajustes')" aria-label="Ajustes">⚙</button>
   </div>
   <div class="pestanas" id="pestanas">
@@ -1167,14 +1122,11 @@ let estado = {
   // {id, nombre, monto, dia, tipo:'ingreso'|'gasto'|'ahorro', catId, subId,
   //  activo:true, frecuencia:'mensual'|'anual', mes, ultimoRegistrado:'2026-08'}
   fijos: [],
-  // El claro es el modo de la casa: la paleta beige, los pasteles y los
-  // títulos en cursiva están pensados para él, y "automático" hacía que la
-  // app se viera de una manera u otra según la hora sin que tú lo pidieras.
-  // El 🌗 sigue estando para cambiarlo cuando quieras.
-  tema: 'claro',
+  // Aquí había un campo "tema". La app tiene un solo tema, el claro, así que
+  // no hay nada que guardar: la migración 18 lo borra de los datos viejos.
   // Al subir una migración hay que subir este número también, o una
   // instalación nueva nace "atrasada" y corre migraciones que no necesita.
-  version: 17
+  version: 18
 };
 
 /* localStorage = la memoria del navegador. Guarda texto y sobrevive
@@ -1425,6 +1377,14 @@ function cargar(){
     // se quedan en oscuro: eso sigue existiendo.
     if(estado.tema !== 'oscuro') estado.tema = 'claro';
     estado.version = 17;
+  }
+
+  if(estado.version < 18){
+    // Se fue el modo oscuro entero, así que el tema guardado no significa
+    // nada. Se borra en vez de dejarlo ahí: un campo que nadie lee es una
+    // pista falsa para quien abra los datos más adelante.
+    delete estado.tema;
+    estado.version = 18;
   }
 
   // Si se migró algo, se guarda de inmediato. Si no, la migración volvería a
@@ -4141,43 +4101,13 @@ function borrarSub(catId, subId){
 }
 
 /* ================================================================
-   8. AJUSTES: tema, exportar, borrar
+   8. AJUSTES: exportar, borrar
    ================================================================ */
 
-/* Dos modos y nada más. Hubo un tercero, "automático", que seguía la
-   pantalla del teléfono. Se sacó: con el teléfono en oscuro hacía que la app
-   apareciera negra, y como el botón ciclaba entre tres, era fácil caer ahí
-   de un toque sin darse cuenta y sin entender por qué. Con dos, cada toque
-   hace lo obvio y lo que ves es lo que elegiste. */
-const TEMAS = [
-  {valor:'claro',  icono:'☀️', nombre:'Modo claro'},
-  {valor:'oscuro', icono:'🌙', nombre:'Modo oscuro'}
-];
-
-function aplicarTema(valor){
-  // Cualquier cosa que no sea 'oscuro' es claro, incluido el 'auto' de
-  // versiones viejas que todavía no haya pasado por la migración.
-  const t = TEMAS.find(x => x.valor === valor) || TEMAS[0];
-  estado.tema = t.valor;
-  document.documentElement.dataset.tema = t.valor;
-  document.querySelectorAll('.btn-tema').forEach(b => b.textContent = t.icono);
-
-  /* La franja de estado del teléfono (donde va la hora y la batería) se pinta
-     con este meta. Sin esto quedaba clara siempre, así que en modo oscuro la
-     app terminaba con una banda blanca arriba. */
-  const meta = document.querySelector('meta[name="theme-color"]');
-  if(meta) meta.content = t.valor === 'oscuro' ? '#171512' : '#FAF7F5';
-
-  return t;
-}
-
-function ciclarTema(){
-  const i = TEMAS.findIndex(t => t.valor === (estado.tema || 'claro'));
-  const siguiente = TEMAS[(i + 1) % TEMAS.length];
-  const t = aplicarTema(siguiente.valor);
-  guardar();
-  avisar(t.nombre);
-}
+/* Aquí vivían TEMAS, aplicarTema() y ciclarTema(). La app tiene un solo
+   tema, así que no hay nada que aplicar ni que ciclar. La franja de estado
+   del teléfono se pinta con el <meta name="theme-color"> del <head>, que
+   ahora es un valor fijo y no lo toca nadie. */
 
 let tiempoToast = null;
 function avisar(texto){
@@ -4217,7 +4147,6 @@ function borrarTodo(){
    ================================================================ */
 
 cargar();
-aplicarTema(estado.tema || 'claro');
 // Primero las fichas: lo anotado en Gastos fijos, Hogar y Suscripciones
 // entra a Recordatorios con su mes ya marcado, para no anotarlo dos veces
 sincronizarRecordatorios();
