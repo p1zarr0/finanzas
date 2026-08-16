@@ -1870,8 +1870,7 @@ function confirmarAnioNuevo(){
     if(!f) return;
     f.anioOk = anio;                    // preguntado y respondido: no se repite
     if(chk.checked){ siguen++; }
-    // Pausada: además se sueltan los meses que ya estuvieran adelantados
-    else { f.activo = false; borrarProgramados(f.id); pausados++; }
+    else { f.activo = false; pausados++; }
   });
 
   guardar();
@@ -1897,67 +1896,29 @@ const TOPE_MESES_ATRAS = 12;
    noviembre a enero y el arriendo de diciembre no se anotaba nunca, dejando
    ese mes con menos gasto del que hubo. */
 function mesesPorAnotar(f, hoy){
-  /* Se llena hasta DICIEMBRE de este año, no hasta el mes actual. Así los
-     meses que vienen ya aparecen anotados y marcados como "Programado":
-     puedes adelantar el mes en Movimientos y ver el arriendo de octubre
-     esperándote. No cuentan en Análisis hasta que su fecha llegue.
+  const mesHoy = mesClave(hoy);
+  if(f.ultimoRegistrado === mesHoy) return [];
 
-     Hasta diciembre y no más allá porque el año es la unidad: el 1 de enero
-     la app pregunta qué sigue repitiéndose (ver preguntarPorElAnio), y recién
-     cuando contestas se llena el año nuevo. Sin ese corte, un fijo
-     configurado una vez se anotaría para siempre sin volver a preguntarte. */
-  const hastaDiciembre = new Date(hoy.getFullYear(), 11, 1);
   const esteMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+  // Sin marca previa no hay historia que rellenar: la ficha es nueva
+  if(!f.ultimoRegistrado) return [esteMes];
 
-  let d;
-  if(!f.ultimoRegistrado){
-    d = esteMes;                       // ficha nueva: no hay historia atrás
-  }else{
-    const [anio, mesNum] = f.ultimoRegistrado.split('-').map(Number);
-    // mesNum viene en 1-12; como índice 0-11 apunta al mes SIGUIENTE, que es
-    // justo por donde hay que empezar.
-    d = new Date(anio, mesNum, 1);
-    // Si quedaron más meses atrás que el tope, se descartan los más viejos y
-    // no los más nuevos: lo reciente es lo que todavía te sirve para cuadrar.
-    const masViejo = new Date(hoy.getFullYear(), hoy.getMonth() - (TOPE_MESES_ATRAS - 1), 1);
-    if(d < masViejo) d = masViejo;
-  }
+  const [anio, mesNum] = f.ultimoRegistrado.split('-').map(Number);
+  // mesNum viene en 1-12; como índice 0-11 apunta al mes SIGUIENTE, que es
+  // justo por donde hay que empezar.
+  let d = new Date(anio, mesNum, 1);
+
+  // Si quedaron más meses que el tope, se descartan los más viejos y no los
+  // más nuevos: lo reciente es lo que todavía te sirve para cuadrar.
+  const masViejo = new Date(hoy.getFullYear(), hoy.getMonth() - (TOPE_MESES_ATRAS - 1), 1);
+  if(d < masViejo) d = masViejo;
 
   const meses = [];
-  while(d <= hastaDiciembre){
+  while(d <= esteMes){
     meses.push(new Date(d));
     d.setMonth(d.getMonth() + 1);
   }
   return meses;
-}
-
-/* Los movimientos de una ficha que todavía no ocurren. Existen solo porque la
-   app los adelantó, así que se pueden rehacer o borrar sin perder nada real:
-   lo que ya pasó no se toca nunca. */
-const programadosDe = id => estado.movimientos.filter(m =>
-  m.fijoId === id && m.fecha > hoyISO());
-
-/* Al apagar o pausar una ficha, lo que viene se va con ella. Si no, dejabas
-   de repetir el arriendo y octubre, noviembre y diciembre seguían ahí. */
-function borrarProgramados(id){
-  const fuera = new Set(programadosDe(id).map(m => m.id));
-  if(fuera.size) estado.movimientos = estado.movimientos.filter(m => !fuera.has(m.id));
-  return fuera.size;
-}
-
-/* Al cambiarle el monto o el día a una ficha, los meses ya adelantados tienen
-   que seguirla. Si te sube el arriendo en marzo, los de abril a diciembre ya
-   estaban anotados con el precio viejo. Los pasados se quedan como estaban:
-   esa plata se movió de verdad por ese monto. */
-function actualizarProgramados(f){
-  programadosDe(f.id).forEach(m => {
-    const [a, mes] = m.fecha.split('-').map(Number);
-    const tope = new Date(a, mes, 0).getDate();
-    Object.assign(m, {
-      monto: f.monto, tipo: f.tipo, catId: f.catId, subId: f.subId || null,
-      fecha: `${a}-${dosCifras(mes)}-${dosCifras(Math.min(f.dia, tope))}`
-    });
-  });
 }
 
 function revisarFijos(){
@@ -2348,9 +2309,6 @@ function pintarSale(){
    marcarlos cuando el movimiento acaba de convertirse en un gasto de esas
    categorías y sí queremos que le hagan una ficha nueva. */
 function dejarDeRepetir(id, marcar){
-  // Lo que aún no ocurre se va con la ficha: solo existía porque la app lo
-  // adelantó. Lo ya pasado se queda, porque esa plata sí se movió.
-  borrarProgramados(id);
   estado.fijos = estado.fijos.filter(x => x.id !== id);
   estado.movimientos.forEach(m => {
     if(m.fijoId === id){
@@ -2565,8 +2523,7 @@ function guardarFijo(){
   };
 
   if(fijoEditando){
-    const f = estado.fijos.find(x => x.id === fijoEditando);
-    Object.assign(f, datos);
+    Object.assign(estado.fijos.find(f => f.id === fijoEditando), datos);
     // Si este mes ya está anotado, se actualiza también: subirle el monto al
     // sueldo y que el mes en curso siguiera con el viejo sería desconcertante.
     const mesAhora = mesClave();
@@ -2579,10 +2536,6 @@ function guardarFijo(){
         });
       }
     });
-    // Y los meses que vienen, que ya estaban adelantados. Si la pausaste, se
-    // borran: una ficha en pausa no debería seguir apareciendo en octubre.
-    if(datos.activo === false) borrarProgramados(fijoEditando);
-    else actualizarProgramados(f);
   }else{
     const hoy = new Date();
     const nuevo = {id: nuevoId(), ...datos,
@@ -3504,9 +3457,6 @@ function actualizarFijoDesdeMovimiento(fijo, mov, renombrar){
   fijo.frecuencia = frecuenciaMov;
   fijo.mes = frecuenciaMov === 'anual' ? mes : null;
   if(renombrar) fijo.nombre = nombreDeFijo(mov);
-  // Los meses ya adelantados siguen a la ficha: si le subiste el monto, no
-  // pueden quedarse con el viejo.
-  actualizarProgramados(fijo);
 }
 
 // Cambiar la fecha arrastra el día propuesto y la explicación de abajo
