@@ -3348,8 +3348,26 @@ function guardarMovimiento(){
     });
     avisar(`${n} cuotas anotadas`);
   }else if(document.getElementById('tgRepetir').checked){
-    const mov = {id: nuevoId(), ...datos};
     const dia = leerDiaRepetir();
+
+    /* El movimiento de este mes se anota en el día que elegiste para que se
+       repita, no en la fecha de la hoja. Antes se guardaba con la fecha —casi
+       siempre hoy, que es la que viene puesta— así que configurar un sueldo
+       que llega el 25, estando a 16, lo anotaba hoy y lo sumaba de inmediato
+       al Disponible. La ayuda decía "se anotará el día 25 de cada mes" y para
+       este mes no era cierto.
+
+       Con el día puesto, si todavía no llega sale como "Programado" y no
+       cuenta hasta que la fecha ocurra, igual que los meses siguientes. La
+       fecha de la hoja sigue mandando el MES (y en los anuales, cuál mes);
+       el día lo pone este campo. */
+    const [anio, mesN] = datos.fecha.split('-').map(Number);
+    // El 31 no existe en todos los meses: se usa el último, igual que hace
+    // anotarFijoDelMes cuando los anota mes a mes.
+    const diasDelMes = new Date(anio, mesN, 0).getDate();
+    datos.fecha = `${anio}-${dosCifras(mesN)}-${dosCifras(Math.min(dia, diasDelMes))}`;
+
+    const mov = {id: nuevoId(), ...datos};
     // Los gastos de Recordatorios entran por su propia puerta. El sueldo y el
     // ahorro pasan por aquí, y también se busca la ficha antes de crearla:
     // dos "Sueldo" configurados lo anotarían dos veces todos los meses.
