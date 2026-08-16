@@ -11,12 +11,10 @@
 <!-- Este pedacito tiene que ir ACÁ ARRIBA, antes del <style>, y no puede
      moverse al resto del código de más abajo.
 
-     El modo oscuro se aplica con :root:not([data-tema="claro"]) dentro de un
-     @media (prefers-color-scheme: dark). Ese "data-tema" lo pone JavaScript,
-     y el resto del JavaScript de la app corre al final del archivo: para
-     entonces el navegador ya pintó la pantalla. Si el teléfono estaba en
-     oscuro, alcanzabas a ver el fondo negro un instante antes de que la app
-     se pusiera clara. Ese era el parpadeo al abrirla.
+     El modo oscuro se aplica con :root[data-tema="oscuro"]. Ese atributo lo
+     pone JavaScript, y el resto del JavaScript de la app corre al final del
+     archivo: para entonces el navegador ya pintó la pantalla. Sin esto, el
+     primer instante se dibujaba con el tema equivocado.
 
      Leyendo el tema guardado aquí, el atributo ya está puesto cuando el
      navegador lee el CSS, y nunca llega a pintar el color equivocado.
@@ -26,9 +24,11 @@
   try{
     var g = localStorage.getItem('misFinanzas_v1');
     var t = g ? (JSON.parse(g).tema || 'claro') : 'claro';
-    // 'auto' significa seguir al teléfono: se deja sin atributo, que es lo
-    // que hace que el @media de más abajo mande.
-    if(t !== 'auto') document.documentElement.dataset.tema = t;
+    // Solo hay dos modos. El 'auto' de versiones viejas se trata como claro:
+    // este script corre antes que la migración que lo convierte, y sin esta
+    // línea la app se abriría negra una última vez antes de arreglarse sola.
+    if(t !== 'oscuro') t = 'claro';
+    document.documentElement.dataset.tema = t;
     // La barra de estado del teléfono se pinta con esto. Si no se cambia,
     // en modo oscuro queda una franja clara arriba.
     var m = document.querySelector('meta[name="theme-color"]');
@@ -85,27 +85,18 @@
 }
 
 /* --- Modo oscuro ---
-   Va escrito dos veces a propósito: una para cuando el teléfono está en
-   oscuro y tú no elegiste nada, y otra para cuando lo elegiste tú con el 🌗.
-   CSS no deja compartir un bloque entre un @media y un selector normal.
-   OJO: si cambias un color en una copia, cámbialo también en la otra.
+   Un solo bloque, y solo cuando TÚ lo elegiste con el botón de arriba.
+
+   Antes esto estaba escrito dos veces: esta copia, y otra dentro de un
+   @media (prefers-color-scheme: dark) para el modo "automático", que seguía
+   al teléfono. Ese modo automático se sacó —era el que hacía que la app
+   apareciera negra sin que nadie se lo pidiera— y con él se fue la copia.
+   Ahora hay un solo lugar donde están los colores oscuros, que además evita
+   el riesgo de que las dos copias se desincronizaran.
 
    Las sombras casi no se ven sobre un fondo oscuro, así que aquí la tarjeta
    se despega con un hilo de luz en el borde (el `0 0 0 1px` blanco) en vez
    de con la sombra. Es el truco estándar para modo oscuro. */
-@media (prefers-color-scheme: dark){
-  :root:not([data-tema="claro"]){
-    --fondo:#171512; --tarjeta:#211D1A; --hundido:#1B1714;
-    --linea:#2E2926; --borde:#3C3632;
-    --texto:#F0EAE5; --medio:#B5AAA3; --suave:#8E847E;
-    --gasto:#E0959D;   --gasto-tenue:#332326;
-    --ingreso:#9DC0A1; --ingreso-tenue:#1F2A21;
-    --ahorroC:#93C0D9; --ahorro-tenue:#1A2530;
-    --acento:#F0EAE5;  --acento-texto:#171512;
-    --sombra:0 0 0 1px rgba(255,255,255,.045), 0 8px 24px rgba(0,0,0,.35);
-    --sombra-alta:0 0 0 1px rgba(255,255,255,.06), 0 20px 48px rgba(0,0,0,.5);
-  }
-}
 :root[data-tema="oscuro"]{
   --fondo:#171512; --tarjeta:#211D1A; --hundido:#1B1714;
   --linea:#2E2926; --borde:#3C3632;
@@ -1183,7 +1174,7 @@ let estado = {
   tema: 'claro',
   // Al subir una migración hay que subir este número también, o una
   // instalación nueva nace "atrasada" y corre migraciones que no necesita.
-  version: 16
+  version: 17
 };
 
 /* localStorage = la memoria del navegador. Guarda texto y sobrevive
@@ -1426,6 +1417,14 @@ function cargar(){
     const gf = buscarCat('c2');
     if(gf && gf.color === '#8FA8C4') gf.color = '#91A2B6';
     estado.version = 16;
+  }
+
+  if(estado.version < 17){
+    // Se acabó el modo "automático". Quien lo tuviera puesto pasa a claro,
+    // que es lo que la app usa por defecto. Los que eligieron oscuro a mano
+    // se quedan en oscuro: eso sigue existiendo.
+    if(estado.tema !== 'oscuro') estado.tema = 'claro';
+    estado.version = 17;
   }
 
   // Si se migró algo, se guarda de inmediato. Si no, la migración volvería a
@@ -4145,30 +4144,29 @@ function borrarSub(catId, subId){
    8. AJUSTES: tema, exportar, borrar
    ================================================================ */
 
-/* Ciclamos entre los tres estados en vez de alternar dos, para no perder
-   el modo automático, que es el que sigue la pantalla del teléfono.
-   El claro va primero porque es el predeterminado: el 🌗 lleva de ahí al
-   oscuro, y recién en el tercer toque aparece el automático. */
+/* Dos modos y nada más. Hubo un tercero, "automático", que seguía la
+   pantalla del teléfono. Se sacó: con el teléfono en oscuro hacía que la app
+   apareciera negra, y como el botón ciclaba entre tres, era fácil caer ahí
+   de un toque sin darse cuenta y sin entender por qué. Con dos, cada toque
+   hace lo obvio y lo que ves es lo que elegiste. */
 const TEMAS = [
   {valor:'claro',  icono:'☀️', nombre:'Modo claro'},
-  {valor:'oscuro', icono:'🌙', nombre:'Modo oscuro'},
-  {valor:'auto',   icono:'🌗', nombre:'Apariencia automática'}
+  {valor:'oscuro', icono:'🌙', nombre:'Modo oscuro'}
 ];
 
 function aplicarTema(valor){
-  estado.tema = valor;
-  document.documentElement.dataset.tema = (valor === 'auto') ? '' : valor;
+  // Cualquier cosa que no sea 'oscuro' es claro, incluido el 'auto' de
+  // versiones viejas que todavía no haya pasado por la migración.
   const t = TEMAS.find(x => x.valor === valor) || TEMAS[0];
+  estado.tema = t.valor;
+  document.documentElement.dataset.tema = t.valor;
   document.querySelectorAll('.btn-tema').forEach(b => b.textContent = t.icono);
 
   /* La franja de estado del teléfono (donde va la hora y la batería) se pinta
      con este meta. Sin esto quedaba clara siempre, así que en modo oscuro la
-     app terminaba con una banda blanca arriba. En 'auto' se le pregunta al
-     teléfono qué tiene puesto ahora mismo. */
-  const oscuro = valor === 'oscuro' ||
-    (valor === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
+     app terminaba con una banda blanca arriba. */
   const meta = document.querySelector('meta[name="theme-color"]');
-  if(meta) meta.content = oscuro ? '#171512' : '#FAF7F5';
+  if(meta) meta.content = t.valor === 'oscuro' ? '#171512' : '#FAF7F5';
 
   return t;
 }
