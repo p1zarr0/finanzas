@@ -944,23 +944,23 @@ input[type=date],input[type=text],input[type=number],select{
   <button class="btn-texto" onclick="mesCompletoDesdeHoja()">Mes completo</button>
 </div>
 
-<!-- ===================== HOJA: BORRAR UN MOVIMIENTO =====================
-     Reemplaza a los confirm() del sistema, que en el teléfono a veces no
-     aparecen y dejaban el botón Eliminar sin hacer nada. Ver
-     borrarMovimiento(). -->
-<div class="hoja" id="hojaBorrar">
+<!-- ===================== HOJA: CONFIRMAR =====================
+     La usa toda la app para preguntar "¿seguro?". Reemplaza a los confirm()
+     del sistema, que en el teléfono a veces no aparecen: Chrome ofrece
+     "impedir que esta página cree más diálogos" y desde ahí devuelven false
+     sin mostrarse, dejando los botones sin hacer nada. Ver preguntar(). -->
+<div class="hoja" id="hojaConfirmar">
   <div class="asa"></div>
-  <h2 class="seccion titulo" style="text-align:center;margin-bottom:6px">
-    ¿Borrar este movimiento?
-  </h2>
-  <p class="ayuda" id="borrarDetalle" style="text-align:center;margin:0 0 18px"></p>
-  <div class="fila-toggle oculto" id="filaBorrarExtra" style="margin-bottom:18px">
-    <span class="nom" id="borrarExtraNom"></span>
+  <h2 class="seccion titulo" id="confirmarTitulo"
+      style="text-align:center;margin-bottom:6px"></h2>
+  <p class="ayuda" id="confirmarDetalle" style="text-align:center;margin:0 0 18px"></p>
+  <div class="fila-toggle oculto" id="filaConfirmarExtra" style="margin-bottom:18px">
+    <span class="nom" id="confirmarExtraNom"></span>
     <label class="switch">
-      <input type="checkbox" id="tgBorrarExtra"><i></i>
+      <input type="checkbox" id="tgConfirmarExtra"><i></i>
     </label>
   </div>
-  <button class="btn-principal" onclick="confirmarBorrado()">Borrar</button>
+  <button class="btn-principal" id="btnConfirmarSi" onclick="ejecutarConfirmado()">Aceptar</button>
   <button class="btn-texto" onclick="cerrarHojas()">Cancelar</button>
 </div>
 
@@ -2264,9 +2264,12 @@ function borrarFijo(id){
   if(!f) return;
   // Solo se deja de repetir: los movimientos ya anotados se quedan,
   // porque esa plata sí se movió de verdad.
-  if(!confirm(`¿Dejar de anotar "${f.nombre}" todos los meses?\n\nLo que ya se anotó no se borra.`)) return;
-  dejarDeRepetir(id);
-  guardar(); pintarTodo();
+  preguntar({
+    titulo: `¿Dejar de anotar "${f.nombre}"?`,
+    detalle: 'Deja de repetirse todos los meses. Lo que ya se anotó no se borra.',
+    ok: 'Dejar de anotar',
+    onSi: () => { dejarDeRepetir(id); guardar(); pintarTodo(); avisar('Ya no se repite'); }
+  });
 }
 
 /* --- Hoja para crear o editar un fijo --- */
@@ -2445,10 +2448,12 @@ function guardarFijo(){
   const monto = Number(document.getElementById('inpFijoMonto').value.replace(/\D/g,'')) || 0;
   const nombre = document.getElementById('inpFijoNombre').value.trim();
   const dia = Number(document.getElementById('inpFijoDia').value) || 0;
+  // Se resuelven abajo, al crear uno nuevo; la pregunta va al final del todo
+  let hayQuePreguntar = false, reciencreado = null;
 
-  if(!monto){ alert('Escribe el monto.'); return; }
-  if(!catFijo){ alert('Elige una categoría.'); return; }
-  if(dia < 1 || dia > 31){ alert('El día tiene que estar entre 1 y 31.'); return; }
+  if(!monto){ avisar('Escribe el monto'); return; }
+  if(!catFijo){ avisar('Elige una categoría'); return; }
+  if(dia < 1 || dia > 31){ avisar('El día tiene que estar entre 1 y 31'); return; }
 
   const datos = {
     nombre: nombre || buscarCat(catFijo).nombre,
@@ -2482,14 +2487,30 @@ function guardarFijo(){
     // duplicar algo que anotaste a mano. Si todavía no llega, se anota y listo.
     // Un anual de otro mes ni siquiera entra: revisarFijos ya lo salta.
     const yaPaso = hoy.getDate() >= dia;
-    const preguntar = yaPaso && datos.activo &&
-      !(datos.frecuencia === 'anual' && datos.mes !== hoy.getMonth() + 1) &&
-      !confirm(`El día ${dia} ya pasó.\n\n¿Anoto igual el de ${MESES[hoy.getMonth()]}?`);
-    if(preguntar) nuevo.ultimoRegistrado = mesClave(hoy);   // se salta este mes
+    hayQuePreguntar = yaPaso && datos.activo &&
+      !(datos.frecuencia === 'anual' && datos.mes !== hoy.getMonth() + 1);
+    // Mientras no contestes se salta este mes: es lo prudente, porque el
+    // riesgo que se quiere evitar es anotar dos veces algo que ya pusiste.
+    if(hayQuePreguntar) nuevo.ultimoRegistrado = mesClave(hoy);
     else revisarFijos();                                    // lo anota al tiro
+    reciencreado = nuevo;
   }
   fijoEditando = null;
   guardar(); cerrarHojas(); pintarTodo();
+
+  /* La pregunta va al final, con la hoja del fijo ya cerrada: si se abriera
+     encima quedarían dos hojas apiladas y al cerrar la de arriba verías la
+     otra debajo, como si no se hubiera guardado. */
+  if(hayQuePreguntar){
+    const f = reciencreado, mesHoy = new Date();
+    preguntar({
+      titulo: `El día ${f.dia} ya pasó`,
+      detalle: `¿Anoto igual el de ${MESES[mesHoy.getMonth()]}? Si ya lo
+                anotaste a mano, di que no y empieza el mes que viene.`,
+      ok: `Anotar el de ${MESES[mesHoy.getMonth()]}`,
+      onSi: () => { anotarFijoDelMes(f, mesHoy); guardar(); pintarTodo(); }
+    });
+  }
 }
 
 function borrarFijoDesdeHoja(){
@@ -2800,81 +2821,83 @@ function pintarMovimientos(){
   cont.innerHTML = html;
 }
 
-/* --- Borrar un movimiento ---
-   Esto eran hasta tres confirm() encadenados y por eso a veces no borraba
-   nada. En el teléfono, Chrome ofrece "impedir que esta página cree más
-   diálogos" apenas aparece el primero, y en algunos casos los suprime del
-   todo: el confirm devuelve false, la función se va por el `return` de la
-   primera línea y no pasa absolutamente nada. Apretabas Eliminar y el
-   movimiento seguía ahí, sin explicación.
+/* --- Preguntar "¿seguro?" dentro de la app ---
+   Reemplaza a confirm(). El del sistema, en el teléfono, a veces no aparece:
+   Chrome ofrece "impedir que esta página cree más diálogos" apenas ve el
+   primero, y desde entonces devuelve false sin mostrarse. Como el patrón era
+   `if(!confirm(...)) return;`, el botón se iba por el return y no pasaba
+   nada, sin explicación. Es el mismo problema que ya habían tenido los
+   alert() al guardar.
 
-   Es el mismo problema que ya habían tenido los alert() al guardar, y se
-   arregla igual: preguntando dentro de la app. Además ahora es una sola
-   pregunta en vez de tres, con lo secundario en un interruptor. */
-let movBorrando = null;
+   Se usa así:
+     preguntar({titulo, detalle, ok, extra, onSi})
+   donde "extra" es un interruptor opcional {texto, encendido} para la
+   decisión secundaria —borrar también las otras cuotas, por ejemplo— y
+   "onSi" recibe si ese interruptor quedó encendido. */
+let accionConfirmada = null;
 
+function preguntar({titulo, detalle, ok, extra, onSi}){
+  document.getElementById('confirmarTitulo').textContent = titulo;
+  const det = document.getElementById('confirmarDetalle');
+  det.innerHTML = detalle || '';
+  det.classList.toggle('oculto', !detalle);
+
+  const fila = document.getElementById('filaConfirmarExtra');
+  const tg   = document.getElementById('tgConfirmarExtra');
+  fila.classList.toggle('oculto', !extra);
+  tg.checked = !!(extra && extra.encendido);
+  if(extra) document.getElementById('confirmarExtraNom').textContent = extra.texto;
+
+  document.getElementById('btnConfirmarSi').textContent = ok || 'Aceptar';
+  accionConfirmada = onSi;
+  abrirHoja('hojaConfirmar');
+}
+
+function ejecutarConfirmado(){
+  const fn = accionConfirmada;
+  const extra = document.getElementById('tgConfirmarExtra').checked;
+  accionConfirmada = null;
+  cerrarHojas();
+  if(fn) fn(extra);
+}
+
+/* Borrar un movimiento. Es una sola pregunta y no tres: lo secundario va en
+   el interruptor de la hoja. */
 function borrarMovimiento(id){
   const mov = estado.movimientos.find(m => m.id === id);
   if(!mov) return;
-  movBorrando = id;
 
-  const detalle = document.getElementById('borrarDetalle');
-  const fila    = document.getElementById('filaBorrarExtra');
-  const tgExtra = document.getElementById('tgBorrarExtra');
-
-  // Cuántas cuotas quedan del mismo pago, si es una cuota
-  const grupo   = mov.cuota && mov.cuota.grupo;
+  const grupo = mov.cuota && mov.cuota.grupo;
   const hermanas = grupo
     ? estado.movimientos.filter(m => m.cuota && m.cuota.grupo === grupo).length : 0;
   // La ficha del sueldo o del ahorro: esta es su única puerta, porque no
   // tienen lista propia como los pagos en Recordatorios.
   const fijo = mov.fijoId && estado.fijos.find(f => f.id === mov.fijoId);
   const suyo = fijo && fijo.tipo !== 'gasto';
+  const cat  = buscarCat(mov.catId);
 
-  const cat = buscarCat(mov.catId);
-  detalle.innerHTML = `${SIGNO[mov.tipo] || '−'}${pesos(mov.monto)} · ` +
-                      `${cat ? cat.nombre : 'Sin categoría'} · ${fechaLegible(mov.fecha)}`;
+  let extra = null;
+  // Si borras una cuota casi siempre deshaces la compra entera: viene encendido
+  if(hermanas > 1) extra = {texto:`Borrar las ${hermanas} cuotas que quedan`, encendido:true};
+  // Apagado: borrar el de este mes no debería cancelar el sueldo entero
+  else if(suyo)    extra = {texto:`Dejar de anotar "${fijo.nombre}" cada mes`, encendido:false};
 
-  if(hermanas > 1){
-    // Casi siempre quieres deshacer la compra entera, así que viene encendido
-    fila.classList.remove('oculto');
-    document.getElementById('borrarExtraNom').textContent =
-      `Borrar las ${hermanas} cuotas que quedan`;
-    tgExtra.checked = true;
-  }else if(suyo){
-    // Apagado: borrar el de este mes no debería cancelar el sueldo entero
-    fila.classList.remove('oculto');
-    document.getElementById('borrarExtraNom').textContent =
-      `Dejar de anotar "${fijo.nombre}" cada mes`;
-    tgExtra.checked = false;
-  }else{
-    fila.classList.add('oculto');
-    tgExtra.checked = false;
-  }
-
-  abrirHoja('hojaBorrar');
-}
-
-function confirmarBorrado(){
-  const id = movBorrando;
-  const mov = id && estado.movimientos.find(m => m.id === id);
-  if(!mov){ cerrarHojas(); return; }
-
-  const extra = document.getElementById('tgBorrarExtra').checked;
-  const grupo = mov.cuota && mov.cuota.grupo;
-  const fijo  = mov.fijoId && estado.fijos.find(f => f.id === mov.fijoId);
-  const suyo  = fijo && fijo.tipo !== 'gasto';
-
-  if(grupo && extra){
-    estado.movimientos = estado.movimientos.filter(m => !(m.cuota && m.cuota.grupo === grupo));
-  }else{
-    if(suyo && extra) dejarDeRepetir(fijo.id);
-    estado.movimientos = estado.movimientos.filter(m => m.id !== id);
-  }
-
-  movBorrando = null;
-  guardar(); cerrarHojas(); pintarTodo();
-  avisar('Borrado');
+  preguntar({
+    titulo: '¿Borrar este movimiento?',
+    detalle: `${SIGNO[mov.tipo] || '−'}${pesos(mov.monto)} · ` +
+             `${cat ? cat.nombre : 'Sin categoría'} · ${fechaLegible(mov.fecha)}`,
+    ok: 'Borrar',
+    extra,
+    onSi: tambien => {
+      if(grupo && tambien){
+        estado.movimientos = estado.movimientos.filter(m => !(m.cuota && m.cuota.grupo === grupo));
+      }else{
+        if(suyo && tambien) dejarDeRepetir(fijo.id);
+        estado.movimientos = estado.movimientos.filter(m => m.id !== id);
+      }
+      guardar(); pintarTodo(); avisar('Borrado');
+    }
+  });
 }
 
 /* ================================================================
@@ -3080,14 +3103,20 @@ function confirmarBorrarSub(catId, subId, despues){
   const sub = cat.subs.find(s => s.id === subId);
   if(!sub) return;
   const usados = estado.movimientos.filter(m => m.subId === subId).length;
-  const aviso = usados
-    ? `¿Eliminar el detalle "${sub.nombre}"?\n\n${usados} movimiento(s) lo usan. No se borran: quedan en ${cat.nombre}, sin detalle.`
-    : `¿Eliminar el detalle "${sub.nombre}"?`;
-  if(!confirm(aviso)) return;
-  if(subElegida === subId) subElegida = null;
-  borrarSub(catId, subId);
-  if(despues) despues();
-  else pintarChipsSub(buscarCat(catId));
+  preguntar({
+    titulo: `¿Eliminar "${sub.nombre}"?`,
+    detalle: usados
+      ? `${usados} movimiento${usados>1?'s':''} lo usa${usados>1?'n':''}. No se borran:
+         quedan en ${cat.nombre}, sin detalle.`
+      : `Es un detalle de ${cat.nombre}.`,
+    ok: 'Eliminar',
+    onSi: () => {
+      if(subElegida === subId) subElegida = null;
+      borrarSub(catId, subId);
+      if(despues) despues();
+      else pintarChipsSub(buscarCat(catId));
+    }
+  });
 }
 
 /* ---------------- Los dos toggles del final de la hoja ----------------
@@ -3189,7 +3218,7 @@ function otrasCuotas(){
   const r = prompt('¿En cuántas cuotas?');
   if(r === null) return;
   const n = parseInt(r, 10);
-  if(!n || n < 2 || n > 60){ alert('Escribe un número entre 2 y 60.'); return; }
+  if(!n || n < 2 || n > 60){ avisar('Escribe un número entre 2 y 60'); return; }
   elegirCuotas(n);
 }
 
@@ -3697,8 +3726,8 @@ function editarTransferencia(id){
 function guardarTransferencia(){
   const monto = Number(document.getElementById('inpTMonto').value.replace(/\D/g,'')) || 0;
   const persona = document.getElementById('inpTPersona').value.trim();
-  if(monto <= 0){ alert('Escribe un monto.'); return; }
-  if(!persona){ alert(tipoTransf === 'meDeben' ? '¿Quién te debe?' : '¿A quién le debes?'); return; }
+  if(monto <= 0){ avisar('Escribe un monto'); return; }
+  if(!persona){ avisar(tipoTransf === 'meDeben' ? '¿Quién te debe?' : '¿A quién le debes?'); return; }
 
   const datos = {
     monto, tipo: tipoTransf, persona,
@@ -3716,10 +3745,18 @@ function guardarTransferencia(){
 }
 
 function borrarTransferencia(){
-  if(!confirm('¿Eliminar esta deuda?')) return;
-  estado.transferencias = estado.transferencias.filter(t => t.id !== transfEditando);
-  transfEditando = null;
-  guardar(); cerrarHojas(); pintarTransferencias();
+  const id = transfEditando;
+  const t = estado.transferencias.find(x => x.id === id);
+  preguntar({
+    titulo: '¿Eliminar esta deuda?',
+    detalle: t ? `${t.persona} · ${pesos(t.monto)}` : '',
+    ok: 'Eliminar',
+    onSi: () => {
+      estado.transferencias = estado.transferencias.filter(x => x.id !== id);
+      transfEditando = null;
+      guardar(); pintarTransferencias();
+    }
+  });
 }
 
 /* Saldar convierte la deuda en un movimiento real: recién ahí toca el balance */
@@ -3727,11 +3764,15 @@ function saldar(id){
   const t = estado.transferencias.find(x => x.id === id);
   if(!t) return;
   const esIngreso = t.tipo === 'meDeben';
-  const texto = esIngreso
-    ? `¿${t.persona} ya te pagó los ${pesos(t.monto)}?\n\nSe va a registrar como ingreso de hoy.`
-    : `¿Ya le pagaste los ${pesos(t.monto)} a ${t.persona}?\n\nSe va a registrar como gasto de hoy.`;
-  if(!confirm(texto)) return;
+  preguntar({
+    titulo: esIngreso ? `¿${t.persona} ya te pagó?` : `¿Ya le pagaste a ${t.persona}?`,
+    detalle: `${pesos(t.monto)} · se registra como ${esIngreso ? 'ingreso' : 'gasto'} de hoy.`,
+    ok: 'Sí, ya está',
+    onSi: () => saldarConfirmado(t, esIngreso)
+  });
+}
 
+function saldarConfirmado(t, esIngreso){
   const cat = esIngreso ? 'c5' : 'c3';        // Ingresos / Gastos varios
   estado.movimientos.push({
     id: nuevoId(), monto: t.monto,
@@ -3750,9 +3791,13 @@ function saldar(id){
 function reabrir(id){
   const t = estado.transferencias.find(x => x.id === id);
   if(!t) return;
-  if(!confirm('¿Volver a marcarla como pendiente?\n\nOjo: el movimiento que se creó al saldarla no se borra, tienes que eliminarlo tú desde Movimientos.')) return;
-  t.pagada = false; delete t.fechaPago;
-  guardar(); pintarTransferencias();
+  preguntar({
+    titulo: '¿Volver a marcarla como pendiente?',
+    detalle: `Ojo: el movimiento que se creó al saldarla <b>no se borra</b>.
+              Si sobra, elimínalo tú desde Movimientos.`,
+    ok: 'Marcar pendiente',
+    onSi: () => { t.pagada = false; delete t.fechaPago; guardar(); pintarTransferencias(); }
+  });
 }
 
 function pintarTransferencias(){
@@ -3801,8 +3846,15 @@ function pintarTransferencias(){
 
 function elegirBoleta(){
   if(typeof Tesseract === 'undefined'){
-    alert('El escáner necesita que la app se abra desde el servidor o desde internet, '
-        + 'no haciendo doble clic en el archivo. El resto de la app funciona igual.');
+    // Es una explicación larga, no un aviso al pasar: va en la hoja, que se
+    // lee, y no en el toast, que se va solo a los dos segundos.
+    preguntar({
+      titulo: 'El escáner no está disponible',
+      detalle: `Necesita que la app se abra desde internet o desde un servidor,
+                no haciendo doble clic en el archivo. El resto funciona igual.`,
+      ok: 'Entendido',
+      onSi: () => {}
+    });
     return;
   }
   document.getElementById('inpBoleta').click();
@@ -4129,7 +4181,7 @@ function hexARgb(hex){
 
 function guardarCategoria(){
   const nombre = document.getElementById('inpCatNombre').value.trim();
-  if(!nombre){ alert('Ponle un nombre.'); return; }
+  if(!nombre){ avisar('Ponle un nombre'); return; }
 
   let nueva = null;
   if(catEditando){
@@ -4159,16 +4211,23 @@ function guardarCategoria(){
 }
 
 function borrarCategoria(id){
+  const cat = buscarCat(id);
   const usados = estado.movimientos.filter(m => m.catId === id).length;
-  const aviso = usados
-    ? `Esta categoría tiene ${usados} movimiento(s). Se borrarán también. ¿Seguir?`
-    : '¿Borrar esta categoría?';
-  if(!confirm(aviso)) return;
-  estado.categorias = estado.categorias.filter(c => c.id !== id);
-  estado.movimientos = estado.movimientos.filter(m => m.catId !== id);
-  // Un fijo apunta a su categoría: sin ella no sabría dónde anotar
-  estado.fijos = estado.fijos.filter(f => f.catId !== id);
-  guardar(); pintarEditorCategorias(); pintarTodo();
+  preguntar({
+    titulo: `¿Borrar "${cat ? cat.nombre : 'esta categoría'}"?`,
+    detalle: usados
+      ? `Tiene ${usados} movimiento${usados>1?'s':''}, que <b>también se
+         borran</b>. Esto no se puede deshacer.`
+      : 'No tiene movimientos anotados.',
+    ok: 'Borrar',
+    onSi: () => {
+      estado.categorias = estado.categorias.filter(c => c.id !== id);
+      estado.movimientos = estado.movimientos.filter(m => m.catId !== id);
+      // Un fijo apunta a su categoría: sin ella no sabría dónde anotar
+      estado.fijos = estado.fijos.filter(f => f.catId !== id);
+      guardar(); pintarEditorCategorias(); pintarTodo();
+    }
+  });
 }
 
 // Mismo borrado, pero desde el botón de la hoja de edición
@@ -4348,13 +4407,16 @@ function borrarSubEditada(){
   const sub = cat.subs.find(s => s.id === subEditando);
   if(!sub) return;
   const usados = estado.movimientos.filter(m => m.subId === sub.id).length;
-  const aviso = usados
-    ? `¿Eliminar "${sub.nombre}"?\n\n${usados} movimiento(s) lo usan. No se borran: quedan en ${cat.nombre}, sin detalle.`
-    : `¿Eliminar "${sub.nombre}"?`;
-  if(!confirm(aviso)) return;
-  borrarSub(catParaSub, subEditando);
-  subEditando = null;
-  cerrarHojas();
+  const id = subEditando, catId = catParaSub;
+  preguntar({
+    titulo: `¿Eliminar "${sub.nombre}"?`,
+    detalle: usados
+      ? `${usados} movimiento${usados>1?'s':''} lo usa${usados>1?'n':''}. No se borran:
+         quedan en ${cat.nombre}, sin detalle.`
+      : `Es un detalle de ${cat.nombre}.`,
+    ok: 'Eliminar',
+    onSi: () => { borrarSub(catId, id); subEditando = null; pintarEditorCategorias(); }
+  });
 }
 
 function borrarSub(catId, subId){
@@ -4401,11 +4463,25 @@ function exportarCSV(){
   enlace.click();
 }
 
+/* Eran dos confirm() seguidos, para que no se borrara todo de un toque suelto.
+   Esa doble pregunta se reemplaza por un interruptor que hay que encender a
+   propósito: cuesta lo mismo equivocarse pero se entiende mejor, y no depende
+   de que el teléfono muestre dos diálogos encadenados. */
 function borrarTodo(){
-  if(!confirm('Se borrarán TODOS tus movimientos y categorías. Esto no se puede deshacer. ¿Seguro?')) return;
-  if(!confirm('Última confirmación: ¿borrar todo?')) return;
-  localStorage.removeItem(CLAVE);
-  location.reload();
+  const cuantos = estado.movimientos.length;
+  preguntar({
+    titulo: '¿Borrar todos tus datos?',
+    detalle: `Se van ${cuantos} movimiento${cuantos===1?'':'s'}, tus categorías y
+              tus recordatorios. <b>Esto no se puede deshacer.</b><br>
+              Si quieres guardarlos antes, cancela y usa “Exportar a Excel”.`,
+    ok: 'Borrar todo',
+    extra: {texto:'Sí, entiendo que no hay vuelta atrás', encendido:false},
+    onSi: seguro => {
+      if(!seguro){ avisar('No se borró nada'); return; }
+      localStorage.removeItem(CLAVE);
+      location.reload();
+    }
+  });
 }
 
 /* ================================================================
