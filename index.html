@@ -14,38 +14,120 @@
    Si mañana quieres cambiar la paleta completa, tocas solo aquí.
    ============================================================ */
 :root{
+  /* --- Superficies, de atrás hacia adelante --- */
   --fondo:#FAF7F5;        /* blanco cálido, no blanco puro: cansa menos la vista */
   --tarjeta:#FFFFFF;
-  --texto:#2E2A28;
-  --suave:#9A918C;        /* textos secundarios */
+  --hundido:#F4EFEB;      /* lo que va DENTRO de una tarjeta y debe verse metido */
   --linea:#EDE7E3;
-  --sombra:0 1px 3px rgba(46,42,40,.06), 0 8px 24px rgba(46,42,40,.04);
-  --gasto:#C97B84;
-  --ingreso:#7A9E7E;
-  --ahorroC:#5E9490;
+  --borde:#E1D9D3;        /* la misma línea, para cuando de verdad tiene que verse */
+
+  /* --- Texto, de más a menos importante ---
+     "medio" es nuevo. Antes se saltaba del casi-negro al gris claro, así que
+     todo lo secundario —subtítulos, fechas, ayudas— caía en el mismo gris
+     apagado y no se distinguía lo importante de la letra chica. */
+  --texto:#2E2A28;
+  --medio:#6E645F;
+  --suave:#9A918C;
+
+  /* --- Los tres colores de la app ---
+     Cada uno tiene ahora una versión "tenue" para pintar fondos —etiquetas,
+     barras, el círculo de un ícono— sin que grite. El color fuerte es para
+     texto y trazos; el tenue, para rellenar. */
+  --gasto:#C0737D;      --gasto-tenue:#F9EEEF;
+  --ingreso:#6F9675;    --ingreso-tenue:#EDF3EE;
+  /* El ahorro se corrió al azul. Era un verde-teal a solo 46° del verde del
+     ingreso, y en una fila de 15px esos dos verdes apagados eran el mismo
+     color: no se sabía si la plata había entrado o si la habías apartado.
+     Ahora hay 69° entre los dos y se distinguen de una pasada de ojo. El azul
+     además es lo que uno asocia a guardar plata, así que no es un color al
+     azar: es el que ya esperabas. */
+  --ahorroC:#4B87A4;    --ahorro-tenue:#E8F0F5;
+
+  /* --- Lo que se puede tocar ---
+     Hoy es el mismo casi-negro del texto, que es lo que ya tenía la app.
+     Está separado a propósito: cambiando estas dos líneas cambian de color
+     TODAS las pestañas, chips marcados, interruptores y botones de una vez. */
+  --acento:#2E2A28;
+  --acento-texto:#FAF7F5;   /* lo que va encima del acento */
+
+  --sombra:0 1px 2px rgba(46,42,40,.05), 0 8px 24px rgba(46,42,40,.045);
+  --sombra-alta:0 2px 6px rgba(46,42,40,.07), 0 18px 44px rgba(46,42,40,.09);
 }
+
+/* --- Modo oscuro ---
+   Va escrito dos veces a propósito: una para cuando el teléfono está en
+   oscuro y tú no elegiste nada, y otra para cuando lo elegiste tú con el 🌗.
+   CSS no deja compartir un bloque entre un @media y un selector normal.
+   OJO: si cambias un color en una copia, cámbialo también en la otra.
+
+   Las sombras casi no se ven sobre un fondo oscuro, así que aquí la tarjeta
+   se despega con un hilo de luz en el borde (el `0 0 0 1px` blanco) en vez
+   de con la sombra. Es el truco estándar para modo oscuro. */
 @media (prefers-color-scheme: dark){
   :root:not([data-tema="claro"]){
-    --fondo:#171512;
-    --tarjeta:#211D1A;
-    --texto:#F0EAE5;
-    --suave:#9A918C;
-    --linea:#2E2926;
-    --sombra:0 1px 3px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.2);
-    --gasto:#E0959D;
-    --ingreso:#9DC0A1;
-    --ahorroC:#8FC5C0;
+    --fondo:#171512; --tarjeta:#211D1A; --hundido:#1B1714;
+    --linea:#2E2926; --borde:#3C3632;
+    --texto:#F0EAE5; --medio:#B5AAA3; --suave:#8E847E;
+    --gasto:#E0959D;   --gasto-tenue:#332326;
+    --ingreso:#9DC0A1; --ingreso-tenue:#1F2A21;
+    --ahorroC:#93C0D9; --ahorro-tenue:#1A2530;
+    --acento:#F0EAE5;  --acento-texto:#171512;
+    --sombra:0 0 0 1px rgba(255,255,255,.045), 0 8px 24px rgba(0,0,0,.35);
+    --sombra-alta:0 0 0 1px rgba(255,255,255,.06), 0 20px 48px rgba(0,0,0,.5);
   }
 }
 :root[data-tema="oscuro"]{
-  --fondo:#171512; --tarjeta:#211D1A; --texto:#F0EAE5; --suave:#9A918C;
-  --linea:#2E2926; --sombra:0 1px 3px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.2);
-  --gasto:#E0959D; --ingreso:#9DC0A1; --ahorroC:#8FC5C0;
+  --fondo:#171512; --tarjeta:#211D1A; --hundido:#1B1714;
+  --linea:#2E2926; --borde:#3C3632;
+  --texto:#F0EAE5; --medio:#B5AAA3; --suave:#8E847E;
+  --gasto:#E0959D;   --gasto-tenue:#332326;
+  --ingreso:#9DC0A1; --ingreso-tenue:#1F2A21;
+  --ahorroC:#93C0D9; --ahorro-tenue:#1A2530;
+  --acento:#F0EAE5;  --acento-texto:#171512;
+  --sombra:0 0 0 1px rgba(255,255,255,.045), 0 8px 24px rgba(0,0,0,.35);
+  --sombra-alta:0 0 0 1px rgba(255,255,255,.06), 0 20px 48px rgba(0,0,0,.5);
+}
+
+/* ============================================================
+   ESCALA TIPOGRÁFICA
+   Seis tamaños, no doce. Antes cada regla elegía el suyo a ojo —14.5px
+   aquí, 12.5px allá, 11.5px más abajo— y esas diferencias de medio píxel
+   no se ven como intención, se ven como desorden. Repetir los mismos seis
+   tamaños es lo que hace que una pantalla se sienta ordenada aunque no
+   sepas decir por qué.
+   ============================================================ */
+:root{
+  --t-xs:11px;        /* ETIQUETAS EN MAYÚSCULA, porcentajes */
+  --t-sm:12.5px;      /* subtítulos de fila, ayudas, fechas */
+  --t-md:14px;        /* texto normal, pestañas, chips */
+  --t-lg:15px;        /* filas de lista y sus montos */
+  --t-xl:19px;        /* títulos de sección */
+  --t-2xl:23px;       /* el mes en Análisis */
+  --t-display:40px;   /* el disponible y el monto al anotar */
+
+  /* Cuánto pesan los montos de las listas. En una sola variable para que
+     Movimientos y Recordatorios no puedan quedar con pesos distintos.
+
+     Es 700 y no 600 por una razón concreta: con la fuente del sistema no se
+     puede pedir cualquier peso, solo los que estén instalados. En Windows,
+     Segoe UI trae Regular, Semibold y Bold, así que 500 y 600 dan exactamente
+     el mismo dibujo y subir a 600 no se notaba. 700 sí existe en todas partes.
+     Si algún día empaquetamos una fuente propia, 600 pasa a estar disponible
+     de verdad y este es el único número que habría que tocar. */
+  --peso-monto:700;
+}
+
+/* Las dos familias, en un solo lugar. Cambiar la fuente de toda la app es
+   cambiar estas dos líneas. La lista larga son los respaldos: si la primera
+   no está, el navegador prueba la siguiente. */
+:root{
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  --serif:Georgia,"Times New Roman",serif;
 }
 
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 body{
-  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  font-family:var(--sans);
   background:var(--fondo);
   color:var(--texto);
   line-height:1.5;
@@ -53,15 +135,56 @@ body{
   padding-top:calc(53px + env(safe-area-inset-top));
   padding-bottom:calc(28px + env(safe-area-inset-bottom));
   overscroll-behavior-y:contain;
+  /* Suaviza el dibujo de la letra. Sin esto, en pantallas Mac el texto sale
+     más gordo de lo que la fuente pide. */
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
 }
 .app{max-width:520px;margin:0 auto;padding:0 20px}
 
 /* Títulos en cursiva serif: el sello visual de Fleur */
 .titulo-serif{
-  font-family:Georgia,"Times New Roman",serif;
+  font-family:var(--serif);
   font-style:italic;
   font-weight:400;
   letter-spacing:-.01em;
+}
+
+/* ---------- Cifras ----------
+   "tabular-nums" le pide a la fuente que todos los dígitos midan lo mismo.
+   Por defecto el 1 es más angosto que el 8, así que en una lista de montos
+   las comas y los puntos quedan cada uno en su lugar y la columna se ve
+   chueca. Con esto, $1.111 y $8.888 ocupan exactamente el mismo ancho y
+   todo se alinea solo. Es la clase que va en cualquier cosa que sea plata. */
+.cifra,
+.balance .monto, .balance .fila strong, .acumulado b,
+.mov .val, .sus .val, .cat-cab .monto, .cat-cab .pct,
+.sub .val, .dona-centro b, .leyenda-item .pct,
+.monto-input input[type=text], input[type=number]{
+  font-variant-numeric:tabular-nums;
+  font-feature-settings:"tnum" 1;
+}
+
+/* ---------- Foco de teclado ----------
+   El anillo aparece solo cuando navegas con Tab, no al tocar con el dedo
+   (eso es lo que significa ":focus-visible"). Antes no había ninguno: con
+   teclado no se sabía dónde estabas parado. */
+:focus-visible{
+  outline:2px solid var(--acento);
+  outline-offset:2px;
+  border-radius:6px;
+}
+
+/* ---------- Se hunde al apretarlo ----------
+   Un botón que no responde al dedo se siente muerto. Es el mismo gesto que
+   ya usaba la pulsación larga, aplicado a todo lo que se toca. */
+button:active, .mov:active, .sus:active, .cat-cab:active{
+  transform:scale(.985);
+}
+button, .mov, .sus, .cat-cab{transition:transform .12s ease, background .15s ease}
+/* Menos animación para quien la pidió apagada en su teléfono */
+@media (prefers-reduced-motion:reduce){
+  *{transition-duration:.01ms!important;animation-duration:.01ms!important}
 }
 
 /* ---------- Cabecera con selector de mes ---------- */
@@ -94,18 +217,18 @@ header h1{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* ---------- Tarjeta de balance ---------- */
 .balance{
   background:var(--tarjeta);border-radius:24px;padding:26px 24px;
-  box-shadow:var(--sombra);text-align:center;margin-bottom:22px
+  box-shadow:var(--sombra-alta);text-align:center;margin-bottom:22px
 }
 .balance .etiqueta{font-size:12px;color:var(--suave);letter-spacing:.08em;text-transform:uppercase}
 .balance .monto{font-size:40px;font-weight:300;letter-spacing:-.03em;margin:6px 0 20px}
 .balance .fila{display:flex;border-top:1px solid var(--linea);padding-top:18px}
 .balance .fila div{flex:1}
 .balance .fila span{display:block;font-size:11px;color:var(--suave);letter-spacing:.06em;text-transform:uppercase}
-.balance .fila strong{font-size:16px;font-weight:500}
+.balance .fila strong{font-size:16px;font-weight:var(--peso-monto)}
 .v-ingreso{color:var(--ingreso)} .v-gasto{color:var(--gasto)} .v-ahorro{color:var(--ahorroC)}
 .acumulado{
   border-top:1px solid var(--linea);margin-top:16px;padding-top:14px;
-  font-size:12.5px;color:var(--suave)
+  font-size:var(--t-sm);color:var(--suave)
 }
 .acumulado b{color:var(--ahorroC);font-weight:500}
 
@@ -150,13 +273,19 @@ h2.seccion{font-size:19px;margin-bottom:16px}
 .cat:last-child{border-bottom:none}
 .cat-cab{display:flex;align-items:center;gap:12px;padding:14px 0;cursor:pointer}
 .cat-cab .nom{flex:1;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.cat-cab .pct{font-size:11.5px;color:var(--suave);min-width:30px;text-align:right}
-.cat-cab .monto{font-size:15px;font-weight:500}
+.cat-cab .pct{font-size:var(--t-xs);color:var(--suave);min-width:30px;text-align:right}
+/* Sin negrita, a diferencia de los montos de Movimientos y Recordatorios.
+   Aquí cada fila ya trae su barra de color debajo diciendo cuánto pesa, y el
+   porcentaje al lado diciéndolo con número: el monto en negrita era una
+   tercera voz repitiendo lo mismo más fuerte. En peso 400 queda igual que el
+   nombre de la categoría, que es lo que se pidió, y la tarjeta se lee como
+   una lista pareja en vez de como una competencia. */
+.cat-cab .monto{font-size:15px;font-weight:400}
 /* Las categorías sin gasto este mes siguen visibles, pero apagadas */
 .cat.vacia .cat-cab{opacity:.42}
 .comparacion{
   border-top:1px solid var(--linea);margin-top:18px;padding-top:14px;
-  font-size:12.5px;color:var(--suave);text-align:center
+  font-size:var(--t-sm);color:var(--suave);text-align:center
 }
 .comparacion b{font-weight:500}
 .comparacion span{opacity:.75}
@@ -175,8 +304,11 @@ h2.seccion{font-size:19px;margin-bottom:16px}
 .mov .ico{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;font-size:17px;flex:0 0 38px}
 .mov .info{flex:1;min-width:0}
 .mov .info b{display:block;font-size:15px;font-weight:500}
-.mov .info small{color:var(--suave);font-size:12px}
-.mov .val{font-size:15px;font-weight:500;white-space:nowrap}
+.mov .info small{color:var(--medio);font-size:12px}
+/* El monto es lo que uno viene a mirar, así que pesa más que el nombre de
+   la categoría (que está en 500). La negrita además le devuelve algo de
+   presencia al color pastel, que sobre blanco es bastante suave. */
+.mov .val{font-size:15px;font-weight:var(--peso-monto);white-space:nowrap}
 .mov{cursor:pointer}
 .mov.saldada{opacity:.5}
 /* Fijo del mes que todavía no ocurre: cuenta en los totales, pero se ve
@@ -184,7 +316,7 @@ h2.seccion{font-size:19px;margin-bottom:16px}
 .mov.programado{opacity:.62}
 .mov .marca{
   font-style:normal;border:1px solid var(--linea);border-radius:20px;
-  padding:1px 7px;font-size:10.5px;letter-spacing:.02em
+  padding:1px 7px;font-size:var(--t-xs);letter-spacing:.02em
 }
 .mov .flecha{margin-left:2px}
 .dia{font-size:12px;color:var(--suave);letter-spacing:.06em;text-transform:uppercase;margin:20px 0 2px}
@@ -193,10 +325,10 @@ h2.seccion{font-size:19px;margin-bottom:16px}
 .sus{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--linea);cursor:pointer}
 .sus:last-of-type{border-bottom:none}
 .sus .ico{font-size:19px;width:26px;text-align:center;flex:0 0 26px}
-.sus .nom{flex:1;min-width:0;font-size:14.5px}
-.sus .nom small{display:block;color:var(--suave);font-size:11.5px}
-.sus .val{font-size:14.5px;font-weight:500;white-space:nowrap}
-.sus .val.sin{color:var(--suave);font-weight:400;font-size:12.5px}
+.sus .nom{flex:1;min-width:0;font-size:var(--t-md)}
+.sus .nom small{display:block;color:var(--medio);font-size:var(--t-xs)}
+.sus .val{font-size:var(--t-md);font-weight:var(--peso-monto);white-space:nowrap}
+.sus .val.sin{color:var(--suave);font-weight:400;font-size:var(--t-sm)}
 .sus.pronto .nom small{color:var(--gasto)}
 .sus.pausada{opacity:.42}
 /* "¿Ya lo pagaste?": la pregunta del mes, en un segundo renglón de la misma
@@ -205,9 +337,9 @@ h2.seccion{font-size:19px;margin-bottom:16px}
 .sus .acc{flex-basis:100%;display:flex;gap:8px;padding:2px 0 2px 38px}
 .sus .acc button{
   border:1px solid var(--linea);background:none;border-radius:20px;
-  padding:5px 12px;font:inherit;font-size:12.5px;color:var(--suave);cursor:pointer
+  padding:5px 12px;font:inherit;font-size:var(--t-sm);color:var(--suave);cursor:pointer
 }
-.sus .acc button.si{color:var(--texto);border-color:var(--texto)}
+.sus .acc button.si{color:var(--acento);border-color:var(--acento)}
 .sus.sin-pagar .nom small{color:var(--gasto)}
 
 /* ---------- Píldora de fechas ----------
@@ -224,13 +356,13 @@ h2.seccion{font-size:19px;margin-bottom:16px}
 }
 /* Las fechas al centro: es texto, pero se toca para cambiarlas */
 .pildora-fechas .rango{
-  flex:1;width:auto;font-size:14.5px;color:var(--texto);font-weight:500;
+  flex:1;width:auto;font-size:var(--t-md);color:var(--texto);font-weight:500;
   letter-spacing:.01em;border-radius:18px;padding:0 4px
 }
 /* Dentro de una tarjeta no puede parecer otra tarjeta encima: se le quita
    la sombra y se hunde con el color del fondo. */
 .pildora-fechas.en-tarjeta{
-  margin:2px 0 16px;background:var(--fondo);box-shadow:none;
+  margin:2px 0 16px;background:var(--hundido);box-shadow:none;
   border:1px solid var(--linea)
 }
 
@@ -271,7 +403,7 @@ h2.seccion{font-size:19px;margin-bottom:16px}
   font-family:inherit;font-size:14px;cursor:pointer;
   padding:8px 14px;border-radius:20px;white-space:nowrap
 }
-.pestanas button.activo{background:var(--texto);color:var(--fondo);font-weight:500}
+.pestanas button.activo{background:var(--acento);color:var(--acento-texto);font-weight:500}
 
 /* ---------- Hoja inferior (modal) ---------- */
 .fondo-modal{
@@ -284,6 +416,7 @@ h2.seccion{font-size:19px;margin-bottom:16px}
   background:var(--fondo);border-radius:28px 28px 0 0;
   padding:10px 22px calc(26px + env(safe-area-inset-bottom));
   max-width:520px;margin:0 auto;max-height:92vh;overflow-y:auto;
+  box-shadow:var(--sombra-alta);
   transform:translateY(100%);transition:transform .28s cubic-bezier(.32,.72,0,1)
 }
 .hoja.visible{transform:translateY(0)}
@@ -306,7 +439,7 @@ h2.seccion{font-size:19px;margin-bottom:16px}
 }
 .monto-input input[type=text]::placeholder{color:var(--linea)}
 
-.selector{display:flex;background:var(--linea);border-radius:14px;padding:3px;margin-bottom:20px}
+.selector{display:flex;background:var(--hundido);border-radius:14px;padding:3px;margin-bottom:20px}
 .selector button{
   flex:1;border:none;background:none;color:var(--suave);
   padding:9px;border-radius:11px;font-size:14px;cursor:pointer;font-family:inherit
@@ -317,7 +450,7 @@ h2.seccion{font-size:19px;margin-bottom:16px}
    Es un checkbox de verdad, invisible encima de su propio dibujo: así
    funciona con el teclado y con lectores de pantalla sin código extra. */
 .fila-toggle{display:flex;align-items:center;justify-content:space-between;gap:12px}
-.fila-toggle .nom{font-size:14.5px}
+.fila-toggle .nom{font-size:var(--t-md)}
 .switch{position:relative;width:46px;height:27px;flex:0 0 auto;display:block}
 .switch input{opacity:0;width:100%;height:100%;margin:0;cursor:pointer}
 .switch i{
@@ -329,21 +462,21 @@ h2.seccion{font-size:19px;margin-bottom:16px}
   border-radius:50%;background:var(--tarjeta);box-shadow:0 1px 3px rgba(0,0,0,.25);
   transition:transform .18s
 }
-.switch input:checked + i{background:var(--texto)}
+.switch input:checked + i{background:var(--acento)}
 .switch input:checked + i::after{transform:translateX(19px)}
 /* Un toggle que todavía no se puede usar. Se muestra igual, apagado y
    apagadito: esconderlo dejaba la sensación de que la opción desapareció. */
 .fila-toggle.dormida{opacity:.45}
 .fila-toggle.dormida .switch input{cursor:default}
 /* Explicación bajo un toggle: "3 cuotas de $100.000" */
-.ayuda{display:block;color:var(--suave);font-size:12.5px;margin-top:10px;line-height:1.5}
+.ayuda{display:block;color:var(--suave);font-size:var(--t-sm);margin-top:10px;line-height:1.5}
 
 .campo{margin-bottom:18px}
 .campo>label{display:block;font-size:11px;color:var(--suave);letter-spacing:.08em;text-transform:uppercase;margin-bottom:9px}
 .chips{display:flex;flex-wrap:wrap;gap:8px}
 .chip{
   border:1px solid var(--linea);background:var(--tarjeta);color:var(--texto);
-  padding:8px 14px;border-radius:20px;font-size:13.5px;cursor:pointer;
+  padding:8px 14px;border-radius:20px;font-size:var(--t-md);cursor:pointer;
   display:flex;align-items:center;gap:7px;font-family:inherit
 }
 /* Texto oscuro sobre el color pastel: se lee mejor que blanco */
@@ -351,11 +484,11 @@ h2.seccion{font-size:19px;margin-bottom:16px}
 .chip .punto{width:8px;height:8px;flex:0 0 8px}
 .chip.activo .punto{background:rgba(46,42,40,.4)!important}
 /* Chip elegido que no tiene color propio (las cuotas, por ejemplo) */
-.chip.marcado{background:var(--texto);color:var(--fondo);border-color:transparent;font-weight:500}
+.chip.marcado{background:var(--acento);color:var(--acento-texto);border-color:transparent;font-weight:500}
 /* Chip de agregar: punteado para que se lea como "crear", no como una opción */
 .chip-mas{border-style:dashed;color:var(--suave);font-size:16px;line-height:1;padding:8px 16px}
 .grupo-titulo{
-  font-size:10.5px;color:var(--suave);letter-spacing:.08em;text-transform:uppercase;
+  font-size:var(--t-xs);color:var(--suave);letter-spacing:.08em;text-transform:uppercase;
   margin:14px 0 8px
 }
 .grupo-titulo:first-child{margin-top:0}
@@ -370,7 +503,7 @@ input[type=date],input[type=text],input[type=number],select{
   padding:12px 14px;border-radius:14px;font-size:15px;font-family:inherit;outline:none
 }
 .btn-principal{
-  width:100%;border:none;background:var(--texto);color:var(--fondo);
+  width:100%;border:none;background:var(--acento);color:var(--acento-texto);
   padding:16px;border-radius:16px;font-size:16px;font-weight:500;
   cursor:pointer;margin-top:6px;font-family:inherit
 }
@@ -389,9 +522,9 @@ input[type=date],input[type=text],input[type=number],select{
 }
 .btn-escanear:disabled{opacity:.5}
 .progreso{margin:0 0 16px}
-.progreso-texto{font-size:12.5px;color:var(--suave);margin-bottom:8px;text-align:center}
+.progreso-texto{font-size:var(--t-sm);color:var(--suave);margin-bottom:8px;text-align:center}
 .progreso-barra{height:4px;background:var(--linea);border-radius:2px;overflow:hidden}
-.progreso-barra i{display:block;height:100%;width:0;background:var(--texto);
+.progreso-barra i{display:block;height:100%;width:0;background:var(--acento);
   border-radius:2px;transition:width .3s ease}
 .aviso-ocr{
   font-size:12px;color:var(--suave);text-align:center;margin:-8px 0 14px;line-height:1.45
@@ -399,7 +532,7 @@ input[type=date],input[type=text],input[type=number],select{
 .aviso-ocr b{color:var(--texto);font-weight:500}
 
 .oculto{display:none!important}
-.fila-ajuste{display:flex;align-items:center;gap:10px;padding:13px 0;border-bottom:1px solid var(--linea);font-size:14.5px}
+.fila-ajuste{display:flex;align-items:center;gap:10px;padding:13px 0;border-bottom:1px solid var(--linea);font-size:var(--t-md)}
 .fila-ajuste:last-child{border-bottom:none}
 .fila-ajuste .nom{flex:1}
 .mini{border:none;background:none;color:var(--suave);font-size:16px;cursor:pointer;padding:4px 8px}
@@ -407,7 +540,7 @@ input[type=date],input[type=text],input[type=number],select{
 .cab-tarjeta .mini{font-size:12px;font-family:inherit;margin-bottom:16px;padding:5px 9px}
 .colores{display:flex;flex-wrap:wrap;gap:9px}
 .color-op{width:32px;height:32px;border-radius:50%;border:2px solid transparent;cursor:pointer}
-.color-op.activo{border-color:var(--texto)}
+.color-op.activo{border-color:var(--acento)}
 </style>
 </head>
 <body>
@@ -916,7 +1049,10 @@ const CATEGORIAS_INICIALES = [
   // Los detalles del ahorro son metas: sirven para ver para qué estás guardando,
   // no solo cuánto. "Ahorro" a secas va primero, para cuando apartas plata sin
   // tener todavía un destino en mente.
-  {id:'c6', nombre:'Ahorro',        tipo:'ahorro',  color:'#6FA5A0', icono:'🏦', subs:[
+  // Azul, a juego con --ahorroC. El círculo del ícono se pinta con el color
+  // de la categoría, así que si este quedaba teal la fila salía mitad azul
+  // (el monto) y mitad verde (el ícono).
+  {id:'c6', nombre:'Ahorro',        tipo:'ahorro',  color:'#6FA0BC', icono:'🏦', subs:[
       {id:'g0',nombre:'Ahorro'},
       {id:'g1',nombre:'Fondo de emergencia'},{id:'g2',nombre:'Vacaciones'},
       {id:'g3',nombre:'Auto'},{id:'g4',nombre:'Casa'},
@@ -965,6 +1101,7 @@ const CATEGORIAS_INICIALES = [
 ];
 
 const CAT_SUSCRIPCIONES = 'c7';
+const CAT_AHORRO = 'c6';
 
 let estado = {
   categorias: CATEGORIAS_INICIALES,
@@ -977,8 +1114,12 @@ let estado = {
   // {id, nombre, monto, dia, tipo:'ingreso'|'gasto'|'ahorro', catId, subId,
   //  activo:true, frecuencia:'mensual'|'anual', mes, ultimoRegistrado:'2026-08'}
   fijos: [],
-  tema: 'auto',
-  version: 13
+  // El claro es el modo de la casa: la paleta beige, los pasteles y los
+  // títulos en cursiva están pensados para él, y "automático" hacía que la
+  // app se viera de una manera u otra según la hora sin que tú lo pidieras.
+  // El 🌗 sigue estando para cambiarlo cuando quieras.
+  tema: 'claro',
+  version: 14
 };
 
 /* localStorage = la memoria del navegador. Guarda texto y sobrevive
@@ -1191,6 +1332,25 @@ function cargar(){
     estado.version = 13;
   }
 
+  if(estado.version < 14){
+    // El modo claro pasa a ser el predeterminado. Solo se cambia a quien tenía
+    // "automático", que es lo que venía puesto de fábrica y por lo tanto no es
+    // una elección suya. Si elegiste oscuro a mano, se respeta.
+    if(!estado.tema || estado.tema === 'auto') estado.tema = 'claro';
+    estado.version = 14;
+  }
+
+  if(estado.version < 15){
+    // El ahorro se pasó del teal al azul, para no confundirse con el verde de
+    // los ingresos. El color de la categoría manda el círculo del ícono, así
+    // que también tiene que moverse o la fila queda de dos colores.
+    // Solo se cambia si sigue teniendo el color de fábrica: si tú le elegiste
+    // uno, ese se respeta.
+    const ah = buscarCat(CAT_AHORRO);
+    if(ah && ah.color === '#6FA5A0') ah.color = '#6FA0BC';
+    estado.version = 15;
+  }
+
   // Si se migró algo, se guarda de inmediato. Si no, la migración volvería a
   // correr en cada apertura y podría devolverte categorías que borraste.
   if(versionAntes !== null && estado.version !== versionAntes) guardar();
@@ -1202,6 +1362,27 @@ function cargar(){
 
 // Formato de peso chileno: sin decimales y con punto de miles
 const pesos = n => '$' + Math.round(Math.abs(n)).toLocaleString('es-CL');
+
+/* Los tres tipos de movimiento y cómo se ven. Estaban escritos a mano, con
+   el mismo ternario copiado en cada lista, y por eso en Movimientos los
+   gastos salían negros mientras en Análisis salían rosados: nadie había
+   escrito la tercera rama. Ahora el color sale de un solo lugar y las tres
+   pantallas dicen lo mismo.
+
+   El signo también: "+" lo que entra, "−" lo que sale, "↑" lo que apartas.
+   Un ahorro no es un gasto —la plata sigue siendo tuya— así que no lleva
+   menos, lleva su propia flecha.
+
+   La flecha va con un espacio fino ( ) detrás. Pegada al "$" se leía
+   como parte del número y se perdía; separada se lee como lo que es, una
+   marca. Es fino y no ancho a propósito: un espacio normal desarmaba la
+   columna de montos alineados a la derecha.
+
+   Que el signo diga lo mismo que el color no es repetirse: es lo que hace
+   que la lista se entienda igual si no distingues bien los colores. */
+const SIGNO = {ingreso:'+', gasto:'−', ahorro:'↑ '};
+const claseTipo = tipo =>
+  tipo === 'ingreso' ? 'v-ingreso' : tipo === 'ahorro' ? 'v-ahorro' : 'v-gasto';
 
 const nuevoId = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
 
@@ -1698,14 +1879,13 @@ function filaFijo(f){
       </div>`;
   }
 
-  const clase = f.tipo === 'ingreso' ? 'v-ingreso' : (f.tipo === 'ahorro' ? 'v-ahorro' : 'v-gasto');
+  const clase = claseTipo(f.tipo);
   return `<div class="sus ${!pausado && !anual && dias !== null && dias <= 3 && !hecho ? 'pronto' : ''} ${pausado?'pausada':''} ${sinPagar?'sin-pagar':''}"
                data-fijo="${f.id}" onclick="editarFijo('${f.id}')">
       <span class="ico">${emojiDe(f.nombre) ||
         (f.tipo==='ingreso' ? '💵' : f.tipo==='ahorro' ? '🏦' : '🧾')}</span>
       <span class="nom">${f.nombre}<small>${sub}</small></span>
-      <span class="val ${clase}">${
-        f.tipo==='ingreso' ? '+' : f.tipo==='ahorro' ? '↑' : '−'}${pesos(f.monto)}</span>
+      <span class="val ${clase}">${SIGNO[f.tipo] || '−'}${pesos(f.monto)}</span>
       ${acciones}
     </div>`;
 }
@@ -2335,14 +2515,14 @@ function pintarMovimientos(){
     if(m.cuota) partes.push(`<i class="marca">Cuota ${m.cuota.numero} de ${m.cuota.total}</i>`);
     if(programado) partes.push('<i class="marca">Programado</i>');
     const detalle = partes.join(' · ');
-    html += `<div class="mov ${programado?'programado':''}" onclick="editarMovimiento('${m.id}')">
+    html += `<div class="mov t-${m.tipo} ${programado?'programado':''}" onclick="editarMovimiento('${m.id}')">
         <div class="ico" style="background:${(cat?cat.color:'#999')}22">${cat?cat.icono:'•'}</div>
         <div class="info">
           <b>${cat ? cat.nombre : 'Sin categoría'}</b>
           ${detalle ? `<small>${detalle}</small>` : ''}
         </div>
-        <div class="val ${m.tipo==='ingreso'?'v-ingreso':m.tipo==='ahorro'?'v-ahorro':''}">
-          ${m.tipo==='ingreso'?'+':m.tipo==='ahorro'?'↑':'−'}${pesos(m.monto)}
+        <div class="val ${claseTipo(m.tipo)}">
+          ${SIGNO[m.tipo] || '−'}${pesos(m.monto)}
         </div>
         <span class="flecha">›</span>
       </div>`;
@@ -3182,7 +3362,7 @@ function pintarTransferencias(){
       ? `Saldada el ${fechaLegible(t.fechaPago || t.fecha)}`
       : `${esIngreso ? 'Te debe' : 'Le debes'} desde el ${fechaLegible(t.fecha)}${t.nota ? ' · ' + t.nota : ''}`;
     return `<div class="mov ${saldada ? 'saldada' : ''}" onclick="editarTransferencia('${t.id}')">
-        <div class="ico" style="background:${esIngreso ? 'rgba(122,158,126,.16)' : 'rgba(201,123,132,.16)'}">
+        <div class="ico" style="background:var(${esIngreso ? '--ingreso-tenue' : '--gasto-tenue'})">
           ${esIngreso ? '↙' : '↗'}
         </div>
         <div class="info">
@@ -3783,11 +3963,13 @@ function borrarSub(catId, subId){
    ================================================================ */
 
 /* Ciclamos entre los tres estados en vez de alternar dos, para no perder
-   el modo automático, que es el que sigue la pantalla del teléfono. */
+   el modo automático, que es el que sigue la pantalla del teléfono.
+   El claro va primero porque es el predeterminado: el 🌗 lleva de ahí al
+   oscuro, y recién en el tercer toque aparece el automático. */
 const TEMAS = [
-  {valor:'auto',   icono:'🌗', nombre:'Apariencia automática'},
   {valor:'claro',  icono:'☀️', nombre:'Modo claro'},
-  {valor:'oscuro', icono:'🌙', nombre:'Modo oscuro'}
+  {valor:'oscuro', icono:'🌙', nombre:'Modo oscuro'},
+  {valor:'auto',   icono:'🌗', nombre:'Apariencia automática'}
 ];
 
 function aplicarTema(valor){
@@ -3799,7 +3981,7 @@ function aplicarTema(valor){
 }
 
 function ciclarTema(){
-  const i = TEMAS.findIndex(t => t.valor === (estado.tema || 'auto'));
+  const i = TEMAS.findIndex(t => t.valor === (estado.tema || 'claro'));
   const siguiente = TEMAS[(i + 1) % TEMAS.length];
   const t = aplicarTema(siguiente.valor);
   guardar();
@@ -3844,7 +4026,7 @@ function borrarTodo(){
    ================================================================ */
 
 cargar();
-aplicarTema(estado.tema || 'auto');
+aplicarTema(estado.tema || 'claro');
 // Primero las fichas: lo anotado en Gastos fijos, Hogar y Suscripciones
 // entra a Recordatorios con su mes ya marcado, para no anotarlo dos veces
 sincronizarRecordatorios();
