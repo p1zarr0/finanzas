@@ -779,14 +779,31 @@ input[type=date],input[type=text],input[type=number],select{
     <div class="chips" id="chipsSub"></div>
   </div>
 
+  <!-- Es la nota de siempre y hace dos cosas: guarda el texto y, de paso,
+       adivina la categoría (ver queFueEscrito). Va acá, después de los chips,
+       porque así lo quiso él.
+
+       Se llama "Tienda" y no "¿Qué fue?" porque esa pregunta pedía una
+       explicación —"un almuerzo con la Javi"— y lo que sirve para adivinar es
+       una palabra corta. Nombrar la caja por lo que uno escribe adentro, y no
+       por lo que la app quiere saber, es lo que hace que salga corto solo.
+
+       Acepta más que tiendas: "sueldo", "luz" y "arriendo" funcionan igual.
+       Por eso el ejemplo termina en "sueldo" — enseña el borde sin alargar
+       el nombre del campo.
+
+       Ojo con la consecuencia de la posición: si tocas la categoría antes de
+       llegar aquí, la sugerencia ya no se aplica —manda lo que tocaste, y eso
+       es a propósito— así que adivina sobre todo si escribes antes de tocar. -->
   <div class="campo">
-    <label>Fecha</label>
-    <input type="date" id="inpFecha" onchange="fechaMovCambiada()">
+    <label>Tienda (opcional)</label>
+    <input type="text" id="inpNota" placeholder="Ej: jumbo, copec, sueldo"
+           oninput="queFueEscrito()">
   </div>
 
   <div class="campo">
-    <label>Nota (opcional)</label>
-    <input type="text" id="inpNota" placeholder="Ej: feria del domingo">
+    <label>Fecha</label>
+    <input type="date" id="inpFecha" onchange="fechaMovCambiada()">
   </div>
 
   <!-- Comprar en 3 cuotas no es un gasto de $300.000 este mes: son $100.000
@@ -1575,6 +1592,147 @@ function emojiDe(texto){
     }
   }
   return '';
+}
+
+/* ----------------------------------------------------------------
+   ADIVINAR LA CATEGORÍA A PARTIR DE UN TEXTO
+
+   Escribes "jumbo" y la app deja marcado Alimentación → Supermercado.
+   Es lo mismo que hace emojiDe, un escalón más arriba: en vez de sacar
+   un dibujo de una palabra, saca una categoría y un detalle TUYOS.
+
+   Se prueban tres capas y gana la primera que acierta. El orden no es
+   casual, va de lo más tuyo a lo más genérico:
+
+     1. TU HISTORIAL. Si las últimas veces que escribiste "jumbo" lo
+        mandaste a Supermercado, eso vale más que cualquier regla que yo
+        pueda escribir: son tus propias decisiones. Además no hay que
+        mantenerlo, se llena solo mientras usas la app, y cada vez que
+        corriges una equivocación esta capa aprende.
+
+     2. TUS NOMBRES. Escribes "farmacia" y tienes el detalle "Farmacia".
+        Sirve desde el primer día, cuando todavía no hay historial.
+
+     3. COMERCIOS. Solo para lo que no está en ninguna de las dos
+        anteriores. Traduce el nombre de la tienda a una palabra común
+        ("jumbo" → "supermercado") y vuelve a probar las capas 1 y 2.
+        Es la única que hay que mantener a mano, por eso va al final.
+
+   El ahorro nunca se adivina: apartar plata se decide, no se deduce, y
+   una transferencia a tu cuenta de ahorro se ve igual que cualquier
+   otra. Si ya estás en Ahorro se busca solo ahí; nunca se salta a
+   Ahorro solo.
+   ---------------------------------------------------------------- */
+
+const sinTildes = t => (t||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+
+/* Las palabras sueltas de un texto, sin tildes y sin la paja. Se piden 3
+   letras porque abajo de eso son preposiciones ("de", "en", "el") que
+   calzarían con cualquier cosa. Los números se van: en el aviso de un
+   banco son montos y fechas, no dicen qué compraste. */
+function palabrasDe(texto){
+  return sinTildes(texto).split(/[^a-z0-9]+/)
+    .filter(p => p.length >= 3 && !/^\d+$/.test(p));
+}
+
+/* Traducción de tienda a palabra común. No es un catálogo del retail
+   chileno: son los nombres que aparecen escritos en un cobro y que no se
+   parecen en nada a la categoría donde va el gasto. "Farmacia" no está
+   acá porque ya se llama igual que el detalle. */
+const COMERCIOS = {
+  jumbo:'supermercado', lider:'supermercado', unimarc:'supermercado',
+  tottus:'supermercado', santaisabel:'supermercado', acuenta:'supermercado',
+  ekono:'supermercado', mayorista:'supermercado',
+  copec:'bencina', shell:'bencina', petrobras:'bencina', enex:'bencina', aramco:'bencina',
+  cruzverde:'farmacia', salcobrand:'farmacia', ahumada:'farmacia', simi:'farmacia',
+  entel:'celular', wom:'celular', movistar:'celular', claro:'celular',
+  vtr:'internet', mundo:'internet', gtd:'internet',
+  sodimac:'hogar', easy:'hogar', construmart:'hogar', imperial:'hogar',
+  falabella:'ropa', paris:'ropa', ripley:'ropa', zara:'ropa', hym:'ropa',
+  cabify:'taxi', didi:'taxi', beat:'taxi',
+  pedidosya:'delivery', rappi:'delivery', justo:'delivery',
+  autopista:'tag', costanera:'tag', vespucio:'tag',
+  chilquinta:'luz', enel:'luz', cge:'luz', saesa:'luz',
+  aguasandinas:'agua', esval:'agua', essbio:'agua',
+  lipigas:'gas', abastible:'gas', gasco:'gas', metrogas:'gas'
+};
+
+/* Capa 1 — lo que TÚ hiciste antes.
+   Se mira la nota que escribiste y a qué categoría lo mandaste. Es
+   aprender de verdad: nadie programó que "jumbo" es supermercado, lo
+   dijiste tú con el dedo, varias veces. Gana el que más veces se repite;
+   si empatan, el más reciente, porque las cosas cambian. */
+function adivinarPorHistorial(palabras, tipo){
+  const votos = new Map();
+  estado.movimientos.forEach((m, orden) => {
+    if(m.tipo !== tipo || !m.catId || !m.nota) return;
+    const suyas = palabrasDe(m.nota);
+    if(!palabras.some(p => suyas.includes(p))) return;
+    const llave = m.catId + '|' + (m.subId || '');
+    const antes = votos.get(llave) || {veces:0, orden:-1};
+    votos.set(llave, {veces: antes.veces + 1, orden: Math.max(antes.orden, orden)});
+  });
+
+  let mejor = null;
+  votos.forEach((dato, llave) => {
+    if(!mejor || dato.veces > mejor.veces ||
+       (dato.veces === mejor.veces && dato.orden > mejor.orden))
+      mejor = {llave, ...dato};
+  });
+  if(!mejor) return null;
+
+  const [catId, subId] = mejor.llave.split('|');
+  return {catId, subId: subId || null};
+}
+
+/* Capa 2 — cómo se llaman tus categorías y detalles.
+   Los detalles van primero porque son más precisos: "Supermercado" dice
+   más que "Alimentación". Solo entonces se prueban las categorías. */
+function adivinarPorNombre(palabras, tipo){
+  const delTipo = estado.categorias.filter(c => c.tipo === tipo);
+  const calza = nombre => palabrasDe(nombre).some(p => palabras.includes(p));
+
+  for(const cat of delTipo){
+    const sub = (cat.subs || []).find(s => calza(s.nombre));
+    if(sub) return {catId: cat.id, subId: sub.id};
+  }
+  const cat = delTipo.find(c => calza(c.nombre));
+  return cat ? {catId: cat.id, subId: null} : null;
+}
+
+/* La que se usa desde afuera. Devuelve {catId, subId, tipo} o null.
+
+   Devuelve el tipo porque a veces lo corrige: si estás en Gasto y
+   escribes "sueldo", lo que corresponde es Ingreso. Primero se agota el
+   tipo en que estás y recién ahí se prueba el otro, así que cambiarlo
+   es el último recurso y no algo que pase por cualquier palabra suelta. */
+function adivinarCategoria(texto, tipoPreferido){
+  const palabras = palabrasDe(texto);
+  if(!palabras.length) return null;
+
+  /* Hay comercios que se escriben en dos palabras —"CRUZ VERDE", "SANTA
+     ISABEL", "AGUAS ANDINAS"— así que además de las palabras sueltas se
+     prueban las pegadas de a dos. Sin esto, el cobro más típico de una
+     farmacia no calzaba con nada. */
+  const pegadas = palabras.slice(0, -1).map((p, i) => p + palabras[i + 1]);
+  const todas = palabras.concat(pegadas);
+
+  // Capa 3: se agregan las traducciones sin botar las palabras originales,
+  // porque "Jumbo Prime" es una suscripción tuya y "jumbo" a secas es el
+  // supermercado. Las dos pistas compiten y deciden las capas 1 y 2.
+  const pistas = todas.concat(todas.map(p => COMERCIOS[p]).filter(Boolean));
+
+  const tipos = tipoPreferido === 'ahorro'
+    ? ['ahorro']                                             // elegiste Ahorro: no te muevo de ahí
+    : [tipoPreferido, ...['gasto','ingreso'].filter(t => t !== tipoPreferido)];
+
+  for(const tipo of tipos){
+    for(const capa of [adivinarPorHistorial, adivinarPorNombre]){
+      const hallado = capa(pistas, tipo);
+      if(hallado) return {...hallado, tipo};
+    }
+  }
+  return null;
 }
 
 /* ================================================================
@@ -2994,6 +3152,7 @@ function cerrarHojas(){
 function abrirMovimiento(){
   movEditando = null;
   tipoActual = 'gasto'; catElegida = null; subElegida = null;
+  adivinado = null;
   document.getElementById('tituloMovimiento').textContent = 'Nuevo movimiento';
   document.getElementById('btnGuardarMov').textContent = 'Guardar';
   document.getElementById('btnBorrarMov').classList.add('oculto');
@@ -3124,6 +3283,59 @@ function pintarChipsSub(cat){
 function elegirSub(id){
   subElegida = (subElegida === id) ? null : id;   // volver a tocar lo deselecciona
   pintarChipsSub(buscarCat(catElegida));
+}
+
+/* --- La pista escrita en "¿Qué fue?" ---
+   Lo último que la app marcó sola. Con esto sabe si lo que hay elegido en
+   pantalla lo puso ella o lo pusiste tú: apenas tocas un chip, la selección
+   deja de coincidir con esto y la app no vuelve a meterse. Escribir es una
+   sugerencia; tocar es una orden. */
+let adivinado = null;
+
+function laSeleccionEsNuestra(){
+  if(!catElegida) return true;                    // no hay nada tuyo que respetar
+  return !!adivinado && catElegida === adivinado.catId && subElegida === adivinado.subId;
+}
+
+function queFueEscrito(){
+  if(!laSeleccionEsNuestra()) return;
+
+  const hallado = adivinarCategoria(document.getElementById('inpNota').value, tipoActual);
+
+  if(!hallado){
+    /* Borraste lo escrito, o quedó algo que no se parece a nada. Se deshace
+       lo que la app había marcado sola: dejarte puesta una categoría que ya
+       nadie sugirió es peor que no sugerir nada.
+
+       El tipo NO se devuelve. Si escribiste "sueldo" y la hoja se pasó a
+       Ingreso, borrar una letra no debería hacerla saltar de vuelta a Gasto:
+       se vería como un parpadeo. Si te equivocaste de tipo, ahí está el
+       botón. */
+    if(adivinado){
+      adivinado = null;
+      catElegida = null; subElegida = null;
+      pintarChipsCategoria();
+      document.getElementById('campoSub').classList.add('oculto');
+      ajustarRepetir();
+    }
+    return;
+  }
+
+  // Ya estaba marcado esto mismo: no se repinta en cada tecla
+  if(adivinado && hallado.catId === adivinado.catId && hallado.subId === adivinado.subId) return;
+
+  // elegirTipo borra la categoría elegida, así que tiene que ir antes
+  if(hallado.tipo !== tipoActual) elegirTipo(hallado.tipo, true);
+
+  /* Los "true" son para que nada se mueva mientras escribes: elegirCategoria
+     normalmente acerca el campo de detalle a la vista, y hacerlo en cada
+     tecla te sacaría el teclado de encima del campo que estás usando. */
+  elegirCategoria(hallado.catId, true);
+  if(hallado.subId){
+    subElegida = hallado.subId;
+    pintarChipsSub(buscarCat(hallado.catId));
+  }
+  adivinado = {catId: hallado.catId, subId: hallado.subId};
 }
 
 /* --- Mantener el dedo sobre un chip para eliminar ese detalle ---
@@ -3486,6 +3698,9 @@ function editarMovimiento(id){
 
   movEditando = id;
   tipoActual = m.tipo; catElegida = null; subElegida = null;
+  // Un movimiento que ya existe está clasificado por ti: la app no vuelve a
+  // opinar sobre él aunque toques el texto.
+  adivinado = null;
 
   document.getElementById('tituloMovimiento').textContent = 'Editar movimiento';
   document.getElementById('btnGuardarMov').textContent = 'Guardar cambios';
