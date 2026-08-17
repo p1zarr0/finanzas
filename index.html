@@ -305,10 +305,6 @@ h2.seccion{font-size:19px;margin-bottom:16px}
   font-style:normal;border:1px solid var(--linea);border-radius:20px;
   padding:1px 7px;font-size:var(--t-xs);letter-spacing:.02em
 }
-/* El origen cuando es un emoji solo. Va sin recuadro y al tamaño de la
-   fila: el recuadro existe para encerrar una palabra, y un dibujo metido
-   ahí, con la letra diminuta de las etiquetas, no se distinguía. */
-.mov .sello{font-style:normal;font-size:var(--t-sm)}
 .mov .flecha{margin-left:2px}
 .dia{font-size:12px;color:var(--suave);letter-spacing:.06em;text-transform:uppercase;margin:20px 0 2px}
 
@@ -538,42 +534,6 @@ input[type=date],input[type=text],input[type=number],select{
 }
 .aviso-ocr b{color:var(--texto);font-weight:500}
 
-/* ---------- Importar cartola ----------
-   La lista de revisión es larga por naturaleza (un mes de cartola son 40
-   líneas), así que hace scroll dentro de la hoja y no estira la hoja entera:
-   los botones de abajo tienen que quedar siempre alcanzables con el pulgar. */
-.lista-cartola{max-height:46vh;overflow-y:auto;margin:0 -4px 14px;padding:0 4px}
-.fila-cartola{
-  display:flex;align-items:center;gap:11px;padding:11px 2px;
-  border-bottom:1px solid var(--linea);cursor:pointer
-}
-.fila-cartola:last-child{border-bottom:none}
-/* Apagada = no se va a importar. Se atenúa entera en vez de esconderse:
-   así ves que la fila existe y que fuiste tú quien la dejó fuera. */
-.fila-cartola.apagada{opacity:.38}
-.fila-cartola .marca-check{
-  width:20px;height:20px;flex:0 0 20px;border-radius:7px;border:1.5px solid var(--linea);
-  display:flex;align-items:center;justify-content:center;font-size:12px;color:transparent
-}
-.fila-cartola:not(.apagada) .marca-check{
-  background:var(--acento);border-color:transparent;color:var(--acento-texto)
-}
-.fila-cartola .info{flex:1;min-width:0}
-.fila-cartola .info b{display:block;font-size:var(--t-md);font-weight:400;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.fila-cartola .info small{color:var(--suave);font-size:11px}
-.fila-cartola .val{font-size:var(--t-md);white-space:nowrap}
-.resumen-cartola{font-size:12px;color:var(--suave);text-align:center;
-  margin:0 0 14px;line-height:1.5}
-.resumen-cartola b{color:var(--texto);font-weight:500}
-/* El textarea de pegar: monoespaciado no, que la app tiene una sola
-   tipografía; chico sí, para que quepan varias líneas sin ocupar la pantalla */
-.pegar-cartola{
-  width:100%;min-height:96px;border:1px solid var(--linea);border-radius:14px;
-  background:var(--tarjeta);color:var(--texto);font-family:inherit;font-size:12px;
-  padding:11px;resize:vertical;margin-bottom:12px
-}
-
 .oculto{display:none!important}
 .fila-ajuste{display:flex;align-items:center;gap:10px;padding:13px 0;border-bottom:1px solid var(--linea);font-size:var(--t-md)}
 .fila-ajuste:last-child{border-bottom:none}
@@ -762,14 +722,6 @@ input[type=date],input[type=text],input[type=number],select{
 
     <div class="tarjeta" style="margin-top:22px">
       <h2 class="seccion titulo">Datos</h2>
-      <div class="fila-ajuste">
-        <span class="nom">Importar cartola del banco</span>
-        <button class="mini" onclick="abrirCartola()">↑</button>
-      </div>
-      <div class="fila-ajuste">
-        <span class="nom">Anotar por WhatsApp</span>
-        <button class="mini" onclick="abrirBuzon()">💬</button>
-      </div>
       <div class="fila-ajuste">
         <span class="nom">Exportar a Excel (CSV)</span>
         <button class="mini" onclick="exportarCSV()">↓</button>
@@ -990,74 +942,6 @@ input[type=date],input[type=text],input[type=number],select{
 
   <button class="btn-principal" onclick="guardarRango()">Ver estas fechas</button>
   <button class="btn-texto" onclick="mesCompletoDesdeHoja()">Mes completo</button>
-</div>
-
-<!-- ===================== HOJA: IMPORTAR CARTOLA =====================
-     Son dos pasos en una sola hoja, y se turnan: primero de dónde sacamos
-     los datos (paso1), después la revisión de lo que se encontró (paso2).
-     No son dos hojas apiladas a propósito: volver atrás desde la revisión
-     es "elegir otro archivo", no "cerrar una hoja y aparecer en otra". -->
-<div class="hoja" id="hojaCartola">
-  <div class="asa"></div>
-
-  <div id="cartolaPaso1">
-    <h2 class="seccion titulo" style="text-align:center;margin-bottom:6px">
-      Importar cartola
-    </h2>
-    <p class="ayuda" style="text-align:center;margin:0 0 18px">
-      Baja la cartola de tu banco en <b>CSV</b> y elígela aquí. Si tu banco solo
-      la da en Excel, ábrela y usa “Guardar como → CSV”.<br>
-      Nada se sube a internet: el archivo se lee en este mismo teléfono.
-    </p>
-
-    <button class="btn-escanear" onclick="document.getElementById('inpCartola').click()">
-      📄 Elegir el archivo
-    </button>
-    <input type="file" accept=".csv,.txt,text/csv,text/plain" id="inpCartola"
-           class="oculto" onchange="cartolaDesdeArchivo(this)">
-
-    <p class="ayuda" style="text-align:center;margin:0 0 10px">
-      O copia la tabla desde la página del banco y pégala acá:
-    </p>
-    <textarea class="pegar-cartola" id="pegarCartola"
-              placeholder="12/08/2026&#9;COMPRA JUMBO MAIPU&#9;-24.990"></textarea>
-    <button class="btn-principal" onclick="cartolaDesdeTexto()">Leer lo pegado</button>
-    <button class="btn-texto" onclick="cerrarHojas()">Cancelar</button>
-  </div>
-
-  <div id="cartolaPaso2" class="oculto">
-    <h2 class="seccion titulo" style="text-align:center;margin-bottom:6px"
-        id="tituloCartolaPaso2">Revisa antes de guardar</h2>
-    <p class="resumen-cartola" id="resumenCartola"></p>
-    <div class="lista-cartola" id="listaCartola"></div>
-    <button class="btn-principal" id="btnGuardarCartola" onclick="guardarCartola()">Guardar</button>
-    <button class="btn-texto" id="btnVolverCartola" onclick="volverACartolaPaso1()">Elegir otro archivo</button>
-  </div>
-</div>
-
-<!-- ===================== HOJA: CONECTAR EL BUZÓN =====================
-     La única parte de la app que habla con internet. Ver la sección 6d. -->
-<div class="hoja" id="hojaBuzon">
-  <div class="asa"></div>
-  <h2 class="seccion titulo" style="text-align:center;margin-bottom:6px">
-    Anotar por WhatsApp
-  </h2>
-  <p class="ayuda" style="text-align:center;margin:0 0 18px">
-    Le escribes “almuerzo 8500” al bot y queda anotado la próxima vez que
-    abras la app.<br>
-    Pega acá la dirección de tu buzón, con su clave incluida.
-  </p>
-
-  <div class="campo">
-    <label>Dirección del buzón</label>
-    <input type="url" id="inpBuzon" inputmode="url" autocomplete="off"
-           placeholder="https://buzon.tu-cuenta.workers.dev?k=...">
-  </div>
-
-  <p class="ayuda" id="estadoBuzon" style="text-align:center;margin:0 0 16px"></p>
-
-  <button class="btn-principal" onclick="guardarBuzon()">Guardar y probar</button>
-  <button class="btn-texto" onclick="olvidarBuzon()">Desconectar</button>
 </div>
 
 <!-- ===================== HOJA: CONFIRMAR =====================
@@ -1311,10 +1195,6 @@ function cargar(){
   // llegan sin estas listas.
   if(!estado.transferencias) estado.transferencias = [];
   if(!estado.fijos) estado.fijos = [];
-  // Las huellas de lo ya importado de la cartola. No necesita migración con
-  // número: si no está, es que nunca has importado nada, y una lista vacía
-  // dice exactamente eso.
-  if(!estado.cartolaImportada) estado.cartolaImportada = [];
 
   // Datos guardados antes de que existiera el ahorro: se la agregamos
   // al vuelo para que no haya que migrar nada a mano.
@@ -2932,54 +2812,6 @@ function mesCompletoDesdeHoja(){
   pintarTodo();
 }
 
-/* --- De dónde salió este movimiento ---
-   Se marca SOLO lo que no escribiste tú. Si "Manual" llevara etiqueta, el
-   noventa por ciento de la lista diría lo mismo y no distinguirías nada:
-   la etiqueta sirve justamente para lo que llegó sin que lo teclearas. Es
-   el mismo criterio de "Programado", que aparece solo cuando pasa algo
-   fuera de lo corriente.
-
-   Los tres primeros van con palabra porque son nuevos y hay que aprenderlos.
-   Los dos últimos con emoji solo: pasan seguido y la fila ya dice bastante.
-
-   El 🔁 no necesita ningún dato guardado. Sale de la ficha de Recordatorios
-   que el movimiento ya trae (fijoId), así que funciona hacia atrás con todo
-   lo que anotaste antes de que esto existiera. Y significa "de un pago que
-   se repite", no "lo anotó la app": por eso también marca aquel con el que
-   configuraste la repetición, que es igual de cierto. */
-/* Cada origen es UN emoji, no una palabra en un recuadro. Con palabra, una
-   compra en cuotas importada de la cartola juntaba tres recuadros seguidos
-   —"Cuota 2 de 12", "Programado", "cartola"— apretados en la media columna
-   que deja el monto, y la fila se volvía ilegible. Un emoji ocupa un
-   carácter y no necesita caja.
-
-   Ninguno de los seis se repite en ICONOS ni en EMOJIS_PALABRA, así que
-   nunca vas a ver el mismo dibujo dos veces en la misma fila. Por eso el
-   correo es 📧 y no 🏦: 🏦 ya es el ícono de Ahorro y el emoji de "banco",
-   "dividendo" y "fondo".
-
-   La palabra no se pierde: va en el `title` —el globito del computador— y
-   sobre todo en la hoja que se abre al tocar el movimiento, que es donde
-   de verdad se aprende cuál es cuál. */
-const ETIQUETAS_ORIGEN = {
-  whatsapp: {emoji:'💬', nombre:'Lo anotaste por WhatsApp'},
-  correo:   {emoji:'📧', nombre:'Llegó de un correo del banco'},
-  cartola:  {emoji:'📄', nombre:'Entró al importar la cartola'},
-  escaner:  {emoji:'📷', nombre:'El monto lo leyó el escáner de la boleta'},
-  deuda:    {emoji:'🤝', nombre:'Salió de saldar una deuda'}
-};
-
-const REPETIDO = {emoji:'🔁', nombre:'De un pago que se repite'};
-
-function origenDe(m){
-  return (m.origen && ETIQUETAS_ORIGEN[m.origen]) || (m.fijoId ? REPETIDO : null);
-}
-
-function selloOrigen(m){
-  const o = origenDe(m);
-  return o ? `<i class="sello" title="${o.nombre}">${o.emoji}</i>` : '';
-}
-
 function pintarMovimientos(){
   const cont = document.getElementById('listaMovimientos');
   if(!rangoDesde) rangoMesCompleto();   // la primera vez lo arma solo
@@ -3025,22 +2857,12 @@ function pintarMovimientos(){
        "💧 Agua ·" y abajo "Programado". El punto separa dos textos; una
        etiqueta ya viene con su propio recuadro y no lo necesita. */
     const textos = [];
-    if(sub) textos.push(emojiDe(sub.nombre) + sub.nombre);
-    /* La nota no repite lo que ya dice el detalle. Un gasto dictado por
-       WhatsApp como "almuerzo" cae justamente en el detalle "Almuerzo", y la
-       fila salía "🍽 Almuerzo · 🍽 almuerzo": la misma palabra dos veces, con
-       el mismo dibujo, y una línea más de alto por nada. */
-    if(m.nota && !(sub && PLANO(m.nota) === PLANO(sub.nombre)))
-      textos.push(emojiDe(m.nota) + m.nota);
+    if(sub)    textos.push(emojiDe(sub.nombre) + sub.nombre);
+    if(m.nota) textos.push(emojiDe(m.nota) + m.nota);
 
     const marcas = [];
-    // "2/12" y no "Cuota 2 de 12": es la etiqueta más ancha de todas y la
-    // que más se repite en las compras con tarjeta. En la hoja del
-    // movimiento, donde hay espacio, sigue estando la frase completa.
-    if(m.cuota) marcas.push(`<i class="marca" title="Cuota ${m.cuota.numero} de ${m.cuota.total}">${m.cuota.numero}/${m.cuota.total}</i>`);
+    if(m.cuota) marcas.push(`<i class="marca">Cuota ${m.cuota.numero} de ${m.cuota.total}</i>`);
     if(programado) marcas.push('<i class="marca">Programado</i>');
-    const deDonde = selloOrigen(m);
-    if(deDonde) marcas.push(deDonde);
 
     const detalle = [textos.join(' · '), ...marcas].filter(Boolean).join(' ');
     html += `<div class="mov t-${m.tipo} ${programado?'programado':''}" onclick="editarMovimiento('${m.id}')">
@@ -3147,12 +2969,6 @@ let movEditando = null;   // null = registrando uno nuevo
 let cuotasElegidas = 0;            // 0 = pago único
 let frecuenciaMov = 'mensual';     // 'mensual' | 'anual'
 
-/* El monto que leyó el escáner de la boleta, para saber al guardar si el
-   número que quedó lo puso la máquina o lo tecleaste tú. Se compara el
-   monto en vez de guardar un simple "se escaneó": si el escáner se
-   equivocó y lo corregiste a mano, el movimiento ya no es escaneado. */
-let montoDelEscaner = null;
-
 /* Todas las hojas comparten z-index en el CSS, así que sin esto la que
    quedaba encima era la que estuviera más abajo en el HTML, no la que
    acabas de abrir: el detalle abierto desde un pago de Recordatorios se
@@ -3187,7 +3003,6 @@ function abrirMovimiento(){
   document.getElementById('inpFecha').value = hoyISO();
   const aviso = document.getElementById('avisoOCR');
   if(aviso) aviso.remove();                 // limpia el mensaje del escaneo anterior
-  montoDelEscaner = null;
   mostrarProgreso(false, '', 0);
   resetearOpciones();
   elegirTipo('gasto');
@@ -3678,9 +3493,6 @@ function editarMovimiento(id){
   document.getElementById('btnEscanear').classList.add('oculto');
   const aviso = document.getElementById('avisoOCR');
   if(aviso) aviso.remove();
-  // Editando no se puede escanear (el botón se esconde), pero si quedó un
-  // monto del escaneo anterior no puede teñir el movimiento que abres ahora
-  montoDelEscaner = null;
   mostrarProgreso(false, '', 0);
 
   /* Las cuotas no se tocan desde aquí: cambiar una ya anotada tendría que
@@ -3697,33 +3509,17 @@ function editarMovimiento(id){
 
   document.getElementById('campoRepetir').classList.toggle('oculto', !!m.cuota);
 
-  /* Antes esto era un if/else y la cuota tapaba todo lo demás: una compra en
-     cuotas importada de la cartola te contaba lo de las cuotas y se callaba
-     de dónde había salido. Ahora se juntan las frases que apliquen, que no
-     se estorban entre ellas: hablan de cosas distintas.
-
-     Acá es donde se aprende qué significa cada emoji de la lista. En la
-     fila hay un 📄; al tocarla dice "Entró al importar la cartola". */
-  const frases = [];
-
   if(m.cuota){
-    frases.push(`Cuota ${m.cuota.numero} de ${m.cuota.total} de un pago de
-                 <b>${pesos(m.cuota.montoTotal)}</b>.`);
+    origen.classList.remove('oculto');
+    origen.innerHTML = `Cuota ${m.cuota.numero} de ${m.cuota.total} de un pago de
+                        <b>${pesos(m.cuota.montoTotal)}</b>.`;
+  }else if(fijo && fijo.tipo === 'gasto'){
+    // Los pagos además viven en Recordatorios, y conviene decirlo: apagarlo
+    // aquí también lo saca de allá.
+    origen.classList.remove('oculto');
+    origen.innerHTML = `También está en <b>Recordatorios</b>. Si apagas
+                        “Repetir”, sale de ahí y solo queda el de este mes.`;
   }
-  // Los pagos además viven en Recordatorios, y conviene decirlo: apagarlo
-  // aquí también lo saca de allá.
-  if(fijo && fijo.tipo === 'gasto'){
-    frases.push(`También está en <b>Recordatorios</b>. Si apagas
-                 “Repetir”, sale de ahí y solo queda el de este mes.`);
-  }
-  // El 🔁 no se nombra acá: para los gastos lo dice la frase de arriba, y en
-  // el sueldo y el ahorro el interruptor "Repetir" se ve encendido al lado.
-  if(m.origen && ETIQUETAS_ORIGEN[m.origen]){
-    frases.push(ETIQUETAS_ORIGEN[m.origen].nombre + '.');
-  }
-
-  origen.classList.toggle('oculto', frases.length === 0);
-  origen.innerHTML = frases.join('<br>');
 
   const inp = document.getElementById('inpMonto');
   inp.value = String(m.monto); formatearMonto(inp);
@@ -3817,12 +3613,6 @@ function guardarMovimiento(){
     fecha: document.getElementById('inpFecha').value,
     nota: document.getElementById('inpNota').value.trim()
   };
-
-  /* Solo se agrega la clave si de verdad viene del escáner. Si se agregara
-     siempre (aunque fuera vacía), al editar un movimiento de la cartola el
-     Object.assign de más abajo le borraría su origen y pasaría a verse como
-     tecleado a mano. Sin la clave, lo que ya tenía se conserva. */
-  if(montoDelEscaner !== null && monto === montoDelEscaner) datos.origen = 'escaner';
 
   if(movEditando){
     const mov = estado.movimientos.find(m => m.id === movEditando);
@@ -4049,8 +3839,7 @@ function saldarConfirmado(t, esIngreso){
     catId: buscarCat(cat) ? cat : estado.categorias.find(c =>
             c.tipo === (esIngreso ? 'ingreso' : 'gasto')).id,
     subId: null, fecha: hoyISO(),
-    nota: [t.persona, t.nota].filter(Boolean).join(' · '),
-    origen: 'deuda'
+    nota: [t.persona, t.nota].filter(Boolean).join(' · ')
   });
   t.pagada = true;
   t.fechaPago = hoyISO();
@@ -4315,7 +4104,6 @@ async function procesarBoleta(input){
       const inp = document.getElementById('inpMonto');
       inp.value = String(hallazgo.monto);
       formatearMonto(inp);
-      montoDelEscaner = hallazgo.monto;
       if(tienda && !document.getElementById('inpNota').value)
         document.getElementById('inpNota').value = tienda;
       avisoOCR(hallazgo.seguro
@@ -4348,728 +4136,6 @@ function avisoOCR(html){
     document.getElementById('progresoOCR').after(el);
   }
   el.innerHTML = html;
-}
-
-/* ================================================================
-   6c. IMPORTAR LA CARTOLA DEL BANCO
-
-   Igual que el escáner: convierte algo de afuera en movimientos, y el
-   archivo no sale del teléfono. Se lee con FileReader, que es parte del
-   navegador; no hay ninguna llamada a internet en toda esta sección.
-
-   La cartola chilena no tiene un formato único. Cada banco entrega la suya
-   con otros títulos de columna, otro separador y otra forma de escribir los
-   montos, así que en vez de programar "el formato del Banco X" se buscan
-   señales: una columna que se lea como fecha, otra como plata, y la más
-   larga de texto como descripción. Eso aguanta bancos que no conozco.
-
-   Nada se guarda sin que lo veas: el paso 2 es una lista donde apagas lo
-   que no quieras. Es a propósito — categorizar por palabra clave acierta
-   mucho pero no siempre, y meter 40 movimientos mal puestos de una es peor
-   que escribirlos a mano.
-   ================================================================ */
-
-// Sin tildes y en minúscula, para comparar "MAIPÚ" con "maipu"
-const PLANO = t => String(t||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
-
-/* --- Leer el archivo ---
-   Los bancos chilenos exportan casi siempre en Windows-1252, no en UTF-8.
-   Leído como UTF-8, un "MAIPÚ" llega como "MAIP<>" con el rombo de error
-   (el carácter �). Si aparece ese rombo, se relee con la codificación
-   antigua. Es más barato que adivinar de entrada y se equivoca menos. */
-function textoDelArchivo(archivo){
-  const leerComo = codificacion => new Promise((ok, error) => {
-    const lector = new FileReader();
-    lector.onload  = () => ok(lector.result);
-    lector.onerror = () => error(new Error('No se pudo abrir el archivo'));
-    lector.readAsText(archivo, codificacion);
-  });
-  return leerComo('utf-8').then(t => t.includes('�') ? leerComo('windows-1252') : t);
-}
-
-/* Cuál es el separador. En Chile manda el punto y coma (es lo que pone Excel
-   en español) y después el tabulador, que es lo que sale al copiar y pegar
-   una tabla del sitio del banco. La coma va última justamente porque también
-   puede ser el separador de decimales de un monto. */
-function separadorDe(texto){
-  const lineas = texto.split('\n').filter(l => l.trim()).slice(0, 15);
-  const cuantas = sep => lineas.filter(l => l.includes(sep)).length;
-  for(const sep of [';', '\t']) if(cuantas(sep) > lineas.length / 2) return sep;
-  return cuantas(',') > lineas.length / 2 ? ',' : ';';
-}
-
-/* Parte el texto en filas y columnas respetando las comillas: una descripción
-   como "FERRETERIA LOPEZ, LTDA" viene entre comillas justamente para que esa
-   coma de adentro no cuente como separador. */
-function partirCSV(texto, sep){
-  const filas = [];
-  let fila = [], campo = '', dentroDeComillas = false;
-
-  for(let i = 0; i < texto.length; i++){
-    const c = texto[i];
-    if(dentroDeComillas){
-      // Dos comillas seguidas son una comilla de verdad, no el final
-      if(c === '"' && texto[i+1] === '"'){ campo += '"'; i++; }
-      else if(c === '"') dentroDeComillas = false;
-      else campo += c;
-    }
-    else if(c === '"') dentroDeComillas = true;
-    else if(c === sep){ fila.push(campo); campo = ''; }
-    else if(c === '\n'){ fila.push(campo); filas.push(fila); fila = []; campo = ''; }
-    else if(c !== '\r') campo += c;
-  }
-  if(campo || fila.length){ fila.push(campo); filas.push(fila); }
-
-  return filas.map(f => f.map(c => c.trim()));
-}
-
-/* --- Los montos ---
-   En Chile el punto separa los miles y la coma los decimales: -24.990 son
-   veinticuatro mil novecientos noventa pesos. Algunos bancos lo dan al
-   revés (24,990.00), así que la regla es: el separador que aparece UNA vez
-   y al final con dos dígitos es el decimal, y el otro es el de miles.
-   El paréntesis también significa negativo, es la costumbre contable. */
-function montoChileno(txt){
-  let t = String(txt == null ? '' : txt).trim();
-  if(!t) return null;
-
-  const negativo = t.startsWith('-') || (t.startsWith('(') && t.endsWith(')'));
-  t = t.replace(/[^\d.,]/g, '');            // fuera el $, los espacios y el signo
-  if(!/\d/.test(t)) return null;
-
-  // Los decimales se descartan: la app trabaja en pesos enteros
-  if(t.includes(',')  && /\.\d{2}$/.test(t)) t = t.replace(/\.\d{2}$/, '');
-  else                                       t = t.replace(/,\d{1,2}$/, '');
-  t = t.replace(/[.,]/g, '');
-
-  const n = Number(t);
-  if(!isFinite(n) || n === 0) return null;   // el 0 no es un movimiento
-  return negativo ? -n : n;
-}
-
-// El nombre corto al revés: de "ago" al número 8. Ya existe un MES_CORTO
-// más arriba, que va del número al nombre y sirve para mostrar fechas.
-const NUMERO_DE_MES = {ene:1,feb:2,mar:3,abr:4,may:5,jun:6,jul:7,
-                       ago:8,sep:9,set:9,oct:10,nov:11,dic:12};
-
-/* Devuelve '2026-08-12' o null. En Chile el día va primero: 08/12/2026 es
-   el 8 de diciembre, nunca el 12 de agosto. */
-function fechaChilena(txt){
-  const t = String(txt || '').trim();
-
-  let m = t.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if(m) return `${m[1]}-${m[2]}-${m[3]}`;
-
-  const armar = (d, mes, a) => {
-    if(mes < 1 || mes > 12 || d < 1 || d > 31) return null;
-    if(a.length === 2) a = '20' + a;
-    return `${a}-${String(mes).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-  };
-
-  m = t.match(/^(\d{1,2})[\/\-. ](\d{1,2})[\/\-. ](\d{2,4})/);
-  if(m) return armar(+m[1], +m[2], m[3]);
-
-  // 12-AGO-2026, que usan algunas cartolas de tarjeta
-  m = t.match(/^(\d{1,2})[\/\-. ]([a-zA-Z]{3})[a-zA-Z]*[\/\-. ](\d{2,4})/);
-  if(m) return armar(+m[1], NUMERO_DE_MES[PLANO(m[2])] || 0, m[3]);
-
-  return null;
-}
-
-/* --- Encontrar las columnas ---
-   Primero se busca una fila de títulos. Si la hay, manda ella: es la única
-   forma de distinguir la columna "Cargos" de la columna "Abonos" cuando el
-   banco las entrega separadas y ambas traen números positivos. */
-const TITULOS = {
-  fecha: /fecha|dia\b/,
-  cargo: /cargo|giro|debito|pago/,
-  abono: /abono|deposito|credito|ingreso/,
-  monto: /monto|valor|importe|total/,
-  desc:  /descripcion|detalle|glosa|movimiento|comercio|transaccion|operacion|lugar|referencia/
-};
-
-function buscarEncabezado(filas){
-  for(let i = 0; i < Math.min(filas.length, 30); i++){
-    const titulos = filas[i].map(PLANO);
-    const cols = {fecha:-1, cargo:-1, abono:-1, monto:-1, desc:-1};
-
-    titulos.forEach((t, j) => {
-      if(!t) return;
-      // El orden importa: "Monto cargo" es una columna de cargos, no de montos
-      for(const cual of ['fecha','cargo','abono','monto','desc'])
-        if(cols[cual] === -1 && TITULOS[cual].test(t)){ cols[cual] = j; return; }
-    });
-
-    const hayPlata = cols.cargo > -1 || cols.abono > -1 || cols.monto > -1;
-    if(cols.fecha > -1 && hayPlata) return {fila: i, cols};
-  }
-  return null;
-}
-
-/* Sin fila de títulos —el caso de copiar y pegar— se deduce por la forma:
-   la primera celda que se lea como fecha, la última que se lea como plata,
-   y de las que sobran, la más larga como descripción. */
-function filaSinTitulos(celdas){
-  let fecha = null, iFecha = -1;
-  for(let j = 0; j < celdas.length; j++){
-    const f = fechaChilena(celdas[j]);
-    if(f){ fecha = f; iFecha = j; break; }
-  }
-  if(!fecha) return null;
-
-  let monto = null;
-  for(let j = celdas.length - 1; j > iFecha; j--){
-    const n = montoChileno(celdas[j]);
-    // Un número de documento de 7 cifras no es plata: se pide que traiga
-    // separador de miles, signo, o que sea chico. Deja pasar casi todo monto
-    // real y descarta los folios pelados.
-    if(n !== null && (/[.,$\-()]/.test(celdas[j]) || Math.abs(n) < 100000)){ monto = n; break; }
-  }
-  if(monto === null) return null;
-
-  const desc = celdas
-    .filter((c, j) => j !== iFecha && /[a-zA-Z]{3}/.test(c))
-    .sort((a, b) => b.length - a.length)[0] || '';
-
-  return {fecha, monto, desc, cargo:null, abono:null};
-}
-
-/* --- De comercio a categoría ---
-   Se lee de arriba abajo y gana la primera que calce, así que lo específico
-   va antes que lo general: "uber eats" está sobre "uber" a propósito. */
-const COMERCIOS = [
-  // Alimentación
-  [/uber ?eats|pedidos ?ya|rappi|justo\b|didi ?food/, 'c1','a6'],
-  [/jumbo|lider|santa ?isabel|unimarc|tottus|acuenta|ekono|alvi|mayorista ?10/, 'c1','a1'],
-  [/starbucks|juan ?valdez|dunkin|\bcafe\b|cafeteria/,'c1','a5'],
-  [/panaderia|panificadora/,                          'c1','a3'],
-  [/mcdonald|burger ?king|\bkfc\b|subway|doggis|papa ?john|domino|telepizza|restaurant|sushi|pizzeria/, 'c1','a4'],
-  [/\bferia\b|vega ?central/,                         'c1','a2'],
-  // Auto y locomoción
-  [/copec|shell|petrobras|aramco|\benex\b|terpel/,    'c10','t1'],
-  [/autopista|costanera ?norte|vespucio|nororiente|\btag\b|acceso ?vial|rutas? del/, 'c10','u3'],
-  [/automotriz|mecanic|lubricentro|neumatic|\bderco\b/, 'c10','u8'],
-  [/uber(?! ?eats)|cabify|didi(?! ?food)|\bbeat\b/,   'c4','l2'],
-  [/\bmetro\b|\bbip\b|red ?movilidad/,                'c4','t3'],
-  // Salud
-  [/cruz ?verde|salcobrand|ahumada|dr ?simi|farmacia/, 'c11','sa1'],
-  [/clinica|integramedica|megasalud|red ?salud|consulta ?medica|\bcesfam\b/, 'c11','sa2'],
-  [/dental|dentista|odontolog/,                       'c11','sa3'],
-  [/laboratorio|\bblanco\b|examenes/,                 'c11','sa4'],
-  [/optica|rotter|gmo\b/,                             'c11','sa5'],
-  // Suscripciones
-  [/netflix/,                                         'c7','u1'],
-  [/spotify/,                                         'c7','u2'],
-  [/disney/,                                          'c7','u3'],
-  [/crunchyroll/,                                     'c7','u4'],
-  [/youtube ?premium|google ?youtube/,                'c7','u5'],
-  [/openai|chatgpt/,                                  'c7','u6'],
-  [/anthropic|claude/,                                'c7','u7'],
-  [/meli ?\+|mercado ?libre/,                         'c7','u8'],
-  [/amazon ?prime/,                                   'c7','u10'],
-  [/hbo|\bhbo ?max\b/,                                'c7','u11'],
-  [/icloud|apple\.com\/bill|apple ?services/,         'c7','u12'],
-  // Hogar
-  [/\benel\b|\bcge\b|saesa|chilquinta|frontel|\bemel/, 'c9','s1'],
-  [/aguas ?andinas|essbio|esval|nuevosur|aguas ?del|smapa/, 'c9','s2'],
-  [/metrogas|lipigas|abastible|gasco|gasvalpo/,       'c9','s3'],
-  // Gastos fijos
-  [/entel|movistar|\bwom\b|claro\b|\bvtr\b|mundo ?pacifico|\bgtd\b|telsur/, 'c2','f3'],
-  [/arriendo/,                                        'c2','s5'],
-  [/contribucion|tesoreria ?general/,                 'c2','f5'],
-  [/gastos ?comunes|administracion ?edificio|conserjeria/, 'c2','s4'],
-  [/dividendo/,                                       'c2','f1'],
-  [/seguro|\bbice\b|consorcio|metlife|\bhdi\b/,       'c2','f6'],
-  // Mascota
-  [/veterinari|\bvet\b|pet ?happy|mascota|kiwoko/,    'c8','p3'],
-  // Gastos varios
-  [/cinemark|cinepolis|hoyts|\bcine\b/,               'c3','v3'],
-  [/falabella|ripley|\bparis\b|hites|la ?polar|abcdin|\bh&m\b|zara\b/, 'c3','v1'],
-  [/peluqueria|barberia/,                             'c3','v5'],
-  [/sodimac|\beasy\b|construmart|imperial|homecenter/, 'c3', null],
-  [/libreria|antartica|feria ?chilena ?del ?libro/,   'c3','v4'],
-  // Ingresos
-  [/sueldo|remuneracion|haberes|liquidacion|nomina/,  'c5','i1'],
-  [/aguinaldo/,                                       'c5','i2'],
-  [/\bbono\b/,                                        'c5','i3'],
-  [/devolucion|\bsii\b|impuesto/,                     'c5','i6']
-];
-
-/* Devuelve dónde va el movimiento. Cuando no reconoce el comercio cae en la
-   categoría genérica del tipo —Gastos varios o Ingresos— y NO en "sin
-   categoría": un movimiento sin categoría rompe los totales y la dona, y
-   además queda invisible. Mejor que caiga en un cajón visible y lo corrijas
-   tocándolo, que es el mismo gesto de siempre. */
-/* Segunda pasada: buscar la palabra entre TUS categorías y detalles.
-   La tabla de arriba sabe de comercios ("COPEC"), pero un mensaje escrito a
-   mano dice la cosa por su nombre ("almuerzo 8500"), y ese nombre casi
-   siempre ya existe como detalle en la app. Buscar ahí en vez de en una
-   segunda tabla tiene la ventaja de que se adapta sola: si creas el detalle
-   "Sushi", desde ese momento "sushi 12000" cae solo en su lugar. */
-function buscarPorNombre(desc, tipo){
-  const palabras = new Set();
-  PLANO(desc).split(/[^a-z0-9]+/).forEach(p => {
-    // Las de una o dos letras generan calces por casualidad; desde tres,
-    // que es lo que miden "Luz" y "Gas", ya son palabras de verdad.
-    if(p.length < 3) return;
-    palabras.add(p);
-    palabras.add(p.replace(/s$/, ''));    // "cafes" también es "cafe"
-    palabras.add(p.replace(/es$/, ''));   // "panes" también es "pan"
-  });
-  if(!palabras.size) return null;
-
-  const calza = nombre => PLANO(nombre).split(/[^a-z0-9]+/)
-    .some(p => p.length >= 3 && (palabras.has(p) || palabras.has(p.replace(/s$/, ''))));
-
-  // Los detalles primero: son más precisos que la categoría entera
-  for(const cat of estado.categorias){
-    if(cat.tipo !== tipo) continue;
-    const sub = cat.subs.find(s => calza(s.nombre));
-    if(sub) return {catId: cat.id, subId: sub.id};
-  }
-  const cat = estado.categorias.find(c => c.tipo === tipo && calza(c.nombre));
-  return cat ? {catId: cat.id, subId: null} : null;
-}
-
-function adivinarCategoria(desc, tipo){
-  const existe = (catId, subId) => {
-    const cat = buscarCat(catId);
-    if(!cat) return null;
-    const sub = subId && cat.subs.find(s => s.id === subId);
-    return {catId, subId: sub ? sub.id : null};
-  };
-
-  const limpio = PLANO(desc);
-  for(const [patron, catId, subId] of COMERCIOS){
-    if(!patron.test(limpio)) continue;
-    const cat = buscarCat(catId);
-    // Un ingreso no puede caer en una categoría de gastos aunque el texto
-    // calce: un "PAGO NETFLIX" devuelto sigue siendo plata que entra.
-    if(cat && cat.tipo === tipo) return existe(catId, subId);
-  }
-
-  const porNombre = buscarPorNombre(desc, tipo);
-  if(porNombre) return porNombre;
-
-  // El cajón visible de cada tipo. Ahorro tiene el suyo: un ahorro que
-  // cayera en "Gastos varios" no solo estaría mal puesto, estaría restando
-  // donde no corresponde.
-  const generica = tipo === 'ingreso' ? 'c5' : tipo === 'ahorro' ? CAT_AHORRO : 'c3';
-  return existe(generica, null)
-      || {catId: (estado.categorias.find(c => c.tipo === tipo) || estado.categorias[0]).id, subId: null};
-}
-
-/* --- No anotar dos veces lo mismo ---
-   La huella de una línea de cartola. Se recorta la descripción porque
-   algunos bancos le agregan al final el número de operación, que cambia
-   entre una descarga y otra aunque sea la misma compra. */
-const huellaCartola = f => [f.fecha, f.tipo, f.monto, PLANO(f.desc).slice(0, 24)].join('|');
-
-/* Lo leído esperando tu revisión. La pantalla de revisión la comparten el
-   archivo de cartola y el buzón de WhatsApp: las dos cosas terminan en la
-   misma pregunta —"¿esto lo anoto?"— y hacer dos pantallas iguales para
-   contestarla dos veces no tendría sentido. `revisionDesde` es lo único
-   que cambia entre las dos. */
-let filasCartola = [];
-let revisionDesde = 'cartola';   // 'cartola' | 'buzon'
-let descartadosBuzon = 0;        // mensajes del buzón a los que les faltaba el monto
-
-function abrirCartola(){
-  volverACartolaPaso1();
-  abrirHoja('hojaCartola');
-}
-
-function volverACartolaPaso1(){
-  filasCartola = [];
-  revisionDesde = 'cartola';
-  document.getElementById('cartolaPaso1').classList.remove('oculto');
-  document.getElementById('cartolaPaso2').classList.add('oculto');
-}
-
-async function cartolaDesdeArchivo(input){
-  const archivo = input.files && input.files[0];
-  input.value = '';                    // permite volver a elegir el mismo archivo
-  if(!archivo) return;
-  try{
-    leerCartola(await textoDelArchivo(archivo));
-  }catch(e){
-    console.error(e);
-    avisar('No se pudo abrir el archivo');
-  }
-}
-
-function cartolaDesdeTexto(){
-  const texto = document.getElementById('pegarCartola').value;
-  if(!texto.trim()){ avisar('Pega la tabla primero'); return; }
-  leerCartola(texto);
-}
-
-function leerCartola(texto){
-  const filas = partirCSV(texto, separadorDe(texto));
-  const cab = buscarEncabezado(filas);
-  const desde = cab ? cab.fila + 1 : 0;
-  const leidas = [];
-
-  for(let i = desde; i < filas.length; i++){
-    const celdas = filas[i];
-    if(celdas.every(c => !c)) continue;
-
-    let cruda = null;
-    if(cab){
-      const col = j => (j > -1 && celdas[j] !== undefined) ? celdas[j] : '';
-      const fecha = fechaChilena(col(cab.cols.fecha));
-      if(!fecha) continue;             // los pies de página y los totales caen acá
-      cruda = {
-        fecha,
-        cargo: montoChileno(col(cab.cols.cargo)),
-        abono: montoChileno(col(cab.cols.abono)),
-        monto: montoChileno(col(cab.cols.monto)),
-        desc:  col(cab.cols.desc)
-      };
-      // Con títulos pero sin columna de descripción, se toma la celda de
-      // texto más larga igual que en el modo sin títulos
-      if(!cruda.desc){
-        cruda.desc = celdas.filter((c,j) => j !== cab.cols.fecha && /[a-zA-Z]{3}/.test(c))
-                           .sort((a,b) => b.length - a.length)[0] || '';
-      }
-    }else{
-      cruda = filaSinTitulos(celdas);
-    }
-    if(!cruda) continue;
-
-    let tipo, monto;
-    if(cruda.cargo){      tipo = 'gasto';   monto = Math.abs(cruda.cargo); }
-    else if(cruda.abono){ tipo = 'ingreso'; monto = Math.abs(cruda.abono); }
-    else if(cruda.monto){ tipo = cruda.monto < 0 ? 'gasto' : 'ingreso'; monto = Math.abs(cruda.monto); }
-    else continue;
-
-    leidas.push({fecha: cruda.fecha, tipo, monto, desc: cruda.desc.replace(/\s+/g,' ').trim()});
-  }
-
-  if(!leidas.length){
-    preguntar({
-      titulo: 'No encontré movimientos',
-      detalle: `Revisa que el archivo sea la cartola y no un resumen. Necesita
-                al menos una columna con la fecha y otra con el monto.<br>
-                Si viene en Excel, ábrelo y usa “Guardar como → CSV”.`,
-      ok: 'Entendido',
-      onSi: () => {}
-    });
-    return;
-  }
-
-  /* Cartola de tarjeta de crédito: una sola columna de montos y todos
-     positivos. Ahí no hay ingresos, son todas compras. Sin esto una cartola
-     de tarjeta entra entera como sueldo y te infla los ingresos del mes. */
-  if(leidas.every(f => f.tipo === 'ingreso')){
-    leidas.forEach(f => f.tipo = 'gasto');
-  }
-
-  const yaImportadas = estado.cartolaImportada || [];
-  const nuevas = leidas.filter(f => !yaImportadas.includes(huellaCartola(f)));
-  const repetidas = leidas.length - nuevas.length;
-
-  if(!nuevas.length){
-    avisar(`Ya tenías esos ${repetidas} movimientos`);
-    return;
-  }
-
-  filasCartola = nuevas.map(f => {
-    const donde = adivinarCategoria(f.desc, f.tipo);
-    /* ¿Lo escribiste a mano antes de importar? Se busca por fecha, tipo y
-       monto, que es todo lo que comparten un movimiento tecleado y su línea
-       de cartola. Se deja en la lista pero apagado: decidir tú es mejor que
-       adivinar, porque dos cafés iguales el mismo día también calzan. */
-    const yaEsta = estado.movimientos.some(m =>
-      m.fecha === f.fecha && m.tipo === f.tipo && m.monto === f.monto);
-    return {...f, ...donde, yaEsta, incluir: !yaEsta};
-  }).sort((a, b) => b.fecha.localeCompare(a.fecha));
-
-  pintarCartola(repetidas);
-  document.getElementById('cartolaPaso1').classList.add('oculto');
-  document.getElementById('cartolaPaso2').classList.remove('oculto');
-}
-
-function pintarCartola(repetidas){
-  const delBuzon = revisionDesde === 'buzon';
-  const marcadas = filasCartola.filter(f => f.incluir);
-  const dudosas  = filasCartola.filter(f => f.incluir && !f.subId);
-
-  document.getElementById('tituloCartolaPaso2').textContent =
-    delBuzon ? 'Lo que anotaste por fuera' : 'Revisa antes de guardar';
-  const volver = document.getElementById('btnVolverCartola');
-  volver.textContent = delBuzon ? 'Ahora no' : 'Elegir otro archivo';
-  volver.onclick = delBuzon ? cerrarHojas : volverACartolaPaso1;
-
-  const uno = filasCartola.length === 1;
-  const partes = [delBuzon
-    ? `Te lleg${uno?'ó':'aron'} <b>${filasCartola.length}</b> por WhatsApp o por tus correos del banco.`
-    : `Encontré <b>${filasCartola.length}</b> movimiento${uno?'':'s'} nuevo${uno?'':'s'}.`];
-  if(repetidas) partes.push(`Otro${repetidas===1?'':'s'} ${repetidas} ya lo${repetidas===1?'':'s'} tenías.`);
-  if(delBuzon && descartadosBuzon)
-    partes.push(`No entendí ${descartadosBuzon} más: sin monto no hay gasto.`);
-  if(dudosas.length) partes.push(`No reconocí ${dudosas.length}: quedan en su categoría general y los puedes corregir tocándolos después.`);
-  document.getElementById('resumenCartola').innerHTML = partes.join(' ');
-
-  document.getElementById('listaCartola').innerHTML = filasCartola.map((f, i) => {
-    const cat = buscarCat(f.catId);
-    const sub = cat && cat.subs.find(s => s.id === f.subId);
-    const pie = [fechaLegible(f.fecha), cat ? cat.nombre : '', sub ? sub.nombre : '']
-                .filter(Boolean).join(' · ');
-    return `<div class="fila-cartola ${f.incluir?'':'apagada'}" onclick="alternarFilaCartola(${i})">
-        <div class="marca-check">✓</div>
-        <div class="info">
-          <b>${emojiDe(f.desc)}${f.desc || (cat ? cat.nombre : 'Movimiento')}</b>
-          <small>${pie}${f.yaEsta ? ' · ya lo anotaste' : ''}</small>
-        </div>
-        <div class="val ${claseTipo(f.tipo)}">${SIGNO[f.tipo] || '−'}${pesos(f.monto)}</div>
-      </div>`;
-  }).join('');
-
-  const btn = document.getElementById('btnGuardarCartola');
-  btn.textContent = marcadas.length
-    ? `Guardar ${marcadas.length} movimiento${marcadas.length===1?'':'s'}`
-    : 'No guardar ninguno';
-}
-
-function alternarFilaCartola(i){
-  filasCartola[i].incluir = !filasCartola[i].incluir;
-  pintarCartola(0);   // el conteo de repetidas ya se dijo al entrar
-}
-
-function guardarCartola(){
-  const elegidas = filasCartola.filter(f => f.incluir);
-
-  /* Los mensajes del buzón se dan por recibidos aunque los dejes fuera:
-     ya los viste y decidiste. Si no se borraran, el "no, este no" volvería
-     a preguntarte lo mismo cada vez que abres la app. */
-  if(revisionDesde === 'buzon') vaciarDelBuzon(filasCartola.map(f => f.idBuzon));
-
-  if(!elegidas.length){ cerrarHojas(); avisar('No se guardó nada'); return; }
-
-  if(!estado.cartolaImportada) estado.cartolaImportada = [];
-
-  elegidas.forEach(f => {
-    estado.movimientos.push({
-      id: nuevoId(), monto: f.monto, tipo: f.tipo,
-      catId: f.catId, subId: f.subId || null,
-      fecha: f.fecha, nota: f.desc,
-      /* Lo que entra solo es historia, no un compromiso. Sin esta marca, el
-         gasto de Entel de julio crearía una ficha en Recordatorios y desde
-         agosto se anotaría igual todos los meses sin que nadie lo pidiera.
-         Si de verdad se repite, lo enciendes tocando el movimiento. */
-      sinRecordatorio: true,
-      origen: f.origen || revisionDesde
-    });
-    /* La huella lleva la descripción, así que atrapa el mismo mensaje o la
-       misma línea de cartola entrando dos veces. El caso cruzado —lo anotaste
-       por WhatsApp como "almuerzo" y el banco lo manda como "RESTAURANT EL
-       BUEN SABOR"— no lo atrapa, porque el texto no se parece: de ese se
-       encarga la comparación por fecha, tipo y monto que apaga la fila. */
-    estado.cartolaImportada.push(huellaCartola(f));
-  });
-
-  /* La lista de huellas solo crece, y es lo que impide que el mismo mes
-     entre dos veces. Se recortan las más viejas para que no engorde sin
-     límite: con 3000 se cubren varios años de cartolas. */
-  if(estado.cartolaImportada.length > 3000)
-    estado.cartolaImportada = estado.cartolaImportada.slice(-3000);
-
-  guardar();
-  pintarTodo();
-  cerrarHojas();
-  avisar(`Se anotaron ${elegidas.length}`);
-}
-
-/* ================================================================
-   6d. EL BUZÓN
-
-   Es lo ÚNICO de la app que habla con internet, y conviene tener claro
-   en qué dirección va el tráfico: la app le PIDE mensajes al buzón y le
-   avisa cuáles ya se llevó. Nunca le manda tus datos. Tu historial, tus
-   categorías, tus totales y tus ahorros no salen del teléfono, igual que
-   siempre.
-
-   Del otro lado, en Cloudflare (ver buzon/worker.js), solo hay frases
-   sueltas sin procesar —"almuerzo 8500", "Compra $12.990 JUMBO"— que se
-   borran apenas la app se las lleva, y solas a los 7 días si no la abres.
-
-   Si nunca configuras la dirección, nada de esta sección se ejecuta y la
-   app sigue siendo exactamente lo que era: cien por ciento local.
-   ================================================================ */
-
-// La dirección incluye su clave secreta, así que se trata como una
-// contraseña: no se muestra entera en pantalla ni se manda a ninguna parte
-// que no sea el buzón mismo.
-const buzonConfigurado = () => !!(estado.buzon && estado.buzon.url);
-
-function abrirBuzon(){
-  document.getElementById('inpBuzon').value = (estado.buzon && estado.buzon.url) || '';
-  document.getElementById('estadoBuzon').textContent = buzonConfigurado()
-    ? 'Conectado. Toca “Guardar y probar” para revisar ahora.' : '';
-  abrirHoja('hojaBuzon');
-}
-
-/* Arma la dirección de cada operación conservando la clave. La clave viene
-   pegada en la URL que te dio el buzón (…?k=…) y hay que arrastrarla a
-   cada llamada, así que se separa acá una sola vez. */
-function urlBuzon(camino){
-  const base = new URL(estado.buzon.url);
-  const clave = base.searchParams.get('k') || '';
-  const destino = new URL(camino, base.origin);
-  if(clave) destino.searchParams.set('k', clave);
-  return destino.href;
-}
-
-async function guardarBuzon(){
-  const escrito = document.getElementById('inpBuzon').value.trim();
-  const aviso = document.getElementById('estadoBuzon');
-
-  if(!escrito){ aviso.textContent = 'Pega la dirección primero.'; return; }
-
-  // Sin https no se guarda: por http la clave viaja a la vista de cualquiera
-  // que comparta la red, y además el navegador ni siquiera dejaría pedir.
-  let url;
-  try{ url = new URL(escrito); }catch(e){ aviso.textContent = 'Esa no es una dirección válida.'; return; }
-  if(url.protocol !== 'https:'){ aviso.textContent = 'La dirección tiene que empezar con https.'; return; }
-
-  estado.buzon = {url: escrito};
-  guardar();
-
-  aviso.textContent = 'Probando…';
-  const traidos = await revisarBuzon(false);
-  if(traidos === null) aviso.textContent = 'No pude conectarme. Revisa la dirección y la clave.';
-  else if(traidos === 0){ aviso.textContent = 'Conectado. No hay nada esperando.'; avisar('Buzón conectado'); }
-}
-
-function olvidarBuzon(){
-  if(!buzonConfigurado()){ cerrarHojas(); return; }
-  preguntar({
-    titulo: '¿Desconectar el buzón?',
-    detalle: `La app deja de revisarlo y vuelve a no hablar con internet.
-              Lo que ya anotaste se queda; lo que esté esperando en el buzón
-              se borra solo a los 7 días.`,
-    ok: 'Desconectar',
-    onSi: () => { delete estado.buzon; guardar(); avisar('Buzón desconectado'); }
-  });
-}
-
-/* --- Entender un mensaje escrito a mano ---
-   "almuerzo 8500", "8500 almuerzo", "+1450000 sueldo". El monto es el
-   número más grande del mensaje y lo demás es la descripción. */
-function interpretarMensaje(texto){
-  const limpio = String(texto || '').trim();
-  if(!limpio) return null;
-  const plano = PLANO(limpio);
-
-  let tipo = 'gasto';
-  if(limpio.startsWith('+') || /\b(sueldo|ingreso|me pagaron|recibi|cobre)\b/.test(plano)) tipo = 'ingreso';
-  if(/\b(ahorro|ahorre|guarde|aparte|meta)\b/.test(plano)) tipo = 'ahorro';
-
-  // Se prueban todos los números del mensaje y gana el mayor: en
-  // "2 cafes 3800" el gasto son 3800, no 2.
-  const montos = (limpio.match(/\d[\d.,]*/g) || []).map(montoChileno).filter(n => n);
-  if(!montos.length) return null;
-  const monto = Math.max(...montos.map(Math.abs));
-
-  // La descripción es el mensaje sin sus números. Se van todos y no solo el
-  // monto: en "2 cafes 3800" el 2 tampoco es parte del nombre del gasto.
-  const desc = limpio
-    .replace(/^\+/, '')
-    .replace(/\$?\d[\d.,]*/g, ' ')
-    .replace(/\s+/g, ' ').trim();
-
-  return {monto, tipo, desc: desc || 'Anotado por WhatsApp'};
-}
-
-// El buzón guarda la hora en UTC; acá interesa el día que era en Chile
-function fechaLocalDe(iso){
-  const d = iso ? new Date(iso) : new Date();
-  if(isNaN(d.getTime())) return hoyISO();
-  const dos = n => String(n).padStart(2,'0');
-  return `${d.getFullYear()}-${dos(d.getMonth()+1)}-${dos(d.getDate())}`;
-}
-
-/* --- Ir a buscar lo que haya ---
-   Devuelve cuántos trajo, o null si no se pudo conectar. En silencio no
-   molesta con avisos: al abrir la app, no poder conectarse es lo normal
-   cuando vas en el metro, y no es una falla que valga interrumpir. */
-async function revisarBuzon(silencioso = true){
-  if(!buzonConfigurado()) return 0;
-
-  let datos;
-  try{
-    // El plazo es corto a propósito: esto corre al abrir la app y no puede
-    // dejarla esperando. Si el buzón no contesta rápido, será a la próxima.
-    const corte = AbortSignal.timeout ? AbortSignal.timeout(8000) : undefined;
-    const respuesta = await fetch(urlBuzon('/pendientes'), {signal: corte, cache: 'no-store'});
-    if(!respuesta.ok) throw new Error('respuesta ' + respuesta.status);
-    datos = await respuesta.json();
-  }catch(e){
-    if(!silencioso) console.warn('Buzón:', e);
-    return null;
-  }
-
-  const pendientes = (datos && datos.pendientes) || [];
-  if(!pendientes.length) return 0;
-
-  const yaImportadas = estado.cartolaImportada || [];
-  const filas = [];
-  const porBorrar = [];    // todo lo que el buzón ya no tiene que guardar
-  let sinEntender = 0;     // de esos, cuántos eran mensajes sin monto
-
-  pendientes.forEach(m => {
-    // El correo del banco llega con el monto ya separado; WhatsApp llega
-    // como frase suelta y hay que interpretarla.
-    const leido = (typeof m.monto === 'number' && m.monto)
-      ? {monto: Math.abs(m.monto), tipo: m.tipo || 'gasto', desc: String(m.texto || '').trim()}
-      : interpretarMensaje(m.texto);
-    /* Un mensaje sin ningún número no es un gasto: es un "hola", o se te
-       olvidó el monto. Se descarta y se dice cuántos fueron, para que no
-       creas que se anotó algo que no se anotó. Si se dejaran en el buzón,
-       volverían a saltarse en cada apertura hasta vencer a los 7 días. */
-    if(!leido){ porBorrar.push(m.id); sinEntender++; return; }
-
-    const f = {
-      fecha: fechaLocalDe(m.fecha), tipo: leido.tipo, monto: leido.monto,
-      desc: leido.desc, idBuzon: m.id, origen: m.de === 'whatsapp' ? 'whatsapp' : 'correo'
-    };
-    // Ya entró antes —el borrado anterior no llegó, o se cortó el internet
-    // justo al confirmar—: se da por recibido de nuevo y no se muestra
-    if(yaImportadas.includes(huellaCartola(f))){ porBorrar.push(m.id); return; }
-    const yaEsta = estado.movimientos.some(x =>
-      x.fecha === f.fecha && x.tipo === f.tipo && x.monto === f.monto);
-    filas.push({...f, ...adivinarCategoria(f.desc, f.tipo), yaEsta, incluir: !yaEsta});
-  });
-
-  vaciarDelBuzon(porBorrar);
-  descartadosBuzon = sinEntender;
-
-  if(!filas.length){
-    if(descartadosBuzon && !silencioso)
-      avisar(`No entendí ${descartadosBuzon} mensaje${descartadosBuzon===1?'':'s'}`);
-    return 0;
-  }
-
-  filasCartola = filas.sort((a, b) => b.fecha.localeCompare(a.fecha));
-  revisionDesde = 'buzon';
-  pintarCartola(0);
-  document.getElementById('cartolaPaso1').classList.add('oculto');
-  document.getElementById('cartolaPaso2').classList.remove('oculto');
-  abrirHoja('hojaCartola');
-  return filas.length;
-}
-
-/* "Ya los tengo". Se manda y no se espera respuesta: si falla, el buzón los
-   sigue teniendo y la próxima vez se descartan solos por la huella. */
-function vaciarDelBuzon(ids){
-  const limpios = (ids || []).filter(Boolean);
-  if(!buzonConfigurado() || !limpios.length) return;
-  fetch(urlBuzon('/listo'), {
-    method: 'POST',
-    headers: {'content-type': 'application/json'},
-    body: JSON.stringify({ids: limpios})
-  }).catch(e => console.warn('Buzón, al confirmar:', e));
 }
 
 /* ================================================================
@@ -5493,18 +4559,6 @@ ajustarEspacioArriba();
 // Y al final la pregunta del año nuevo, si toca: necesita la pantalla ya
 // pintada detrás, y casi siempre no hace nada.
 preguntarPorElAnio();
-
-/* El buzón se revisa al final y sin esperarlo: es lo único que depende de
-   internet, y la app tiene que estar usable aunque no haya señal. Si no
-   configuraste ninguna dirección, esto no hace absolutamente nada. */
-revisarBuzon();
-
-/* Y también al volver a la app sin cerrarla, que en el teléfono es lo
-   habitual: la dejas abierta, le escribes al bot, y vuelves. Sin esto
-   habría que cerrarla y abrirla para que apareciera lo anotado. */
-document.addEventListener('visibilitychange', () => {
-  if(document.visibilityState === 'visible' && !document.querySelector('.hoja.visible')) revisarBuzon();
-});
 
 // La tecla Escape cierra las hojas (útil en el computador)
 document.addEventListener('keydown', e => { if(e.key === 'Escape') cerrarHojas(); });
