@@ -495,6 +495,13 @@ h2.seccion{font-size:19px;margin-bottom:16px}
   margin:14px 0 8px
 }
 .grupo-titulo:first-child{margin-top:0}
+/* Cuántas veces escribiste esa palabra. Va dentro del chip y en gris: es el
+   motivo por el que la app te la propone, no parte del nombre del detalle. */
+.veces{
+  margin-left:6px;padding:1px 5px;border-radius:6px;
+  background:var(--linea);color:var(--suave);
+  font-size:var(--t-xs);font-style:normal
+}
 /* Aviso visual de que la pulsación larga está corriendo */
 .chip.presionado{transform:scale(.9);transition:transform .45s ease}
 .presionado{transform:scale(.97);transition:transform .45s ease}
@@ -1729,7 +1736,22 @@ function adivinarCategoria(texto, tipoPreferido){
   for(const tipo of tipos){
     for(const capa of [adivinarPorHistorial, adivinarPorNombre]){
       const hallado = capa(pistas, tipo);
-      if(hallado) return {...hallado, tipo};
+      if(!hallado) continue;
+
+      /* El historial manda para la categoría, pero a veces llega sin detalle:
+         son movimientos que anotaste ANTES de que ese detalle existiera. Pasa
+         justo cuando acabas de crear uno desde las sugerencias —escribiste
+         "kinesiólogo" cuatro veces sin detalle, y hoy ya hay uno que se llama
+         así—. Sin esto, el detalle recién creado tendría que juntar más votos
+         que los movimientos viejos para empezar a usarse, y el círculo no se
+         cerraría nunca. Solo se completa dentro de la MISMA categoría que ya
+         decidió el historial: aquí se afina, no se contradice. */
+      if(!hallado.subId){
+        const porNombre = adivinarPorNombre(pistas, tipo);
+        if(porNombre && porNombre.catId === hallado.catId && porNombre.subId)
+          hallado.subId = porNombre.subId;
+      }
+      return {...hallado, tipo};
     }
   }
   return null;
@@ -4319,8 +4341,14 @@ async function procesarBoleta(input){
       const inp = document.getElementById('inpMonto');
       inp.value = String(hallazgo.monto);
       formatearMonto(inp);
-      if(tienda && !document.getElementById('inpNota').value)
+      if(tienda && !document.getElementById('inpNota').value){
         document.getElementById('inpNota').value = tienda;
+        /* Rellenar el campo por código NO dispara su `oninput`, así que al
+           clasificador hay que avisarle a mano. Sin esta línea el escáner
+           dejaba escrito "Jumbo" y la categoría en blanco, teniendo delante
+           todo lo necesario para adivinarla. */
+        queFueEscrito();
+      }
       avisoOCR(hallazgo.seguro
         ? '✓ Total detectado. <b>Revísalo antes de guardar.</b>'
         : '⚠ No encontré la línea del total, puse <b>el monto más grande</b>. Confírmalo.');
@@ -4543,26 +4571,94 @@ const GRUPO_DE_CATEGORIA = {
 
 let mostrandoTodas = false;
 
+/* --- Lo que TÚ anotas y todavía no tiene detalle ---
+
+   El catálogo de SUGERENCIAS de acá arriba es el mismo para cualquiera que
+   abra la app. Esto es lo contrario: mira las palabras que has escrito en el
+   campo "Tienda" y se queda con las que no calzan con ningún detalle ni
+   categoría tuya. Si llevas cuatro compras escribiendo "kinesiólogo" y no
+   existe ese detalle, la app ya tiene todo para proponértelo.
+
+   Se filtra por la categoría en que estás: al agregar un detalle a Salud
+   solo se miran los movimientos que mandaste a Salud, que es donde la
+   palabra tiene sentido.
+
+   Cierra el círculo con el clasificador: cada detalle que nace de acá pasa
+   a ser un nombre conocido, y la próxima vez que escribas esa palabra cae
+   sola en su lugar sin que nadie la proponga. */
+function palabrasHuerfanas(catId){
+  const cat = buscarCat(catId);
+  if(!cat) return [];
+
+  // Todo lo que ya tiene dónde caer: los nombres de tus categorías y detalles
+  const conCasa = new Set();
+  estado.categorias.forEach(c => {
+    palabrasDe(c.nombre).forEach(p => conCasa.add(p));
+    (c.subs || []).forEach(s => palabrasDe(s.nombre).forEach(p => conCasa.add(p)));
+  });
+
+  /* Se guardan dos cosas por palabra: cuántas veces aparece y cómo la
+     escribiste. Lo segundo es porque palabrasDe quita las tildes para poder
+     comparar, y un detalle llamado "Kinesiologo" se vería mal. */
+  const veces = new Map(), comoLaEscribes = new Map();
+
+  estado.movimientos.forEach(m => {
+    if(m.catId !== catId || !m.nota) return;
+    const vistas = new Set();
+    (m.nota.match(/[\p{L}\p{N}]+/gu) || []).forEach(cruda => {
+      const p = sinTildes(cruda);
+      if(p.length < 3 || /^\d+$/.test(p) || conCasa.has(p) || vistas.has(p)) return;
+      vistas.add(p);
+      veces.set(p, (veces.get(p) || 0) + 1);
+      if(!comoLaEscribes.has(p)) comoLaEscribes.set(p, cruda);
+    });
+  });
+
+  return [...veces.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)                       // más de ocho deja de ser una sugerencia
+    .map(([p, n]) => {
+      const t = comoLaEscribes.get(p);
+      return {nombre: t[0].toUpperCase() + t.slice(1).toLowerCase(), veces: n};
+    });
+}
+
 function pintarSugerencias(catId){
   const cat = buscarCat(catId);
   const grupo = GRUPO_DE_CATEGORIA[catId];
   const yaUsados = new Set(cat.subs.map(s => s.nombre.toLowerCase()));
 
-  // Sin grupo conocido, o si pidió verlas todas, se muestra la lista completa
-  const grupos = (!grupo || mostrandoTodas)
-    ? Object.entries(SUGERENCIAS)
-    : [[grupo, SUGERENCIAS[grupo]]];
+  /* Tus palabras mandan; el catálogo es la red de seguridad. Cuando hay algo
+     tuyo que ofrecer, el catálogo estorba: compite justo cuando lo relevante
+     es lo tuyo. Y cuando no hay nada tuyo —una categoría recién creada, el
+     primer mes de uso— aparece el catálogo de siempre y no ves una lista
+     vacía. A la lista completa se llega igual con "Ver todas". */
+  const mias = mostrandoTodas ? [] :
+    palabrasHuerfanas(catId).filter(o => !yaUsados.has(o.nombre.toLowerCase()));
 
   let html = '';
-  for(const [nombreGrupo, opciones] of grupos){
-    const libres = opciones.filter(o => !yaUsados.has(o.toLowerCase()));
-    if(!libres.length) continue;
-    if(grupos.length > 1) html += `<div class="grupo-titulo">${nombreGrupo}</div>`;
-    html += `<div class="chips">` + libres.map(o =>
-      `<button class="chip" onclick="usarSugerencia(${JSON.stringify(o).replace(/"/g,'&quot;')})">
-         ${emojiDe(o)}${o}</button>`).join('') + `</div>`;
+
+  if(mias.length){
+    html += `<div class="grupo-titulo">Lo que anotas y aún no tiene detalle</div>`;
+    html += `<div class="chips">` + mias.map(o =>
+      `<button class="chip" onclick="usarSugerencia(${JSON.stringify(o.nombre).replace(/"/g,'&quot;')})">
+         ${emojiDe(o.nombre)}${o.nombre}<i class="veces">${o.veces}</i></button>`).join('') + `</div>`;
+  }else{
+    // Sin grupo conocido, o si pidió verlas todas, se muestra la lista completa
+    const grupos = (!grupo || mostrandoTodas)
+      ? Object.entries(SUGERENCIAS)
+      : [[grupo, SUGERENCIAS[grupo]]];
+
+    for(const [nombreGrupo, opciones] of grupos){
+      const libres = opciones.filter(o => !yaUsados.has(o.toLowerCase()));
+      if(!libres.length) continue;
+      if(grupos.length > 1) html += `<div class="grupo-titulo">${nombreGrupo}</div>`;
+      html += `<div class="chips">` + libres.map(o =>
+        `<button class="chip" onclick="usarSugerencia(${JSON.stringify(o).replace(/"/g,'&quot;')})">
+           ${emojiDe(o)}${o}</button>`).join('') + `</div>`;
+    }
+    if(!html) html = `<p style="font-size:13px;color:var(--suave)">Ya usaste todas las de esta lista.</p>`;
   }
-  if(!html) html = `<p style="font-size:13px;color:var(--suave)">Ya usaste todas las de esta lista.</p>`;
 
   // "Otro" siempre disponible, para lo que no esté en la lista
   html += `<div class="chips" style="margin-top:10px">
@@ -4570,7 +4666,9 @@ function pintarSugerencias(catId){
            </div>`;
 
   document.getElementById('sugerencias').innerHTML = html;
-  document.getElementById('btnVerTodas').classList.toggle('oculto', !grupo || mostrandoTodas);
+  // "Ver todas" lleva al catálogo completo, venga de donde venga la lista
+  document.getElementById('btnVerTodas').classList
+    .toggle('oculto', mostrandoTodas || (!mias.length && !grupo));
 }
 
 function verTodasSugerencias(){
