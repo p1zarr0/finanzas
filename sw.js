@@ -10,7 +10,7 @@
    Al publicar un cambio hay que subirle el número a CACHE. Eso obliga
    al teléfono a botar lo viejo y guardar lo nuevo. */
 
-const CACHE = 'finanzas-v37';
+const CACHE = 'finanzas-v38';
 
 // Rutas relativas: el sitio cuelga de un subdirectorio en GitHub Pages
 const ESENCIALES = [
@@ -19,6 +19,7 @@ const ESENCIALES = [
   './manifest.json',
   './icono-192.png',
   './icono-512.png',
+  './icono-maskable-512.png',
   './lib/tesseract.min.js',
   './lib/worker.min.js',
   './lib/tesseract-core-simd-lstm.wasm.js',
