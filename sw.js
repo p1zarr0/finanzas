@@ -10,7 +10,7 @@
    Al publicar un cambio hay que subirle el número a CACHE. Eso obliga
    al teléfono a botar lo viejo y guardar lo nuevo. */
 
-const CACHE = 'finanzas-v38';
+const CACHE = 'finanzas-v39';
 
 // Rutas relativas: el sitio cuelga de un subdirectorio en GitHub Pages
 const ESENCIALES = [
@@ -23,8 +23,19 @@ const ESENCIALES = [
   './lib/tesseract.min.js',
   './lib/worker.min.js',
   './lib/tesseract-core-simd-lstm.wasm.js',
-  './lib/tesseract-core-lstm.wasm.js',
   './lib/spa.traineddata.gz'
+
+  /* El motor de respaldo del escáner —lib/tesseract-core-lstm.wasm.js, el que
+     no usa SIMD— NO va en esta lista, y es a propósito.
+
+     Tesseract trae dos motores y abre uno solo: mira si el navegador entiende
+     las instrucciones SIMD y elige el rápido o el clásico. Cualquier teléfono
+     de los últimos años las entiende. Precargarlo eran 3,8 MB —más de un
+     tercio de todo lo que baja la app— para un archivo que nunca se abre.
+
+     No se pierde nada. El `fetch` de más abajo guarda lo que se pide en el
+     momento, así que en un aparato viejo que sí lo necesite se baja esa vez
+     y queda guardado igual que si hubiera venido por adelantado. */
   // datos-de-prueba.js NO va aquí a propósito: es una herramienta para
   // llenar la app desde la consola del computador y ver como se porta con
   // volumen. index.html no la carga. Si se guardara en el cache viajaria al
