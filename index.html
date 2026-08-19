@@ -3,14 +3,36 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#FAF7F5">
+<meta name="theme-color" content="#EAF1FB">
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="./icono-192.png">
 <title>Mis Finanzas</title>
 
-<!-- Aquí vivía un script que leía el tema guardado antes de que el navegador
-     pintara, para que la app no apareciera negra un instante. Ya no hace
-     falta: hay un solo tema y no existe el color equivocado que evitar. -->
+<!-- Este script corre ANTES de que el navegador pinte nada, y por eso está
+     aquí arriba y no junto al resto del código: si el tema se aplicara
+     después, la app se dibujaría un instante en claro y recién ahí se
+     pondría oscura. Ese fogonazo blanco en la cara, de noche, fue una de
+     las razones por las que el modo oscuro se sacó la vez anterior.
+
+     Lee el tema guardado directo de localStorage, sin esperar a que cargue
+     el resto de la app, y de paso deja la franja de estado del teléfono del
+     color correcto: sin esto quedaba clara sobre una app oscura.
+
+     Si algo falla —localStorage bloqueado, datos corruptos— no se hace
+     nada y la app abre en claro, que es el default. Abrir clara cuando
+     querías oscuro es una molestia; abrir negra sin haberlo pedido es un
+     susto, y ese es el error que hay que evitar. -->
+<script>
+  try{
+    var g = localStorage.getItem('misFinanzas_v1');
+    var t = g ? (JSON.parse(g).tema || 'claro') : 'claro';
+    if(t === 'oscuro'){
+      document.documentElement.dataset.tema = 'oscuro';
+      var m = document.querySelector('meta[name="theme-color"]');
+      if(m) m.content = '#12161C';
+    }
+  }catch(e){ /* pase lo que pase, se abre en claro */ }
+</script>
 
 <style>
 /* ============================================================
@@ -20,19 +42,19 @@
    ============================================================ */
 :root{
   /* --- Superficies, de atrás hacia adelante --- */
-  --fondo:#FAF7F5;        /* blanco cálido, no blanco puro: cansa menos la vista */
+  --fondo:#EAF1FB;        /* celeste claro, a juego con el ícono de la montaña */
   --tarjeta:#FFFFFF;
-  --hundido:#F4EFEB;      /* lo que va DENTRO de una tarjeta y debe verse metido */
-  --linea:#EDE7E3;
-  --borde:#E1D9D3;        /* la misma línea, para cuando de verdad tiene que verse */
+  --hundido:#DFE9F7;      /* lo que va DENTRO de una tarjeta y debe verse metido */
+  --linea:#D7E3F4;
+  --borde:#C6D7EE;        /* la misma línea, para cuando de verdad tiene que verse */
 
   /* --- Texto, de más a menos importante ---
      "medio" es nuevo. Antes se saltaba del casi-negro al gris claro, así que
      todo lo secundario —subtítulos, fechas, ayudas— caía en el mismo gris
      apagado y no se distinguía lo importante de la letra chica. */
-  --texto:#2E2A28;
-  --medio:#6E645F;
-  --suave:#9A918C;
+  --texto:#25292F;
+  --medio:#5C646E;
+  --suave:#89929D;
 
   /* --- Los tres colores de la app ---
      Cada uno tiene ahora una versión "tenue" para pintar fondos —etiquetas,
@@ -52,18 +74,45 @@
      Hoy es el mismo casi-negro del texto, que es lo que ya tenía la app.
      Está separado a propósito: cambiando estas dos líneas cambian de color
      TODAS las pestañas, chips marcados, interruptores y botones de una vez. */
-  --acento:#2E2A28;
-  --acento-texto:#FAF7F5;   /* lo que va encima del acento */
+  --acento:#25292F;
+  --acento-texto:#EAF1FB;   /* lo que va encima del acento */
 
-  --sombra:0 1px 2px rgba(46,42,40,.05), 0 8px 24px rgba(46,42,40,.045);
-  --sombra-alta:0 2px 6px rgba(46,42,40,.07), 0 18px 44px rgba(46,42,40,.09);
+  --sombra:0 1px 2px rgba(37,41,47,.05), 0 8px 24px rgba(37,41,47,.045);
+  --sombra-alta:0 2px 6px rgba(37,41,47,.07), 0 18px 44px rgba(37,41,47,.09);
 }
 
-/* La app tiene un solo tema, el claro. Hubo un modo oscuro con su propia
-   copia de todos los colores de arriba y un botón para cambiarlo; se sacó
-   porque no se usaba y era el origen de que la app apareciera negra sin que
-   nadie se lo pidiera. Si algún día se quiere de vuelta, está en el
-   historial: `git log --oneline -- index.html` y buscar "solo claro". */
+/* ============================================================
+   MODO OSCURO
+   La misma lista de arriba, con otros valores. Se enciende poniéndole
+   data-tema="oscuro" al <html>; lo hace aplicarTema(), y el script del
+   <head> lo deja puesto ANTES de que se dibuje nada, que es lo que evita
+   el fogonazo blanco al abrir la app de noche.
+
+   Es un azul oscuro, no un gris ni un negro: la app es celeste, y un
+   oscuro cálido —el que tenía la versión anterior de este bloque, hecha
+   cuando el fondo era crema— se veía sucio al lado de los mismos azules.
+
+   Los tres colores de la app suben de luminosidad en vez de mantenerse:
+   un #C0737D pensado para fondo claro, sobre casi negro, queda apagado y
+   sin fuerza. Los tenues bajan por el mismo motivo, al revés.
+   ============================================================ */
+:root[data-tema="oscuro"]{
+  --fondo:#12161C;      --tarjeta:#1A1F27;  --hundido:#161B22;
+  --linea:#262C36;      --borde:#343B47;
+
+  --texto:#E8EDF5;      --medio:#A6AFBD;    --suave:#7E8796;
+
+  --gasto:#E0959D;      --gasto-tenue:#2E2027;
+  --ingreso:#9DC0A1;    --ingreso-tenue:#1C2721;
+  --ahorroC:#93C0D9;    --ahorro-tenue:#16232E;
+
+  --acento:#E8EDF5;     --acento-texto:#12161C;
+
+  /* En oscuro una sombra no se ve: lo que separa una tarjeta del fondo es
+     un borde apenas más claro. Por eso el primer valor es un contorno. */
+  --sombra:0 0 0 1px rgba(255,255,255,.045), 0 8px 24px rgba(0,0,0,.35);
+  --sombra-alta:0 0 0 1px rgba(255,255,255,.06), 0 20px 48px rgba(0,0,0,.5);
+}
 
 /* ============================================================
    ESCALA TIPOGRÁFICA
@@ -386,8 +435,10 @@ h2.seccion{font-size:19px;margin-bottom:16px}
 /* ---------- Barra de secciones, fija arriba ----------
    Los cuatro nombres no caben en un teléfono angosto, así que la fila
    se desliza y la pestaña activa siempre se trae a la vista. */
-/* Dos renglones: arriba el 🌗 y el ⚙ a la derecha, y debajo los nombres
-   de las secciones, que se deslizan porque no caben los cuatro. */
+/* Un solo renglón: los nombres de las secciones, que se deslizan porque no
+   caben todos. Hubo un ⚙ arriba a la derecha que abría Configuración, lo
+   mismo que hace su pestaña: dos puertas a la misma pieza, y una de ellas
+   sin nombre. Se fue el 19 de agosto de 2026. */
 .barra-arriba{
   position:fixed;top:0;left:0;right:0;z-index:40;
   background:var(--fondo);border-bottom:1px solid var(--linea);
@@ -395,7 +446,6 @@ h2.seccion{font-size:19px;margin-bottom:16px}
   display:flex;flex-direction:column;gap:6px;
   max-width:520px;margin:0 auto
 }
-.barra-arriba .acciones{align-self:flex-end}
 .pestanas{
   display:flex;gap:6px;align-items:center;
   overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch
@@ -483,9 +533,9 @@ h2.seccion{font-size:19px;margin-bottom:16px}
   display:flex;align-items:center;gap:7px;font-family:inherit
 }
 /* Texto oscuro sobre el color pastel: se lee mejor que blanco */
-.chip.activo{border-color:transparent;color:#2E2A28;font-weight:500}
+.chip.activo{border-color:transparent;color:var(--texto);font-weight:500}
 .chip .punto{width:8px;height:8px;flex:0 0 8px}
-.chip.activo .punto{background:rgba(46,42,40,.4)!important}
+.chip.activo .punto{background:rgba(37,41,47,.4)!important}
 /* Chip elegido que no tiene color propio (las cuotas, por ejemplo) */
 .chip.marcado{background:var(--acento);color:var(--acento-texto);border-color:transparent;font-weight:500}
 /* Chip de agregar: punteado para que se lea como "crear", no como una opción */
@@ -557,9 +607,6 @@ input[type=date],input[type=text],input[type=number],select{
 
 <!-- ===================== BARRA DE SECCIONES (fija arriba) ===================== -->
 <nav class="barra-arriba" id="barraArriba">
-  <div class="acciones">
-    <button onclick="irA('ajustes')" aria-label="Ajustes">⚙</button>
-  </div>
   <div class="pestanas" id="pestanas">
     <button id="tab-movimientos" class="activo" onclick="irA('movimientos')">Movimientos</button>
     <button id="tab-analisis" onclick="irA('analisis')">Análisis</button>
@@ -726,6 +773,16 @@ input[type=date],input[type=text],input[type=number],select{
          automáticamente", y se cambian o se apagan tocando ese mismo
          movimiento. Tenerlo en dos partes obligaba a escribir lo mismo dos
          veces y a recordar cuál de las dos mandaba. -->
+
+    <div class="tarjeta" style="margin-top:22px">
+      <h2 class="seccion titulo">Apariencia</h2>
+      <div class="fila-toggle">
+        <span class="nom">Modo oscuro</span>
+        <label class="switch">
+          <input type="checkbox" id="tgOscuro" onchange="cambiarTema()"><i></i>
+        </label>
+      </div>
+    </div>
 
     <div class="tarjeta" style="margin-top:22px">
       <h2 class="seccion titulo">Datos</h2>
@@ -985,7 +1042,7 @@ input[type=date],input[type=text],input[type=number],select{
     </label>
   </div>
   <button class="btn-principal" id="btnConfirmarSi" onclick="ejecutarConfirmado()">Aceptar</button>
-  <button class="btn-texto" onclick="cerrarHojas()">Cancelar</button>
+  <button class="btn-texto" id="btnConfirmarNo" onclick="ejecutarRechazado()">Cancelar</button>
 </div>
 
 <!-- ===================== HOJA: AÑO NUEVO =====================
@@ -1195,8 +1252,11 @@ let estado = {
   // {id, nombre, monto, dia, tipo:'ingreso'|'gasto'|'ahorro', catId, subId,
   //  activo:true, frecuencia:'mensual'|'anual', mes, ultimoRegistrado:'2026-08'}
   fijos: [],
-  // Aquí había un campo "tema". La app tiene un solo tema, el claro, así que
-  // no hay nada que guardar: la migración 18 lo borra de los datos viejos.
+  /* 'claro' u 'oscuro'. Vuelve a existir el 19 de agosto de 2026, pedido por
+     él; la migración 18 lo había borrado cuando la app quedó de un solo tema.
+     No hay migración nueva: los datos guardados sin este campo se leen igual,
+     y aplicarTema() trata la ausencia como 'claro'. */
+  tema: 'claro',
   // Al subir una migración hay que subir este número también, o una
   // instalación nueva nace "atrasada" y corre migraciones que no necesita.
   version: 20
@@ -2198,6 +2258,37 @@ function fijoEquivalente(mov, frec){
     (mov.subId ? f.subId === mov.subId : !f.subId && f.nombre === nombre));
 }
 
+/* --- El programado que este pago viene a confirmar ---
+
+   La app anota los fijos por adelantado: el 1 de agosto ya está escrito el
+   Netflix del día 5, en gris, como "Programado". Si después anotas ese mismo
+   pago —a mano o escaneando la boleta— quedaban los DOS, y el total del mes
+   salía inflado.
+
+   Un pago que llega no compite con el programado: es la prueba de que ese
+   cobro de verdad ocurrió, y por cuánto. Así que en vez de anotar uno nuevo,
+   se busca el que ya estaba para confirmarlo.
+
+   No se compara ni el monto ni la fecha a propósito. Que el monto sea
+   distinto es justamente el motivo de emparejar —tu app decía $9.990 y el
+   cobro vino $12.990— y la fecha del programado es la configurada, no la
+   real. Los dos valores se le muestran a él en la pregunta, que decide.
+
+   La marca "confirmado" es lo que evita confirmarlo dos veces. Sin ella no
+   habría forma de distinguir un programado intacto de uno que ya se dio por
+   ocurrido, porque el monto pudo quedar igual. */
+function fijoProgramadoQueCalza(mov){
+  const fijo = fijoEquivalente(mov);
+  if(!fijo) return null;
+
+  const mes = mov.fecha.slice(0, 7);
+  return estado.movimientos.find(m =>
+    m.id !== mov.id &&
+    m.fijoId === fijo.id &&
+    m.fecha.slice(0, 7) === mes &&
+    !m.confirmado) || null;
+}
+
 /* Marca en la ficha que el mes de este movimiento ya quedó anotado, para que
    revisarFijos no lo anote de nuevo. Se guarda el más nuevo de los dos, para
    no soltar un mes que ya estaba cubierto. */
@@ -3069,13 +3160,20 @@ function pintarMovimientos(){
    alert() al guardar.
 
    Se usa así:
-     preguntar({titulo, detalle, ok, extra, onSi})
+     preguntar({titulo, detalle, ok, extra, onSi, no, onNo})
    donde "extra" es un interruptor opcional {texto, encendido} para la
    decisión secundaria —borrar también las otras cuotas, por ejemplo— y
-   "onSi" recibe si ese interruptor quedó encendido. */
-let accionConfirmada = null;
+   "onSi" recibe si ese interruptor quedó encendido.
 
-function preguntar({titulo, detalle, ok, extra, onSi}){
+   "no" y "onNo" son opcionales y sirven cuando las DOS respuestas hacen algo,
+   no cuando la segunda es simplemente arrepentirse. El caso que los pidió:
+   al emparejar un pago con su fijo, "no" significa "anótalo aparte", que es
+   una acción tan real como la otra. Sin ellos, el botón sigue diciendo
+   "Cancelar" y sigue sin hacer nada, igual que siempre. */
+let accionConfirmada = null;
+let accionRechazada  = null;
+
+function preguntar({titulo, detalle, ok, extra, onSi, no, onNo}){
   document.getElementById('confirmarTitulo').textContent = titulo;
   const det = document.getElementById('confirmarDetalle');
   det.innerHTML = detalle || '';
@@ -3088,16 +3186,25 @@ function preguntar({titulo, detalle, ok, extra, onSi}){
   if(extra) document.getElementById('confirmarExtraNom').textContent = extra.texto;
 
   document.getElementById('btnConfirmarSi').textContent = ok || 'Aceptar';
+  document.getElementById('btnConfirmarNo').textContent = no || 'Cancelar';
   accionConfirmada = onSi;
+  accionRechazada  = onNo || null;
   abrirHoja('hojaConfirmar');
 }
 
 function ejecutarConfirmado(){
   const fn = accionConfirmada;
   const extra = document.getElementById('tgConfirmarExtra').checked;
-  accionConfirmada = null;
+  accionConfirmada = null; accionRechazada = null;
   cerrarHojas();
   if(fn) fn(extra);
+}
+
+function ejecutarRechazado(){
+  const fn = accionRechazada;
+  accionConfirmada = null; accionRechazada = null;
+  cerrarHojas();
+  if(fn) fn();
 }
 
 /* Borrar un movimiento. Es una sola pregunta y no tres: lo secundario va en
@@ -3163,12 +3270,25 @@ function abrirHoja(id){
   hoja.classList.add('visible');
 }
 function cerrarHojas(){
+  /* Cerrar tocando el fondo cuenta como el "no" de la pregunta que estuviera
+     abierta. Sin esto, al emparejar un pago y tocar fuera en vez de elegir un
+     botón, el movimiento recién escrito se perdía sin dejar rastro: la hoja
+     de la pregunta y la del movimiento se cierran juntas, así que tampoco
+     había a dónde volver. Que se anote aparte —lo mismo que hacía la app
+     antes de que existiera el emparejamiento— es preferible a perderlo.
+     Solo hay algo pendiente cuando la pregunta traía "onNo"; el resto de las
+     veces esto no hace nada. */
+  const pendiente = accionRechazada;
+  accionConfirmada = null; accionRechazada = null;
+
   document.getElementById('fondoModal').classList.remove('visible');
   document.querySelectorAll('.hoja').forEach(h => {
     h.classList.remove('visible');
     h.style.zIndex = '';
   });
   pisoHoja = Z_HOJA;
+
+  if(pendiente) pendiente();
 }
 
 function abrirMovimiento(){
@@ -3940,37 +4060,114 @@ function guardarMovimiento(){
     if(!fechaTocadaAMano) datos.fecha = fechaConDiaRepetir(datos.fecha, dia);
 
     const mov = {id: nuevoId(), ...datos};
-    // Los gastos de Recordatorios entran por su propia puerta. El sueldo y el
-    // ahorro pasan por aquí, y también se busca la ficha antes de crearla:
-    // dos "Sueldo" configurados lo anotarían dos veces todos los meses.
-    if(!sincronizarRecordatorio(mov, frecuenciaMov, dia)){
-      const fijo = fijoEquivalente(mov, frecuenciaMov) ||
-                   crearFijoDesdeMovimiento(datos, frecuenciaMov, dia);
-      mov.fijoId = fijo.id;
-      marcarMesAnotado(fijo, mov);
-    }
-    estado.movimientos.push(mov);
-    avisar(frecuenciaMov === 'anual' ? 'Se repetirá cada año' : 'Se repetirá cada mes');
+
+    /* Lo que sigue —anotar la ficha y el movimiento— es lo que hay que hacer
+       si este NO es el pago que ya estaba programado. Va en una función
+       aparte porque el emparejamiento la necesita como su respuesta "no", y
+       hasta que contestes no se puede anotar nada. */
+    const anotarAparte = () => {
+      // Los gastos de Recordatorios entran por su propia puerta. El sueldo y el
+      // ahorro pasan por aquí, y también se busca la ficha antes de crearla:
+      // dos "Sueldo" configurados lo anotarían dos veces todos los meses.
+      if(!sincronizarRecordatorio(mov, frecuenciaMov, dia)){
+        const fijo = fijoEquivalente(mov, frecuenciaMov) ||
+                     crearFijoDesdeMovimiento(datos, frecuenciaMov, dia);
+        mov.fijoId = fijo.id;
+        marcarMesAnotado(fijo, mov);
+      }
+      estado.movimientos.push(mov);
+      avisar(frecuenciaMov === 'anual' ? 'Se repetirá cada año' : 'Se repetirá cada mes');
+    };
+
+    /* También acá se pregunta, y no solo en el caso simple de más abajo.
+       Pasa cuando vuelves a anotar algo que YA tenías configurado —el sueldo,
+       por ejemplo— con el interruptor prendido: la ficha ya existe, así que
+       "repetir" no agrega nada, pero el movimiento programado de este mes
+       seguía ahí y te quedaban dos. */
+    const programado = fijoProgramadoQueCalza(mov);
+    if(programado){ preguntarSiEsElMismo(programado, mov, anotarAparte); return; }
+
+    anotarAparte();
   }else{
     const mov = {id: nuevoId(), ...datos};
-    // Gastos fijos, Hogar y Suscripciones entran solos a Recordatorios
-    const r = sincronizarRecordatorio(mov);
-    estado.movimientos.push(mov);
-    if(r && r.creado) avisar(`“${r.fijo.nombre}” quedó en tus pagos de cada mes`);
+
+    const anotarAparte = () => {
+      // Gastos fijos, Hogar y Suscripciones entran solos a Recordatorios
+      const r = sincronizarRecordatorio(mov);
+      estado.movimientos.push(mov);
+      if(r && r.creado) avisar(`“${r.fijo.nombre}” quedó en tus pagos de cada mes`);
+    };
+
+    /* ¿Este pago ya estaba escrito como "Programado"? Entonces no se anota
+       uno nuevo: se pregunta si es el mismo y se termina de guardar cuando
+       conteste. Por eso el return: hasta entonces no hay que cerrar nada. */
+    const programado = fijoProgramadoQueCalza(mov);
+    if(programado){ preguntarSiEsElMismo(programado, mov, anotarAparte); return; }
+
+    anotarAparte();
   }
+  terminarDeGuardar(datos.fecha);
+}
+
+/* La segunda mitad de guardar. Vive aparte porque el emparejamiento la
+   necesita DESPUÉS de una pregunta: mientras la pregunta está en pantalla no
+   hay que cerrar ni repintar nada todavía.
+
+   "yaCerrado" es para ese caso: la hoja de la pregunta se cierra sola al
+   apretar cualquiera de sus dos botones, así que volver a cerrarla sobra. */
+function terminarDeGuardar(fecha, yaCerrado){
   guardar();
 
   // Cerrar va primero. Antes era lo último, después de repintar media app: si
   // algo fallaba en el camino, el movimiento quedaba guardado pero la hoja se
   // quedaba abierta encima, como si el botón no hubiera hecho nada.
-  cerrarHojas();
+  if(!yaCerrado) cerrarHojas();
 
   // Si guardaste algo de otro mes, saltamos a ese mes para que lo veas, y se
   // abre el rango al mes entero: sería raro guardar algo y que no aparezca.
-  const [a,m] = datos.fecha.split('-').map(Number);
+  const [a,m] = fecha.split('-').map(Number);
   mesVista = new Date(a, m-1, 1);
   rangoMesCompleto();
   pintarTodo();
+}
+
+/* Las dos salidas son acciones de verdad, por eso el segundo botón dice algo
+   y no "Cancelar": una anota el pago sobre el que ya estaba, la otra lo anota
+   aparte, que es lo que hacía la app antes de que esto existiera. */
+function preguntarSiEsElMismo(programado, mov, anotarAparte){
+  const fijo   = estado.fijos.find(f => f.id === programado.fijoId);
+  const nombre = (fijo && fijo.nombre) || nombreDeFijo(programado);
+
+  preguntar({
+    titulo: `¿Es el pago de ${nombre} de este mes?`,
+    detalle: `Ya lo tienes anotado por <b>${pesos(programado.monto)}</b> el
+              ${fechaLegible(programado.fecha)}. Puedo dejar ese mismo en
+              <b>${pesos(mov.monto)}</b> y darlo por pagado, en vez de que te
+              queden dos.`,
+    ok: 'Sí, es este pago',
+    no: 'No, anótalo aparte',
+
+    onSi: () => {
+      /* Se corrige SOLO el movimiento de este mes. La ficha de Recordatorios
+         no se toca: que este mes llegara más caro no significa que el cobro
+         cambió para siempre, y cambiarlo solo inflaría los meses que vienen
+         sin que nadie se entere. */
+      programado.monto = mov.monto;
+      programado.fecha = mov.fecha;
+      if(mov.nota) programado.nota = mov.nota;
+      programado.confirmado = true;
+      avisar(`${nombre} quedó pagado`);
+      terminarDeGuardar(mov.fecha, true);
+    },
+
+    onNo: () => {
+      /* "Aparte" no significa lo mismo en las dos puertas por las que se
+         llega —con "Repetir" prendido hay que crear o buscar la ficha— así
+         que cada una manda su propia forma de anotarlo. */
+      anotarAparte();
+      terminarDeGuardar(mov.fecha, true);
+    }
+  });
 }
 
 /* ================================================================
@@ -4801,13 +4998,46 @@ function borrarSub(catId, subId){
 }
 
 /* ================================================================
-   8. AJUSTES: exportar, borrar
+   8. AJUSTES: apariencia, exportar, borrar
    ================================================================ */
 
-/* Aquí vivían TEMAS, aplicarTema() y ciclarTema(). La app tiene un solo
-   tema, así que no hay nada que aplicar ni que ciclar. La franja de estado
-   del teléfono se pinta con el <meta name="theme-color"> del <head>, que
-   ahora es un valor fijo y no lo toca nadie. */
+/* --- Modo oscuro ---
+   Un solo lugar decide todo lo que depende del tema, y son tres cosas:
+   el atributo del <html> —que activa el bloque de colores oscuros—, el
+   interruptor de Configuración, y el color de la franja de estado del
+   teléfono.
+
+   Ese último es fácil de olvidar y es lo que más se nota: sin actualizar
+   el <meta>, la franja de arriba quedaba clara sobre una app oscura, con
+   una línea blanca cruzando la pantalla. Fue una de las tres fallas que
+   hicieron que este modo se sacara la vez anterior.
+
+   El color del <meta> se toma del CSS de verdad, no de una copia escrita
+   a mano: así, el día que cambies --fondo, la franja lo sigue sola y no
+   hay dos sitios que puedan quedar diciendo cosas distintas. */
+function aplicarTema(valor){
+  const oscuro = valor === 'oscuro';
+  estado.tema = oscuro ? 'oscuro' : 'claro';
+
+  if(oscuro) document.documentElement.dataset.tema = 'oscuro';
+  else       delete document.documentElement.dataset.tema;
+
+  const tg = document.getElementById('tgOscuro');
+  if(tg) tg.checked = oscuro;
+
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if(meta){
+    const fondo = getComputedStyle(document.documentElement)
+                    .getPropertyValue('--fondo').trim();
+    if(fondo) meta.content = fondo;
+  }
+}
+
+// Lo que llama el interruptor. Guarda, porque es una preferencia tuya.
+function cambiarTema(){
+  aplicarTema(document.getElementById('tgOscuro').checked ? 'oscuro' : 'claro');
+  guardar();
+}
 
 let tiempoToast = null;
 function avisar(texto){
@@ -4861,6 +5091,11 @@ function borrarTodo(){
    ================================================================ */
 
 cargar();
+/* El tema va apenas se leen los datos. El script del <head> ya dejó el
+   atributo puesto para que no hubiera parpadeo; esto termina el trabajo:
+   deja el interruptor de Configuración en su posición y el <meta> con el
+   color definitivo. */
+aplicarTema(estado.tema);
 // Primero las fichas: lo anotado en Gastos fijos, Hogar y Suscripciones
 // entra a Recordatorios con su mes ya marcado, para no anotarlo dos veces
 sincronizarRecordatorios();

@@ -43,8 +43,30 @@ seguir usando la versión vieja de esos archivos.
 | `manifest.json` | Su ficha de identidad: nombre e íconos. Es lo que permite instalarla. |
 | `sw.js` | Lo que hace que abra sin internet. |
 | `icono-192.png`, `icono-512.png` | El ícono en la pantalla de inicio. |
+| `icono-maskable-512.png` | El mismo ícono con más aire alrededor, para Android. |
 | `lib/` | La librería que lee las boletas. Son 10 MB y no hay que tocarla. |
 | `.claude/servidor.ps1` | Servidor para probar en el computador antes de publicar. |
+
+### Los tres celestes
+
+Son parecidos pero distintos, y cada uno hace juego con lo que tiene al lado:
+
+- **`background_color` es `#C9DFFA`** (manifiesto) — el fondo de la pantalla de
+  arranque, la que aparece un segundo con el ícono en el medio. Es el celeste exacto
+  del ícono, para que el ícono no se vea como un recuadro pegado encima.
+- **`theme_color` es `#EAF1FB`** (manifiesto **y** el `<meta name="theme-color">` del
+  `<head>`) — la franja de estado del teléfono, arriba del todo. Va del color de la
+  app, que es lo que tiene pegado abajo. **Los dos tienen que decir lo mismo**: si
+  cambias uno sin el otro, queda una banda de otro color en el borde.
+- **`--fondo` es `#EAF1FB`** (los tokens de `index.html`) — el fondo de la app.
+
+La app era crema `#FAF7F5` hasta el 19 de agosto de 2026. Al pasarla a celeste hubo
+que mover también `--hundido`, `--linea`, `--borde` y los grises del texto: eran
+cálidos, salían del crema, y sobre un fondo frío se veían embarrados.
+
+Como `manifest.json` es JSON puro y no admite comentarios, la explicación vive aquí.
+
+
 
 ---
 
