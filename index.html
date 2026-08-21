@@ -4805,13 +4805,33 @@ function catDeTransferencias(){
          estado.categorias.find(c => c.tipo === 'gasto' && sinTildes(c.nombre) === 'transferencias');
 }
 
+/* El día en que ocurrió, en TU hora, no en la del meridiano de Greenwich.
+
+   El script manda el instante completo en hora universal —"2026-08-21T01:40:47Z"—
+   y antes yo sacaba el día cortando los primeros diez caracteres. Eso da
+   "2026-08-21", que en Chile es MAÑANA: son las 21:40 del 20.
+
+   El resultado era que toda compra hecha después de las 20:00 quedaba
+   fechada al día siguiente y la app la pintaba en gris como "Programado",
+   porque para ella todavía no había ocurrido. Y en fin de mes era peor: una
+   compra del 31 a las 21:00 se anotaba en el mes siguiente y desaparecía de
+   los totales del mes en que la hiciste.
+
+   Ahora se convierte a la hora del teléfono, igual que hace hoyISO(). */
+function diaLocalDe(iso){
+  const d = new Date(iso);
+  if(isNaN(d.getTime())) return hoyISO();
+  const dos = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${dos(d.getMonth() + 1)}-${dos(d.getDate())}`;
+}
+
 /* Prepara cada movimiento que llegó: le adivina la categoría con lo que ya
    sabe la app, y mira si viene a confirmar un pago que ya estaba anotado
    como "Programado". Las dos cosas se calculan ACÁ y no al guardar, para
    que lo que confirmas sea exactamente lo que se va a anotar. */
 function prepararLlegado(m){
   const tipo = m.tipo === 'ingreso' ? 'ingreso' : 'gasto';
-  const fecha = String(m.fecha || '').slice(0, 10) || hoyISO();
+  const fecha = m.fecha ? diaLocalDe(m.fecha) : hoyISO();
 
   /* Una transferencia que sale va derecho a su categoría: acá el texto es el
      nombre de una persona, y adivinar con eso da resultados absurdos —"Ema
