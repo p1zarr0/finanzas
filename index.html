@@ -435,8 +435,11 @@ h2.seccion{font-size:19px;margin-bottom:16px}
 /* ---------- Barra de secciones, fija arriba ----------
    Los cuatro nombres no caben en un teléfono angosto, así que la fila
    se desliza y la pestaña activa siempre se trae a la vista. */
-/* Dos renglones: arriba el ⚙ a la derecha, y debajo los nombres de las
-   secciones, que se deslizan porque no caben todos. */
+/* Un solo renglón: los nombres de las secciones, que se deslizan porque no
+   caben todos. Hubo un ⚙ arriba a la derecha que abría Configuración, lo
+   mismo que hace su pestaña; se fue el 20 de agosto de 2026. Para que la
+   última pestaña no quede escondida, el borde derecho se desvanece: eso
+   avisa que la fila sigue y se puede arrastrar. */
 .barra-arriba{
   position:fixed;top:0;left:0;right:0;z-index:40;
   background:var(--fondo);border-bottom:1px solid var(--linea);
@@ -444,12 +447,18 @@ h2.seccion{font-size:19px;margin-bottom:16px}
   display:flex;flex-direction:column;gap:6px;
   max-width:520px;margin:0 auto
 }
-.barra-arriba .acciones{align-self:flex-end}
 .pestanas{
   display:flex;gap:6px;align-items:center;
   overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch
 }
 .pestanas::-webkit-scrollbar{display:none}
+/* El desvanecido del borde derecho. Va sobre la barra, no dentro de la fila,
+   para que no se mueva cuando la fila se desliza. */
+.barra-arriba::after{
+  content:'';position:absolute;top:0;bottom:0;right:0;width:26px;
+  pointer-events:none;
+  background:linear-gradient(to left,var(--fondo),transparent)
+}
 .pestanas button{
   flex:0 0 auto;border:none;background:none;color:var(--suave);
   font-family:inherit;font-size:14px;cursor:pointer;
@@ -631,17 +640,6 @@ input[type=date],input[type=text],input[type=number],select{
 
 <!-- ===================== BARRA DE SECCIONES (fija arriba) ===================== -->
 <nav class="barra-arriba" id="barraArriba">
-  <!-- El ⚙ abre Configuración, lo mismo que su pestaña. Suena redundante y
-       por eso se sacó el 19 de agosto de 2026 — pero duró unas horas: la
-       pestaña es la ÚLTIMA de seis en una barra que en un teléfono de 375px
-       muestra tres, así que sin el ⚙ había que adivinar que la barra se
-       desliza para llegar a Configuración.
-
-       Eran redundantes en lo que hacen, no en cómo se llega. Este está
-       siempre a la vista; la pestaña, escondida al final. -->
-  <div class="acciones">
-    <button onclick="irA('ajustes')" aria-label="Configuración">⚙</button>
-  </div>
   <div class="pestanas" id="pestanas">
     <button id="tab-movimientos" class="activo" onclick="irA('movimientos')">Movimientos</button>
     <button id="tab-analisis" onclick="irA('analisis')">Análisis</button>
