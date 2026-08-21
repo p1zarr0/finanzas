@@ -310,26 +310,28 @@ function comercioDelCorreo(texto, esIngreso) {
 /* --- ¿Es un traspaso entre tus propias cuentas? ---
 
 /* Compara nombres como los escriben los bancos, que nunca es como los
-   escribes tú. En los correos de él aparecían así:
+   escribes tú. Un mismo nombre llegaba en tres formas distintas:
 
-     BancoEstado     "Miguel Munoz"             sin segundo nombre, sin ñ
-     Banco de Chile  "*Miguel Ignacio Muñoz*"   sin apellido, con asteriscos
-     CONFIG.YO       "Miguel Ignacio Muñoz Pizarro"
+     BancoEstado     "NOMBRE APELLIDO"                 sin segundo nombre, sin ñ
+     Banco de Chile  "*NOMBRE NOMBRE2 APELLIDO*"       sin el segundo apellido,
+                                                       y con asteriscos
+     CONFIG.YO       "NOMBRE NOMBRE2 APELLIDO APELLIDO2"
 
    Buscar la frase completa adentro no calzaba con ninguno. Por eso se
    compara por PARTES: se parten los dos nombres en palabras y basta con
    que coincidan dos —un nombre y un apellido— para darlo por tuyo.
 
-   Dos y no una a propósito: con una sola, cualquier "Miguel" o cualquier
-   "Pizarro" del mundo sería tuyo, y en estos mismos correos hay una
-   transferencia real a "Ema Pizarro" que NO hay que ignorar. */
+   Dos y no una a propósito: con una sola, cualquier "NOMBRE" o cualquier
+   "APELLIDO" del mundo sería tuyo, y entre estos correos hay una
+   transferencia real a "OTRO-NOMBRE APELLIDO" —un pariente, que comparte
+   el apellido pero no es uno— que NO hay que ignorar. */
 function sinTildes(t) {
   return (t || '').toLowerCase()
     .replace(/[áàäâ]/g, 'a').replace(/[éèëê]/g, 'e').replace(/[íìïî]/g, 'i')
     .replace(/[óòöô]/g, 'o').replace(/[úùüû]/g, 'u').replace(/ñ/g, 'n');
 }
 
-// Deja solo letras y números, para que "*Miguel*" y "Miguel" sean iguales
+// Deja solo letras y números, para que "*NOMBRE*" y "NOMBRE" sean iguales
 function enPalabras(t) {
   return sinTildes(t).replace(/[^a-z0-9]+/g, ' ').trim().split(' ');
 }
@@ -390,9 +392,9 @@ function interpretarCorreo(asunto, cuerpo) {
 
      Hizo falta porque el aviso de "Transferencia a Terceros" del Banco de
      Chile no usa las palabras "Hacia" ni "destinatario", que es donde
-     esTraspasoMio va a buscar. El nombre estaba bien sacado —salía "Miguel
-     Muñoz"— pero nadie lo comparaba, y esa transferencia se colaba como
-     gasto.
+     esTraspasoMio va a buscar. El nombre estaba bien sacado —salía
+     "NOMBRE APELLIDO"— pero nadie lo comparaba, y esa transferencia se
+     colaba como gasto.
 
      La segunda sigue estando para los correos donde no se logra extraer un
      nombre pero el asunto o la tabla igual te delatan. */

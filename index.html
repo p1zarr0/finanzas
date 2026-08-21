@@ -4834,9 +4834,9 @@ function prepararLlegado(m){
   const fecha = m.fecha ? diaLocalDe(m.fecha) : hoyISO();
 
   /* Una transferencia que sale va derecho a su categoría: acá el texto es el
-     nombre de una persona, y adivinar con eso da resultados absurdos —"Ema
-     Pizarro" no dice nada de en qué gastaste—. Con las compras es al revés:
-     el texto es el comercio y ahí el clasificador es bueno. */
+     nombre de una persona, y adivinar con eso da resultados absurdos —el
+     nombre de alguien no dice nada de en qué gastaste—. Con las compras es
+     al revés: el texto es el comercio y ahí el clasificador es bueno. */
   const esTransferencia = m.clase === 'transferencia' && tipo === 'gasto';
   const catTransf = esTransferencia ? catDeTransferencias() : null;
 
