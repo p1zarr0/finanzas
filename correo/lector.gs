@@ -355,14 +355,32 @@ function esTraspasoMio(asunto, texto, entra) {
 }
 
 /* Devuelve {monto, tipo, comercio} o null si el correo no sirve.
-   También devuelve null en los traspasos tuyos, a propósito. */
+   También devuelve {traspaso:true} en los traspasos tuyos, a propósito. */
 function interpretarCorreo(asunto, cuerpo) {
   const texto = (asunto + '\n' + cuerpo).replace(/\s+/g, ' ');
 
   if (loDescarta(texto)) return null;
   if (!ES_MOVIMIENTO.test(texto)) return null;
+
   const entra = laPlataEntra(texto);
-  if (esTraspasoMio(asunto, texto, entra)) return { traspaso: true };
+  const comercio = comercioDelCorreo(texto, entra);
+
+  /* Dos formas de reconocer un traspaso tuyo, y la primera es la buena:
+     si el nombre de la contraparte que ya se extrajo eres TÚ, es tuyo y
+     punto. No importa de qué parte del correo salió ni cómo lo rotule el
+     banco.
+
+     Hizo falta porque el aviso de "Transferencia a Terceros" del Banco de
+     Chile no usa las palabras "Hacia" ni "destinatario", que es donde
+     esTraspasoMio va a buscar. El nombre estaba bien sacado —salía "Miguel
+     Muñoz"— pero nadie lo comparaba, y esa transferencia se colaba como
+     gasto.
+
+     La segunda sigue estando para los correos donde no se logra extraer un
+     nombre pero el asunto o la tabla igual te delatan. */
+  if (contieneMiNombre(comercio) || esTraspasoMio(asunto, texto, entra)) {
+    return { traspaso: true };
+  }
 
   const monto = montoDelCorreo(texto);
   if (!monto) return null;
@@ -372,7 +390,7 @@ function interpretarCorreo(asunto, cuerpo) {
     tipo: entra ? 'ingreso' : 'gasto',
     // Sin nombre igual se manda: el monto y la fecha ya sirven, y en la app
     // le pones la categoría a mano. Peor sería perder el movimiento.
-    comercio: comercioDelCorreo(texto, entra) || (entra ? 'Abono' : 'Transferencia')
+    comercio: comercio || (entra ? 'Abono' : 'Transferencia')
   };
 }
 
