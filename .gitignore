@@ -8,3 +8,6 @@ $RECYCLE.BIN/
 # Archivos temporales de pruebas
 _prueba-*.html
 *.tmp
+
+# Mi lista de trabajo. No es del repo, es mia
+PENDIENTES.md
