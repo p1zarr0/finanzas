@@ -595,6 +595,31 @@ input[type=date],input[type=text],input[type=number],select{
 .fila-ajuste{display:flex;align-items:center;gap:10px;padding:13px 0;border-bottom:1px solid var(--linea);font-size:var(--t-md)}
 .fila-ajuste:last-child{border-bottom:none}
 .fila-ajuste .nom{flex:1}
+/* ---------- Lo que llegó del banco, esperando confirmación ----------
+   Se parece a una fila de movimiento pero no es una: todavía no existe.
+   Por eso lleva el tilde adelante y se apaga al descartarla, en vez de
+   desaparecer — si desapareciera, un toque sin querer no tendría vuelta. */
+.llegado{
+  display:flex;align-items:center;gap:11px;padding:12px 0;
+  border-bottom:1px solid var(--linea);cursor:pointer
+}
+.llegado:last-of-type{border-bottom:none}
+.llegado .tilde{
+  width:22px;height:22px;flex:0 0 22px;border-radius:7px;
+  border:1.5px solid var(--borde);
+  display:grid;place-items:center;font-style:normal;font-size:13px;
+  color:var(--acento-texto);background:transparent
+}
+.llegado:not(.fuera) .tilde{background:var(--acento);border-color:var(--acento)}
+.llegado .que{flex:1;min-width:0}
+.llegado .que .nom{display:block;font-size:15px;font-weight:500}
+.llegado .que .donde{display:block;color:var(--medio);font-size:12px}
+.llegado .cuanto{text-align:right;white-space:nowrap}
+.llegado .cuanto b{display:block;font-size:15px;font-weight:var(--peso-monto)}
+.llegado .cuanto .cuando{color:var(--suave);font-size:11px}
+/* Descartada: se ve, pero se nota que no va a entrar */
+.llegado.fuera{opacity:.42}
+.llegado.fuera .cuanto b{text-decoration:line-through}
 .mini{border:none;background:none;color:var(--suave);font-size:16px;cursor:pointer;padding:4px 8px}
 /* "Ocultar" en la cabecera de un cuadro: discreto, del tamaño del filtro */
 .cab-tarjeta .mini{font-size:12px;font-family:inherit;margin-bottom:16px;padding:5px 9px}
@@ -781,6 +806,16 @@ input[type=date],input[type=text],input[type=number],select{
         <label class="switch">
           <input type="checkbox" id="tgOscuro" onchange="cambiarTema()"><i></i>
         </label>
+      </div>
+    </div>
+
+    <!-- Lo único de la app que habla con internet. Si no lo conectas, no
+         existe: ni se ejecuta ni pide nada. -->
+    <div class="tarjeta" style="margin-top:22px">
+      <h2 class="seccion titulo">Movimientos del banco</h2>
+      <div class="fila-ajuste" onclick="abrirCorreo()" style="cursor:pointer">
+        <span class="nom" id="estadoCorreo">No conectado</span>
+        <button class="mini">›</button>
       </div>
     </div>
 
@@ -1043,6 +1078,42 @@ input[type=date],input[type=text],input[type=number],select{
   </div>
   <button class="btn-principal" id="btnConfirmarSi" onclick="ejecutarConfirmado()">Aceptar</button>
   <button class="btn-texto" id="btnConfirmarNo" onclick="ejecutarRechazado()">Cancelar</button>
+</div>
+<!-- ===================== HOJA: CONECTAR EL BANCO ===================== -->
+<div class="hoja" id="hojaCorreo">
+  <div class="asa"></div>
+  <h2 class="seccion titulo" style="text-align:center;margin-bottom:6px">Movimientos del banco</h2>
+  <p class="ayuda" style="text-align:center;margin:0 0 18px">
+    Pega la dirección que te dio Google Apps Script. Lleva tu clave adentro,
+    así que trátala como una contraseña.
+  </p>
+
+  <div class="campo">
+    <label>Dirección</label>
+    <input type="text" id="inpCorreo" placeholder="https://script.google.com/…/exec?k=…">
+  </div>
+
+  <p class="ayuda" id="avisoCorreo" style="margin:0 0 14px;min-height:18px"></p>
+
+  <button class="btn-principal" onclick="guardarCorreo()">Guardar y probar</button>
+  <button class="btn-texto" onclick="olvidarCorreo()">Desconectar</button>
+</div>
+
+<!-- ===================== HOJA: LO QUE LLEGÓ =====================
+     Nada entra solo. Acá se muestra lo que trajo el correo con la categoría
+     ya adivinada, y solo se anota lo que dejes marcado. Es la última puerta
+     antes de que algo toque tus finanzas. -->
+<div class="hoja" id="hojaLlegaron">
+  <div class="asa"></div>
+  <h2 class="seccion titulo" style="text-align:center;margin-bottom:6px" id="tituloLlegaron">Llegaron movimientos</h2>
+  <p class="ayuda" style="text-align:center;margin:0 0 16px">
+    Toca uno para no anotarlo. Después de esto no se vuelven a preguntar.
+  </p>
+
+  <div id="listaLlegaron"></div>
+
+  <button class="btn-principal" id="btnAnotarLlegados" onclick="anotarLlegados()">Anotar</button>
+  <button class="btn-texto" onclick="cerrarHojas()">Ahora no</button>
 </div>
 
 <!-- ===================== HOJA: AÑO NUEVO =====================
@@ -4577,6 +4648,238 @@ function avisoOCR(html){
   }
   el.innerHTML = html;
 }
+/* ================================================================
+   6c. MOVIMIENTOS QUE LLEGAN DEL BANCO
+
+   Es lo único de la app que habla con internet, y conviene tener claro en
+   qué dirección va el tráfico: la app le PIDE movimientos a tu script de
+   Google y le avisa cuáles ya se llevó. Nunca le manda tus datos. Tu
+   historial, tus categorías, tus totales y tus ahorros no salen del
+   teléfono, igual que siempre.
+
+   Del otro lado, en tu propia cuenta de Google (ver correo/lector.gs), no
+   hay nada guardado: el script lee tu Gmail en el momento en que se lo
+   preguntas y contesta con lo que encontró.
+
+   Nada entra solo. Lo que llega se muestra en una lista para que lo
+   confirmes, y solo lo que dejes marcado se anota. Es a propósito: si un
+   día el banco cambia la redacción de sus correos y el lector entiende
+   mal, vas a ver el disparate antes de que toque tus finanzas, no después.
+
+   Si no configuras la dirección, nada de esta sección se ejecuta y la app
+   sigue siendo exactamente lo que era: cien por ciento local.
+   ================================================================ */
+
+const correoConfigurado = () => !!(estado.correo && estado.correo.url);
+
+/* La dirección ya viene con la clave pegada (…/exec?k=…), así que para
+   agregarle algo hay que mirar si ya trae un "?" o no. */
+function urlCorreo(extra){
+  const base = estado.correo.url;
+  if(!extra) return base;
+  return base + (base.indexOf('?') === -1 ? '?' : '&') + extra;
+}
+
+async function pedirAlCorreo(extra){
+  const r = await fetch(urlCorreo(extra));
+  if(!r.ok) throw new Error('contestó ' + r.status);
+  const datos = await r.json();
+  // El script contesta 200 igual cuando la clave está mala: el error viene
+  // adentro del JSON, así que hay que mirarlo a mano.
+  if(datos.error) throw new Error(datos.error);
+  return datos;
+}
+
+/* --- Conectarlo --- */
+
+function pintarEstadoCorreo(){
+  const el = document.getElementById('estadoCorreo');
+  if(el) el.textContent = correoConfigurado() ? 'Conectado' : 'No conectado';
+}
+
+function abrirCorreo(){
+  document.getElementById('inpCorreo').value = (estado.correo && estado.correo.url) || '';
+  document.getElementById('avisoCorreo').textContent = '';
+  abrirHoja('hojaCorreo');
+}
+
+async function guardarCorreo(){
+  const escrito = document.getElementById('inpCorreo').value.trim();
+  const aviso = document.getElementById('avisoCorreo');
+
+  if(!escrito){ aviso.textContent = 'Pega la dirección primero.'; return; }
+
+  // Sin https la clave viaja a la vista de cualquiera en la misma red
+  let url;
+  try{ url = new URL(escrito); }
+  catch(e){ aviso.textContent = 'Esa no es una dirección válida.'; return; }
+  if(url.protocol !== 'https:'){
+    aviso.textContent = 'La dirección tiene que empezar con https.'; return;
+  }
+
+  estado.correo = {url: escrito};
+  guardar();
+  pintarEstadoCorreo();
+
+  aviso.textContent = 'Probando…';
+  try{
+    const movs = (await pedirAlCorreo()).movimientos || [];
+    if(movs.length){ mostrarLlegados(movs); avisar('Conectado'); }
+    else aviso.textContent = 'Conectado. No hay nada esperando.';
+  }catch(e){
+    aviso.textContent = 'No pude conectarme: ' + e.message;
+  }
+}
+
+function olvidarCorreo(){
+  if(!correoConfigurado()){ cerrarHojas(); return; }
+  preguntar({
+    titulo: '¿Desconectar el banco?',
+    detalle: 'La app deja de revisar tus correos y vuelve a no hablar con internet. Lo que ya anotaste se queda donde está.',
+    ok: 'Desconectar',
+    onSi: () => {
+      delete estado.correo;
+      guardar(); pintarEstadoCorreo();
+      avisar('Banco desconectado');
+    }
+  });
+}
+
+/* --- Revisar antes de anotar --- */
+
+let llegados = [];
+
+/* Prepara cada movimiento que llegó: le adivina la categoría con lo que ya
+   sabe la app, y mira si viene a confirmar un pago que ya estaba anotado
+   como "Programado". Las dos cosas se calculan ACÁ y no al guardar, para
+   que lo que confirmas sea exactamente lo que se va a anotar. */
+function prepararLlegado(m){
+  const tipo = m.tipo === 'ingreso' ? 'ingreso' : 'gasto';
+  const fecha = String(m.fecha || '').slice(0, 10) || hoyISO();
+  const adivinado = adivinarCategoria(m.texto || '', tipo);
+
+  // Sin categoría adivinada cae en la primera de su tipo: un movimiento sin
+  // categoría no se dibuja en ninguna parte y sería peor que uno mal puesto.
+  const cat = (adivinado && buscarCat(adivinado.catId))
+    ? adivinado.catId
+    : (estado.categorias.find(c => c.tipo === tipo) || {}).id;
+
+  const candidato = {id: '', monto: m.monto, tipo, catId: cat,
+                     subId: adivinado ? adivinado.subId : null, fecha};
+
+  return {
+    id: m.id, monto: m.monto, tipo, fecha,
+    texto: m.texto || '',
+    catId: cat,
+    subId: adivinado ? adivinado.subId : null,
+    programado: cat ? fijoProgramadoQueCalza(candidato) : null,
+    incluir: true
+  };
+}
+
+function mostrarLlegados(movs){
+  llegados = movs.map(prepararLlegado);
+  pintarLlegados();
+  abrirHoja('hojaLlegaron');
+}
+
+function pintarLlegados(){
+  const n = llegados.length;
+  document.getElementById('tituloLlegaron').textContent =
+    n === 1 ? 'Llegó 1 movimiento' : 'Llegaron ' + n + ' movimientos';
+
+  document.getElementById('listaLlegaron').innerHTML = llegados.map((l, i) => {
+    const cat = buscarCat(l.catId);
+    const sub = cat && (cat.subs || []).find(s => s.id === l.subId);
+    const donde = l.programado
+      ? '<i class="marca">Confirma el pago programado</i>'
+      : (cat ? cat.icono + ' ' + cat.nombre + (sub ? ' · ' + sub.nombre : '') : '—');
+
+    return '<div class="llegado ' + (l.incluir ? '' : 'fuera') + '" onclick="alternarLlegado(' + i + ')">' +
+             '<i class="tilde">' + (l.incluir ? '✓' : '') + '</i>' +
+             '<div class="que">' +
+               '<span class="nom">' + emojiDe(l.texto) + (l.texto || 'Sin nombre') + '</span>' +
+               '<span class="donde">' + donde + '</span>' +
+             '</div>' +
+             '<div class="cuanto">' +
+               '<b class="' + claseTipo(l.tipo) + '">' + (SIGNO[l.tipo] || '−') + pesos(l.monto) + '</b>' +
+               '<span class="cuando">' + fechaLegible(l.fecha) + '</span>' +
+             '</div>' +
+           '</div>';
+  }).join('');
+
+  const marcados = llegados.filter(l => l.incluir).length;
+  document.getElementById('btnAnotarLlegados').textContent =
+    marcados ? 'Anotar ' + marcados : 'Descartar todos';
+}
+
+function alternarLlegado(i){
+  llegados[i].incluir = !llegados[i].incluir;
+  pintarLlegados();
+}
+
+/* --- Anotarlos --- */
+
+async function anotarLlegados(){
+  let anotados = 0, confirmados = 0;
+
+  llegados.filter(l => l.incluir).forEach(l => {
+    if(l.programado){
+      /* Ya estaba escrito como "Programado": se corrige el que estaba en vez
+         de anotar uno nuevo. La ficha de Recordatorios NO se toca, igual que
+         cuando lo confirmas a mano. */
+      l.programado.monto = l.monto;
+      l.programado.fecha = l.fecha;
+      if(l.texto) l.programado.nota = l.texto;
+      l.programado.confirmado = true;
+      confirmados++;
+    }else{
+      const mov = {id: nuevoId(), monto: l.monto, tipo: l.tipo,
+                   catId: l.catId, subId: l.subId, fecha: l.fecha, nota: l.texto};
+      sincronizarRecordatorio(mov);
+      estado.movimientos.push(mov);
+      anotados++;
+    }
+  });
+
+  guardar();
+  cerrarHojas();
+  pintarTodo();
+
+  const partes = [];
+  if(anotados)    partes.push(anotados + (anotados === 1 ? ' anotado' : ' anotados'));
+  if(confirmados) partes.push(confirmados + (confirmados === 1 ? ' confirmado' : ' confirmados'));
+  avisar(partes.length ? partes.join(' y ') : 'Descartados');
+
+  /* Recién ahora se le avisa al script que ya nos los llevamos, y se le
+     avisan TODOS —incluidos los que descartaste—, porque descartar también
+     es una decisión y no hay que volver a preguntarla.
+
+     Va al final a propósito: primero se guarda en el teléfono y después se
+     marca allá. Si se cortara internet justo acá, los correos siguen sin
+     marcar y vuelven a llegar; lo peor que pasa es que los veas dos veces.
+     Al revés se perderían para siempre. */
+  const ids = llegados.map(l => l.id).filter(Boolean).join(',');
+  llegados = [];
+  if(!ids) return;
+
+  try{
+    await pedirAlCorreo('llevados=' + encodeURIComponent(ids));
+  }catch(e){
+    avisar('Anotado, pero no pude avisarle al correo. Van a volver a llegar.');
+  }
+}
+
+/* Corre al abrir la app. Si no hay internet o el script no contesta, se
+   queda callado: no tiene sentido interrumpirte con un error cada vez que
+   abres la app en el metro. */
+async function revisarCorreoAlAbrir(){
+  if(!correoConfigurado()) return;
+  try{
+    const movs = (await pedirAlCorreo()).movimientos || [];
+    if(movs.length) mostrarLlegados(movs);
+  }catch(e){ /* sin internet: será la próxima */ }
+}
 
 /* ================================================================
    7. EDITOR DE CATEGORÍAS
@@ -5103,6 +5406,11 @@ sincronizarRecordatorios();
 // están esperando la renovación de enero se saltan solos.
 revisarFijos();
 pintarTodo();
+pintarEstadoCorreo();
+// Y por último, si conectaste el banco, se le pregunta qué llegó. Va al
+// final y sin await: la app tiene que estar usable aunque internet no
+// conteste nunca.
+revisarCorreoAlAbrir();
 ajustarEspacioArriba();
 // Y al final la pregunta del año nuevo, si toca: necesita la pantalla ya
 // pintada detrás, y casi siempre no hace nada.

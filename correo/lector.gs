@@ -56,7 +56,21 @@ const CONFIG = {
      lo escribas acá: se compara sin distinguir mayúsculas. */
   YO: [
     'ESCRIBE TU NOMBRE COMPLETO AQUÍ'
-  ]
+  ],
+
+  /* La contraseña de tu buzón de movimientos.
+
+     La dirección del script es "cualquiera con el enlace", así que sin
+     esto bastaría con adivinar la URL para leer tus movimientos. Con la
+     clave, la dirección completa —dirección + clave— es la contraseña.
+
+     Inventa una larga y rara. No tiene que ser memorizable: la pegas una
+     sola vez en la app y no la escribes nunca más. Algo como
+     "perro-azul-4471-mesa-verde" sirve de sobra.
+
+     Esa dirección con la clave adentro NO se le muestra a nadie, ni se
+     pega en un chat: es la llave de tus movimientos. */
+  CLAVE: 'INVENTA_UNA_CLAVE_LARGA_AQUI'
 };
 
 /* ================================================================
@@ -478,4 +492,88 @@ function probarLector() {
   Logger.log('');
   Logger.log('Revisa sobre todo que los GASTOS digan gasto y los INGRESOS ingreso.');
   Logger.log('Si alguno quedó mal, copia SU LÍNEA de acá (no el correo) y lo corregimos.');
+}
+
+/* ================================================================
+   ENTREGARLE LOS MOVIMIENTOS A LA APP
+
+   Acá el script deja de ser una herramienta que se ejecuta a mano y pasa
+   a ser el servidor de tu app. Cuando abres la app, ella le pide a esta
+   dirección lo que haya pendiente.
+
+   Son dos llamadas, las dos por GET a propósito. Apps Script no maneja
+   bien el permiso previo que el navegador pide antes de un POST, y da un
+   error que parece de otra cosa; con GET no existe ese problema.
+
+     ?k=CLAVE                    -> devuelve los movimientos pendientes
+     ?k=CLAVE&llevados=id1,id2   -> marca esos como ya anotados
+
+   Por qué en dos pasos y no en uno: si la misma llamada entregara y
+   marcara, un corte de internet justo ahí perdería esos movimientos para
+   siempre —el correo quedaría marcado sin que la app alcanzara a
+   guardarlo—. Así, la app primero guarda y recién después avisa.
+
+   Los correos que NO se entregan —los traspasos tuyos y los que no se
+   entienden— no se marcan nunca. Se vuelven a mirar cada vez, que es
+   barato con una ventana de 7 días, y así un error de lectura no los
+   esconde para siempre.
+   ================================================================ */
+
+function respuesta(objeto) {
+  return ContentService.createTextOutput(JSON.stringify(objeto))
+                       .setMimeType(ContentService.MimeType.JSON);
+}
+
+function doGet(e) {
+  const p = (e && e.parameter) || {};
+
+  if (!CONFIG.CLAVE || CONFIG.CLAVE.indexOf('INVENTA') !== -1) {
+    return respuesta({ error: 'Falta poner CONFIG.CLAVE arriba en el script.' });
+  }
+  if (p.k !== CONFIG.CLAVE) {
+    return respuesta({ error: 'Clave incorrecta.' });
+  }
+
+  if (p.llevados) {
+    return respuesta({ ok: true, marcados: marcarLlevados(p.llevados.split(',')) });
+  }
+
+  return respuesta({ movimientos: pendientes() });
+}
+
+/* Lo que la app todavía no se ha llevado. Los traspasos entre tus cuentas
+   y lo que no se entendió se quedan fuera: no son movimientos. */
+function pendientes() {
+  const salida = [];
+
+  recolectar(false).forEach(function (c) {
+    if (!c.leido || c.leido.traspaso) return;
+    salida.push({
+      id: c.id,                       // el id del correo, para marcarlo después
+      monto: c.leido.monto,
+      tipo: c.leido.tipo,             // 'gasto' o 'ingreso'
+      texto: c.leido.comercio,        // va al campo "Tienda" y de ahí lo clasifica
+      fecha: c.fecha.toISOString()
+    });
+  });
+
+  return salida;
+}
+
+/* Le pone la etiqueta a los correos que la app ya guardó, para que no
+   vuelvan a entregarse. Un id que ya no existe —correo borrado— no debe
+   botar la llamada entera y dejar sin marcar a los demás. */
+function marcarLlevados(ids) {
+  const etiqueta = GmailApp.getUserLabelByName(CONFIG.ETIQUETA) ||
+                   GmailApp.createLabel(CONFIG.ETIQUETA);
+  let marcados = 0;
+
+  ids.forEach(function (id) {
+    try {
+      const mensaje = GmailApp.getMessageById(id);
+      if (mensaje) { mensaje.getThread().addLabel(etiqueta); marcados++; }
+    } catch (err) { /* ese correo ya no está: se sigue con el resto */ }
+  });
+
+  return marcados;
 }
