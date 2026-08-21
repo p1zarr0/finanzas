@@ -807,6 +807,21 @@ input[type=date],input[type=text],input[type=number],select{
          movimiento. Tenerlo en dos partes obligaba a escribir lo mismo dos
          veces y a recordar cuál de las dos mandaba. -->
 
+    <!-- Lo único de la app que habla con internet. Si no lo conectas, no
+         existe: ni se ejecuta ni pide nada.
+
+         Va PRIMERO, lejos de "Borrar todos los datos". Estuvo pegada encima
+         de esa tarjeta y el 20 de agosto de 2026 él borró todo sin querer
+         yendo a conectar el banco. Lo que se usa seguido no va al lado de
+         lo irreversible. -->
+    <div class="tarjeta" style="margin-top:22px">
+      <h2 class="seccion titulo">Movimientos del banco</h2>
+      <div class="fila-ajuste" onclick="abrirCorreo()" style="cursor:pointer">
+        <span class="nom" id="estadoCorreo">No conectado</span>
+        <button class="mini">›</button>
+      </div>
+    </div>
+
     <div class="tarjeta" style="margin-top:22px">
       <h2 class="seccion titulo">Apariencia</h2>
       <div class="fila-toggle">
@@ -817,22 +832,20 @@ input[type=date],input[type=text],input[type=number],select{
       </div>
     </div>
 
-    <!-- Lo único de la app que habla con internet. Si no lo conectas, no
-         existe: ni se ejecuta ni pide nada. -->
-    <div class="tarjeta" style="margin-top:22px">
-      <h2 class="seccion titulo">Movimientos del banco</h2>
-      <div class="fila-ajuste" onclick="abrirCorreo()" style="cursor:pointer">
-        <span class="nom" id="estadoCorreo">No conectado</span>
-        <button class="mini">›</button>
-      </div>
-    </div>
-
     <div class="tarjeta" style="margin-top:22px">
       <h2 class="seccion titulo">Datos</h2>
       <div class="fila-ajuste">
         <span class="nom">Exportar a Excel (CSV)</span>
         <button class="mini" onclick="exportarCSV()">↓</button>
       </div>
+
+      <!-- Aparece solo si borraste algo y todavía se puede volver atrás -->
+      <div class="fila-ajuste oculto" id="filaRespaldo">
+        <span class="nom" id="nomRespaldo"></span>
+        <button class="mini" onclick="restaurarRespaldo()" aria-label="Restaurar">↺</button>
+        <button class="mini" onclick="borrarRespaldo()" aria-label="Borrar la copia">✕</button>
+      </div>
+
       <div class="fila-ajuste">
         <span class="nom" style="color:var(--gasto)">Borrar todos los datos</span>
         <button class="mini" onclick="borrarTodo()">✕</button>
@@ -5427,17 +5440,95 @@ function exportarCSV(){
    Esa doble pregunta se reemplaza por un interruptor que hay que encender a
    propósito: cuesta lo mismo equivocarse pero se entiende mejor, y no depende
    de que el teléfono muestre dos diálogos encadenados. */
+/* --- El respaldo de "Borrar todos los datos" ---
+
+   Existe porque el 20 de agosto de 2026 él borró todo sin querer y no había
+   nada que hacer: borrarTodo hacía removeItem y recargaba, y sus datos
+   vivían solo ahí. Se perdió el historial anotado a mano.
+
+   Ahora antes de borrar se guarda una copia aparte, y Configuración muestra
+   un "Restaurar" mientras esa copia exista. No es una papelera automática
+   ni un respaldo periódico: es exactamente el error que ocurrió, cubierto.
+
+   La copia se puede borrar a mano desde la misma pantalla, así que "borrar
+   todo" sigue pudiendo dejar el teléfono limpio de verdad — solo que en dos
+   pasos en vez de uno, y sabiendo lo que estás haciendo. */
+const CLAVE_RESPALDO = 'misFinanzas_respaldo';
+
+function leerRespaldo(){
+  try{
+    const crudo = localStorage.getItem(CLAVE_RESPALDO);
+    return crudo ? JSON.parse(crudo) : null;
+  }catch(e){ return null; }
+}
+
+function pintarRespaldo(){
+  const fila = document.getElementById('filaRespaldo');
+  if(!fila) return;
+
+  const r = leerRespaldo();
+  fila.classList.toggle('oculto', !r);
+  if(!r) return;
+
+  const cuantos = (r.movimientos || 0);
+  document.getElementById('nomRespaldo').innerHTML =
+    `Restaurar lo que borraste<br><small style="color:var(--suave)">` +
+    `${cuantos} movimiento${cuantos === 1 ? '' : 's'} · ${fechaLegible(r.cuando)}</small>`;
+}
+
+function restaurarRespaldo(){
+  const r = leerRespaldo();
+  if(!r){ avisar('No hay nada que restaurar'); return; }
+
+  preguntar({
+    titulo: '¿Restaurar lo que borraste?',
+    detalle: `Vuelven ${r.movimientos} movimientos y tus categorías, tal como
+              estaban. <b>Lo que hayas anotado desde entonces se reemplaza.</b>`,
+    ok: 'Restaurar',
+    onSi: () => {
+      localStorage.setItem(CLAVE, r.datos);
+      localStorage.removeItem(CLAVE_RESPALDO);
+      location.reload();
+    }
+  });
+}
+
+function borrarRespaldo(){
+  preguntar({
+    titulo: '¿Borrar la copia de seguridad?',
+    detalle: `Es lo único que queda de lo que borraste antes.
+              <b>Esto sí no tiene vuelta.</b>`,
+    ok: 'Borrar la copia',
+    onSi: () => {
+      localStorage.removeItem(CLAVE_RESPALDO);
+      pintarRespaldo();
+      avisar('Copia borrada');
+    }
+  });
+}
+
 function borrarTodo(){
   const cuantos = estado.movimientos.length;
   preguntar({
     titulo: '¿Borrar todos tus datos?',
     detalle: `Se van ${cuantos} movimiento${cuantos===1?'':'s'}, tus categorías y
-              tus recordatorios. <b>Esto no se puede deshacer.</b><br>
-              Si quieres guardarlos antes, cancela y usa “Exportar a Excel”.`,
+              tus recordatorios.<br>
+              Queda una copia por si te arrepientes, en esta misma pantalla.`,
     ok: 'Borrar todo',
-    extra: {texto:'Sí, entiendo que no hay vuelta atrás', encendido:false},
+    extra: {texto:'Sí, quiero borrarlo', encendido:false},
     onSi: seguro => {
       if(!seguro){ avisar('No se borró nada'); return; }
+
+      /* La copia se guarda ANTES de borrar y con lo que hay en disco, no con
+         la variable en memoria: si algo estuviera a medio guardar, el disco
+         es lo que de verdad tenías. */
+      const guardado = localStorage.getItem(CLAVE);
+      if(guardado){
+        localStorage.setItem(CLAVE_RESPALDO, JSON.stringify({
+          cuando: hoyISO(), movimientos: cuantos, datos: guardado
+        }));
+      }
+
       localStorage.removeItem(CLAVE);
       location.reload();
     }
@@ -5462,6 +5553,7 @@ sincronizarRecordatorios();
 revisarFijos();
 pintarTodo();
 pintarEstadoCorreo();
+pintarRespaldo();
 // Y por último, si conectaste el banco, se le pregunta qué llegó. Va al
 // final y sin await: la app tiene que estar usable aunque internet no
 // conteste nunca.
