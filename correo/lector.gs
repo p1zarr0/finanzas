@@ -33,8 +33,26 @@ const CONFIG = {
     'bci.cl'
   ],
 
-  // Cuántos días hacia atrás mirar en la corrida de verdad.
+  /* Cuántos días hacia atrás mirar en la corrida de verdad. No es lo mismo
+     que DESDE: esto es la ventana para ponerse al día si no abriste la app
+     en unos días, y aquello es una raya en el pasado que no se cruza nunca.
+     Con 7 sobra: aunque te vayas una semana, nada se pierde. */
   DIAS: 7,
+
+  /* La fecha desde la que se empieza a mirar, en formato aaaa/mm/dd.
+
+     Sirve para partir con la cuenta limpia: todo lo anterior a este día se
+     ignora para siempre, aunque caiga dentro de los 7 días de arriba. Sin
+     esto, al conectar la app te llega de golpe el historial de la semana
+     —transferencias viejas que ya tenías anotadas a mano— y hay que
+     descartarlas una por una.
+
+     Ponla en el día que conectas. Después no hay que tocarla más: la
+     ventana de DIAS avanza sola con el tiempo y esta raya queda atrás.
+
+     Déjala vacía ('') si algún día quieres que mire todo el historial que
+     alcance la ventana. */
+  DESDE: '',
 
   /* Cuántos al probar. Es más largo a propósito: la primera vez quieres
      VER algo, y si justo no compraste nada en la última semana saldría
@@ -418,12 +436,17 @@ function textoPlano(mensaje) {
     .replace(/&amp;/gi, '&');
 }
 
-/* Al probar se miran más días y NO se excluye lo ya etiquetado: si no,
-   la segunda vez que ejecutas la prueba no te muestra nada, porque la
-   corrida de verdad ya se llevó todo, y parece que dejó de funcionar. */
+/* Al probar se miran más días, NO se excluye lo ya etiquetado y NO se
+   respeta la fecha de corte. Si no, la segunda vez que ejecutas la prueba
+   no te muestra nada —porque la corrida de verdad ya se llevó todo, o
+   porque la raya de DESDE deja fuera todo el historial— y parece que dejó
+   de funcionar. La prueba está para ver cómo lee, no para simular. */
 function busquedaGmail(esPrueba) {
   const de = CONFIG.BANCOS.map(function (d) { return 'from:' + d; }).join(' OR ');
   const dias = esPrueba ? CONFIG.DIAS_AL_PROBAR : CONFIG.DIAS;
+  let q = '(' + de + ') newer_than:' + dias + 'd';
+
+  if (esPrueba) return q;
 
   /* OJO con los espacios de la etiqueta. Gmail busca las etiquetas con
      GUIONES donde el nombre tiene espacios: -label:Anotado-en-Finanzas
@@ -432,10 +455,12 @@ function busquedaGmail(esPrueba) {
      Con la forma entre comillas los correos se etiquetaban bien pero la
      exclusión no los reconocía, así que la app volvía a ofrecer los mismos
      movimientos cada vez que la abrías. */
-  const etiqueta = CONFIG.ETIQUETA.replace(/\s+/g, '-');
+  q += ' -label:' + CONFIG.ETIQUETA.replace(/\s+/g, '-');
 
-  return '(' + de + ') newer_than:' + dias + 'd' +
-         (esPrueba ? '' : ' -label:' + etiqueta);
+  // La raya en el pasado. Va además de la ventana, no en vez de ella.
+  if (CONFIG.DESDE) q += ' after:' + CONFIG.DESDE;
+
+  return q;
 }
 
 // Recorre los correos y devuelve lo entendido. No manda ni marca nada:
