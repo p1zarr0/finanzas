@@ -388,6 +388,14 @@ function interpretarCorreo(asunto, cuerpo) {
   return {
     monto: monto,
     tipo: entra ? 'ingreso' : 'gasto',
+    /* Compra con tarjeta o transferencia a una persona. La app las trata
+       distinto: las transferencias van a su propia categoría en vez de
+       mezclarse con Alimentación o Gastos varios, porque pasarle plata a
+       alguien no es lo mismo que comprar algo, aunque las dos resten.
+
+       La distingue la palabra "compra", que es la que usan los bancos en
+       el aviso de tarjeta y no aparece en un comprobante de transferencia. */
+    clase: /\bcompra\b/i.test(texto) ? 'compra' : 'transferencia',
     // Sin nombre igual se manda: el monto y la fecha ya sirven, y en la app
     // le pones la categoría a mano. Peor sería perder el movimiento.
     comercio: comercio || (entra ? 'Abono' : 'Transferencia')
@@ -416,8 +424,18 @@ function textoPlano(mensaje) {
 function busquedaGmail(esPrueba) {
   const de = CONFIG.BANCOS.map(function (d) { return 'from:' + d; }).join(' OR ');
   const dias = esPrueba ? CONFIG.DIAS_AL_PROBAR : CONFIG.DIAS;
+
+  /* OJO con los espacios de la etiqueta. Gmail busca las etiquetas con
+     GUIONES donde el nombre tiene espacios: -label:Anotado-en-Finanzas
+     funciona, y -label:"Anotado en Finanzas" no excluye nada.
+
+     Con la forma entre comillas los correos se etiquetaban bien pero la
+     exclusión no los reconocía, así que la app volvía a ofrecer los mismos
+     movimientos cada vez que la abrías. */
+  const etiqueta = CONFIG.ETIQUETA.replace(/\s+/g, '-');
+
   return '(' + de + ') newer_than:' + dias + 'd' +
-         (esPrueba ? '' : ' -label:"' + CONFIG.ETIQUETA + '"');
+         (esPrueba ? '' : ' -label:' + etiqueta);
 }
 
 // Recorre los correos y devuelve lo entendido. No manda ni marca nada:
@@ -571,6 +589,7 @@ function pendientes() {
       monto: c.leido.monto,
       tipo: c.leido.tipo,             // 'gasto' o 'ingreso'
       texto: c.leido.comercio,        // va al campo "Tienda" y de ahí lo clasifica
+      clase: c.leido.clase,           // 'compra' o 'transferencia'
       fecha: c.fecha.toISOString()
     });
   });

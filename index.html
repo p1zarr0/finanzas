@@ -1314,6 +1314,18 @@ const CATEGORIAS_INICIALES = [
       {id:'sa1',nombre:'Farmacia'},{id:'sa2',nombre:'Médico'},
       {id:'sa3',nombre:'Dentista'},{id:'sa4',nombre:'Exámenes'},
       {id:'sa5',nombre:'Óptica'}
+  ]},
+  /* Transferirle plata a alguien no es comprar algo, aunque las dos resten
+     igual del mes. Sin esta categoría, un traspaso a un amigo caía en
+     Alimentación o Gastos varios según lo que adivinara el clasificador, y
+     ensuciaba el análisis de lo que de verdad gastas.
+
+     El color es el gris azulado de los Gastos fijos movido de tono: son de
+     la misma familia —plata que sale sin que hayas comprado nada— y no
+     compiten por atención con las categorías de consumo. */
+  {id:'c12', nombre:'Transferencias', tipo:'gasto', color:'#8E9BA8', icono:'🤝', subs:[
+      {id:'tr1',nombre:'A una persona'},{id:'tr2',nombre:'Préstamo'},
+      {id:'tr3',nombre:'Devolución'},{id:'tr4',nombre:'Arriendo que pago'}
   ]}
 ];
 
@@ -1338,7 +1350,7 @@ let estado = {
   tema: 'claro',
   // Al subir una migración hay que subir este número también, o una
   // instalación nueva nace "atrasada" y corre migraciones que no necesita.
-  version: 20
+  version: 21
 };
 
 /* localStorage = la memoria del navegador. Guarda texto y sobrevive
@@ -1620,9 +1632,19 @@ function cargar(){
     estado.version = 20;
   }
 
+  if(estado.version < 21){
+    /* Transferirle plata a alguien no es comprar algo. Sin esta categoría,
+       las transferencias que llegan del banco caían donde adivinara el
+       clasificador y ensuciaban el análisis. Como todas las de arriba, si
+       la borras a propósito no vuelve a aparecer sola. */
+    agregarUnaVez('c12');
+    estado.version = 21;
+  }
+
   // Si se migró algo, se guarda de inmediato. Si no, la migración volvería a
   // correr en cada apertura y podría devolverte categorías que borraste.
   if(versionAntes !== null && estado.version !== versionAntes) guardar();
+
 }
 
 /* ================================================================
@@ -4757,6 +4779,19 @@ function olvidarCorreo(){
 
 let llegados = [];
 
+/* La categoría en la que va a caer una transferencia. Transferirle plata a
+   alguien no es comprar algo, aunque las dos resten igual del mes: sin esto,
+   un traspaso a un amigo caía en Alimentación o Gastos varios según lo que
+   adivinara el clasificador por el nombre de la persona, y ensuciaba el
+   análisis de lo que de verdad consumes.
+
+   Se busca por id y, si la borraste, por nombre: puede que la tengas con
+   otro id si la creaste tú antes de que existiera la de fábrica. */
+function catDeTransferencias(){
+  return buscarCat('c12') ||
+         estado.categorias.find(c => c.tipo === 'gasto' && sinTildes(c.nombre) === 'transferencias');
+}
+
 /* Prepara cada movimiento que llegó: le adivina la categoría con lo que ya
    sabe la app, y mira si viene a confirmar un pago que ya estaba anotado
    como "Programado". Las dos cosas se calculan ACÁ y no al guardar, para
@@ -4764,22 +4799,34 @@ let llegados = [];
 function prepararLlegado(m){
   const tipo = m.tipo === 'ingreso' ? 'ingreso' : 'gasto';
   const fecha = String(m.fecha || '').slice(0, 10) || hoyISO();
-  const adivinado = adivinarCategoria(m.texto || '', tipo);
+
+  /* Una transferencia que sale va derecho a su categoría: acá el texto es el
+     nombre de una persona, y adivinar con eso da resultados absurdos —"Ema
+     Pizarro" no dice nada de en qué gastaste—. Con las compras es al revés:
+     el texto es el comercio y ahí el clasificador es bueno. */
+  const esTransferencia = m.clase === 'transferencia' && tipo === 'gasto';
+  const catTransf = esTransferencia ? catDeTransferencias() : null;
+
+  const adivinado = catTransf ? null : adivinarCategoria(m.texto || '', tipo);
 
   // Sin categoría adivinada cae en la primera de su tipo: un movimiento sin
   // categoría no se dibuja en ninguna parte y sería peor que uno mal puesto.
-  const cat = (adivinado && buscarCat(adivinado.catId))
-    ? adivinado.catId
-    : (estado.categorias.find(c => c.tipo === tipo) || {}).id;
+  const cat = catTransf ? catTransf.id
+    : (adivinado && buscarCat(adivinado.catId))
+      ? adivinado.catId
+      : (estado.categorias.find(c => c.tipo === tipo) || {}).id;
 
-  const candidato = {id: '', monto: m.monto, tipo, catId: cat,
-                     subId: adivinado ? adivinado.subId : null, fecha};
+  const sub = catTransf
+    ? ((catTransf.subs || [])[0] || {}).id || null
+    : (adivinado ? adivinado.subId : null);
+
+  const candidato = {id: '', monto: m.monto, tipo, catId: cat, subId: sub, fecha};
 
   return {
     id: m.id, monto: m.monto, tipo, fecha,
     texto: m.texto || '',
     catId: cat,
-    subId: adivinado ? adivinado.subId : null,
+    subId: sub,
     programado: cat ? fijoProgramadoQueCalza(candidato) : null,
     incluir: true
   };
