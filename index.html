@@ -4958,16 +4958,63 @@ async function anotarLlegados(){
   }
 }
 
-/* Corre al abrir la app. Si no hay internet o el script no contesta, se
-   queda callado: no tiene sentido interrumpirte con un error cada vez que
-   abres la app en el metro. */
+/* Cada cuánto tiene sentido volver a preguntar. Un minuto sobra: los avisos
+   del banco llegan cuando llegan, y preguntar más seguido solo gasta datos
+   y cuota del script para recibir la misma lista vacía. */
+const ESPERA_ENTRE_CONSULTAS = 60 * 1000;
+
+let consultandoCorreo = false;
+let ultimaConsultaCorreo = 0;
+
+/* Corre al abrir la app y cada vez que vuelve a la pantalla. Si no hay
+   internet o el script no contesta, se queda callado: no tiene sentido
+   interrumpirte con un error cada vez que abres la app en el metro.
+
+   Ese silencio tiene un costo que conviene saber: si la conexión con el
+   lector se rompe —por ejemplo si su implementación deja de existir— la app
+   no lo dice. La única forma de enterarse es entrar a Configuración y
+   apretar "Guardar y probar", que es el único camino que sí muestra el
+   error. */
 async function revisarCorreoAlAbrir(){
   if(!correoConfigurado()) return;
+
+  // Una consulta a la vez. Volver a la app dos veces seguidas no debe
+  // disparar dos preguntas que terminen mostrando la lista duplicada.
+  if(consultandoCorreo) return;
+
+  /* Si ya tienes la lista de llegados abierta, no se toca. Volver a
+     preguntar la reescribiría entera y se perderían las marcas que llevabas
+     puestas: basta con mirar una notificación a media confirmación para que
+     la app vuelva a primer plano. */
+  const hoja = document.getElementById('hojaLlegaron');
+  if(hoja && hoja.classList.contains('visible')) return;
+
+  if(Date.now() - ultimaConsultaCorreo < ESPERA_ENTRE_CONSULTAS) return;
+
+  consultandoCorreo = true;
   try{
     const movs = (await pedirAlCorreo()).movimientos || [];
     if(movs.length) mostrarLlegados(movs);
   }catch(e){ /* sin internet: será la próxima */ }
+  finally{
+    /* La marca de tiempo se pone pase lo que pase, tambien cuando fallo. Si
+       solo se marcara al acertar, sin internet cada vuelta a la app seria un
+       intento nuevo. */
+    ultimaConsultaCorreo = Date.now();
+    consultandoCorreo = false;
+  }
 }
+
+/* En el teléfono la app casi nunca se recarga: cuando la "abres" vuelve del
+   segundo plano tal como la dejaste, y el arranque del final del archivo no
+   se ejecuta de nuevo. Por eso los movimientos nuevos no aparecían solos y
+   había que entrar a Configuración y apretar "Guardar y probar" a mano.
+
+   Con esto se pregunta también al volver a la pantalla, que es justo cuando
+   uno viene de comprar algo y espera ver el movimiento. */
+document.addEventListener('visibilitychange', () => {
+  if(document.visibilityState === 'visible') revisarCorreoAlAbrir();
+});
 
 /* ================================================================
    7. EDITOR DE CATEGORÍAS
