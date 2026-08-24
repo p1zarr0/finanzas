@@ -1,0 +1,21 @@
+# Basura que Windows y OneDrive dejan en las carpetas
+Thumbs.db
+desktop.ini
+ehthumbs.db
+$RECYCLE.BIN/
+*.lnk
+
+# Archivos temporales de pruebas
+_prueba-*.html
+*.tmp
+
+# Mi lista de trabajo. No es del repo, es mia
+PENDIENTES.md
+
+# Copias paralelas del proyecto que crean solas algunas sesiones de trabajo.
+# Son el proyecto entero duplicado, lib incluida: 10 MB que no van al repo.
+# Esta regla vivia en .git/info/exclude, que se pierde si se borra .git.
+.claude/worktrees/
+
+# Ajustes locales de la sesion de trabajo, propios de este computador
+.claude/settings.local.json
