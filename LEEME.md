@@ -11,6 +11,41 @@ Las categorías separan lo que se comporta distinto: **Gastos fijos** (contractu
 Los datos se guardan **solo en el dispositivo**, en la memoria del navegador.
 No hay servidor, no hay cuenta, nada sale de tu teléfono.
 
+La dirección es <https://p1zarr0.github.io/finanzas/>.
+
+---
+
+## Cómo pasársela a alguien
+
+Compartirla es mandar el link. No hay nada que instalar ni cuenta que crear:
+cada persona abre esa misma dirección y sus datos quedan en **su** teléfono,
+separados de los tuyos. Nadie ve los movimientos de nadie, tú incluido.
+
+El lector de correos es aparte y **no se comparte nunca**: cada persona
+necesita instalar el suyo en su cuenta de Google, con `correo/INSTALAR.md`.
+La dirección del `/exec` entrega los movimientos de quien la creó, así que
+pasarla es entregar los tuyos.
+
+Este mensaje se puede copiar tal cual:
+
+> Te paso la app de finanzas que uso:
+> https://p1zarr0.github.io/finanzas/
+>
+> Ábrela en el celular y agrégala a la pantalla de inicio para que quede como
+> una app: en Android, el menú de los tres puntos de Chrome → "Agregar a
+> pantalla de inicio". En iPhone, el botón de compartir de Safari → "Agregar a
+> inicio".
+>
+> Dos cosas importantes:
+>
+> 1. Tus datos se guardan **solo en tu teléfono**. No hay cuenta ni nube: nadie
+>    los ve, y yo tampoco.
+> 2. Por lo mismo, **no la uses en modo incógnito** — ahí el navegador borra
+>    todo al cerrar la pestaña.
+>
+> De vez en cuando entra a ⚙ → "Guardar una copia de seguridad". Si cambias de
+> teléfono o borras los datos del navegador, es lo único que los recupera.
+
 ---
 
 ## Cómo publicar un cambio
@@ -44,7 +79,7 @@ seguir usando la versión vieja de esos archivos.
 | `sw.js` | Lo que hace que abra sin internet. |
 | `iconos/` | El ícono en la pantalla de inicio. El `maskable` es el mismo con más aire alrededor, para Android. |
 | `lib/` | La librería que lee las boletas. Son 10 MB y no hay que tocarla. |
-| `correo/` | El lector de los avisos del banco. Se instala en Google Apps Script, no viaja al teléfono. |
+| `correo/` | El lector de los avisos del banco: `lector.gs` es el programa e `INSTALAR.md` la guía para conectarlo. Se instala en Google Apps Script y no viaja al teléfono. |
 | `herramientas/` | Cosas para desarrollar, no para el teléfono. Hoy solo `datos-de-prueba.js`. |
 | `.claude/servidor.ps1` | Servidor para probar en el computador antes de publicar. |
 
