@@ -835,9 +835,28 @@ input[type=date],input[type=text],input[type=number],select{
     <div class="tarjeta" style="margin-top:22px">
       <h2 class="seccion titulo">Datos</h2>
       <div class="fila-ajuste">
-        <span class="nom">Exportar a Excel (CSV)</span>
+        <span class="nom">Exportar a Excel (CSV)<br>
+          <small style="color:var(--suave)">Para mirar tu historial en Excel.
+            No sirve para recuperarlo.</small></span>
         <button class="mini" onclick="exportarCSV()">↓</button>
       </div>
+
+      <!-- La copia de verdad: se guarda todo y se puede volver a cargar. El
+           CSV de arriba aplana los datos y no permite reconstruirlos. -->
+      <div class="fila-ajuste">
+        <span class="nom">Guardar una copia de seguridad<br>
+          <small style="color:var(--suave)">Todo: movimientos, categorías,
+            pagos de cada mes y deudas.</small></span>
+        <button class="mini" onclick="exportarRespaldo()">↓</button>
+      </div>
+
+      <div class="fila-ajuste">
+        <span class="nom">Restaurar desde una copia<br>
+          <small style="color:var(--suave)">Reemplaza lo que tengas ahora.</small></span>
+        <button class="mini" onclick="document.getElementById('inpRespaldoArchivo').click()">↑</button>
+      </div>
+      <input type="file" accept="application/json,.json" id="inpRespaldoArchivo"
+             style="display:none" onchange="restaurarDesdeArchivo(this)">
 
       <!-- Aparece solo si borraste algo y todavía se puede volver atrás -->
       <div class="fila-ajuste oculto" id="filaRespaldo">
@@ -5501,6 +5520,103 @@ function exportarCSV(){
   enlace.href = URL.createObjectURL(new Blob([csv], {type:'text/csv;charset=utf-8'}));
   enlace.download = 'mis-finanzas.csv';
   enlace.click();
+}
+
+/* --- La copia de seguridad de verdad ---
+
+   El CSV de arriba sirve para mirar el historial en Excel y para nada más:
+   aplana cada movimiento al NOMBRE de su categoría, y deja fuera las
+   categorías mismas, los pagos de cada mes, las deudas y el agrupamiento de
+   las cuotas. Reconstruir desde ahí sería adivinar.
+
+   Esto en cambio guarda el estado tal cual, y por eso se puede volver a
+   cargar entero.
+
+   Va envuelto en un sobre con el nombre de la app y la fecha. El nombre
+   permite reconocer al abrirlo si el archivo es de acá o el usuario eligió
+   cualquier otro .json del teléfono, que es lo que va a pasar tarde o
+   temprano: un archivo ajeno escrito encima de tus datos no tiene vuelta. */
+const MARCA_RESPALDO = 'mis-finanzas';
+
+function exportarRespaldo(){
+  const copia = Object.assign({}, estado);
+
+  /* La conexión con el lector NO viaja en el archivo, a propósito. Esa
+     dirección lleva la clave adentro y es la llave de tus movimientos del
+     banco: si viajara, el respaldo pasaría a ser un documento peligroso y no
+     lo podrías guardar en Drive ni mandártelo por correo.
+     Se vuelve a pegar desde Apps Script, que es un paso y se hace una vez. */
+  delete copia.correo;
+
+  const sobre = JSON.stringify({
+    app: MARCA_RESPALDO,
+    creado: new Date().toISOString(),
+    datos: copia
+  }, null, 2);
+
+  const enlace = document.createElement('a');
+  enlace.href = URL.createObjectURL(new Blob([sobre], {type:'application/json'}));
+  enlace.download = 'mis-finanzas-' + hoyISO() + '.json';
+  enlace.click();
+}
+
+async function restaurarDesdeArchivo(input){
+  const archivo = input.files && input.files[0];
+  // Se limpia al toque para poder elegir DOS VECES el mismo archivo: si no,
+  // el segundo intento no dispara nada y parece que el botón se rompió.
+  input.value = '';
+  if(!archivo) return;
+
+  let sobre;
+  try{ sobre = JSON.parse(await archivo.text()); }
+  catch(e){ avisar('Ese archivo no se puede leer'); return; }
+
+  /* Se revisa el sobre Y la forma de lo que trae. Con mirar solo el nombre,
+     un archivo a medio escribir pasaría el control y dejaría la app sin
+     categorías, que es un estado del que no se sale desde la interfaz. */
+  const datos = sobre && sobre.datos;
+  const sirve = sobre && sobre.app === MARCA_RESPALDO && datos &&
+                Array.isArray(datos.movimientos) && Array.isArray(datos.categorias) &&
+                datos.categorias.length;
+  if(!sirve){ avisar('Ese archivo no es una copia de Mis Finanzas'); return; }
+
+  const cuantos = datos.movimientos.length;
+  /* diaLocalDe primero: el sobre guarda el instante en hora universal
+     ("2026-08-24T18:43:59.000Z") y fechaLegible espera solo el día. Pasarle
+     el instante entero mostraba "NaN de agosto". Es el mismo tropiezo que
+     tuvieron los movimientos del banco. */
+  const cuando = sobre.creado ? fechaLegible(diaLocalDe(sobre.creado)) : 'fecha desconocida';
+
+  preguntar({
+    titulo: '¿Restaurar esta copia?',
+    detalle: `Trae ${cuantos} movimiento${cuantos === 1 ? '' : 's'}, del ${cuando}.
+              <b>Lo que tengas anotado ahora se reemplaza.</b><br>
+              Queda una copia de lo actual por si te arrepientes.`,
+    ok: 'Restaurar',
+    onSi: () => {
+      /* Antes de escribir encima se guarda lo que hay, igual que hace
+         "Borrar todos los datos". Restaurar la copia equivocada es
+         exactamente el error que uno comete apurado, y sin esto no tendría
+         vuelta. Se toma del disco y no de la variable en memoria: si algo
+         estuviera a medio guardar, el disco es lo que de verdad tenías. */
+      const actual = localStorage.getItem(CLAVE);
+      if(actual){
+        localStorage.setItem(CLAVE_RESPALDO, JSON.stringify({
+          cuando: hoyISO(), movimientos: estado.movimientos.length, datos: actual
+        }));
+      }
+
+      /* La conexión con el lector se conserva, porque el archivo no la trae.
+         Sin esto, restaurar una copia te desconectaría del banco en silencio
+         y tendrías que ir a buscar la dirección de nuevo sin saber por qué. */
+      if(estado.correo) datos.correo = estado.correo;
+
+      localStorage.setItem(CLAVE, JSON.stringify(datos));
+      /* Se recarga en vez de repintar: así el arranque vuelve a correr entero
+         y, si la copia es vieja, las migraciones la ponen al día solas. */
+      location.reload();
+    }
+  });
 }
 
 /* Eran dos confirm() seguidos, para que no se borrara todo de un toque suelto.
