@@ -3267,6 +3267,12 @@ function pintarMovimientos(){
     const marcas = [];
     if(m.cuota) marcas.push(`<i class="marca">Cuota ${m.cuota.numero} de ${m.cuota.total}</i>`);
     if(programado) marcas.push('<i class="marca">Programado</i>');
+    /* Solo el crédito lleva etiqueta, y el débito no. No es un olvido: el
+       débito es casi todo lo que compras, así que marcarlo pondría un
+       recuadro en cada línea de la lista y dejaría de decir nada. Lo que
+       vale la pena ver de un vistazo es lo otro: esa plata todavía no sale
+       de tu cuenta, y la vas a pagar el mes que viene. */
+    if(m.medio === 'credito') marcas.push('<i class="marca">Crédito</i>');
 
     const detalle = [textos.join(' · '), ...marcas].filter(Boolean).join(' ');
     html += `<div class="mov t-${m.tipo} ${programado?'programado':''}" onclick="editarMovimiento('${m.id}')">
@@ -4879,6 +4885,15 @@ function prepararLlegado(m){
     texto: m.texto || '',
     catId: cat,
     subId: sub,
+    /* Con qué se pagó, tal como lo dijo el correo del banco. Es SOLO una
+       etiqueta: no cambia el Disponible ni los totales del mes. Una compra
+       en crédito sigue siendo un gasto del día en que la hiciste.
+
+       Se guarda 'debito' igual que 'credito' aunque hoy solo se muestre el
+       crédito. El dato ya viene en el correo y no cuesta nada; si algún día
+       quieres separarlos de verdad, va a estar. Recuperarlo después, cuando
+       el correo ya está archivado, sería imposible. */
+    medio: (m.medio === 'credito' || m.medio === 'debito') ? m.medio : '',
     programado: cat ? fijoProgramadoQueCalza(candidato) : null,
     incluir: true
   };
@@ -4898,9 +4913,16 @@ function pintarLlegados(){
   document.getElementById('listaLlegaron').innerHTML = llegados.map((l, i) => {
     const cat = buscarCat(l.catId);
     const sub = cat && (cat.subs || []).find(s => s.id === l.subId);
-    const donde = l.programado
+
+    /* La etiqueta de crédito se muestra ACÁ, antes de confirmar, y no solo
+       después: es justo el dato que puede hacerte mirar dos veces un
+       movimiento —"¿esta compra la hice yo con la tarjeta?"— y para eso
+       tiene que estar a la vista cuando decides si entra o no. */
+    const conQue = l.medio === 'credito' ? ' <i class="marca">Crédito</i>' : '';
+
+    const donde = (l.programado
       ? '<i class="marca">Confirma el pago programado</i>'
-      : (cat ? cat.icono + ' ' + cat.nombre + (sub ? ' · ' + sub.nombre : '') : '—');
+      : (cat ? cat.icono + ' ' + cat.nombre + (sub ? ' · ' + sub.nombre : '') : '—')) + conQue;
 
     return '<div class="llegado ' + (l.incluir ? '' : 'fuera') + '" onclick="alternarLlegado(' + i + ')">' +
              '<i class="tilde">' + (l.incluir ? '✓' : '') + '</i>' +
@@ -4939,10 +4961,17 @@ async function anotarLlegados(){
       l.programado.fecha = l.fecha;
       if(l.texto) l.programado.nota = l.texto;
       l.programado.confirmado = true;
+      /* También al que estaba programado: el correo es lo único que sabe con
+         qué se pagó, y este movimiento pasó a ser el de verdad. Solo si el
+         correo lo dijo, para no borrar con vacío lo que ya estuviera puesto. */
+      if(l.medio) l.programado.medio = l.medio;
       confirmados++;
     }else{
       const mov = {id: nuevoId(), monto: l.monto, tipo: l.tipo,
                    catId: l.catId, subId: l.subId, fecha: l.fecha, nota: l.texto};
+      // Solo cuando el correo lo dijo. Un campo vacío en cada movimiento no
+      // aporta nada y se guarda en el teléfono para siempre.
+      if(l.medio) mov.medio = l.medio;
       sincronizarRecordatorio(mov);
       estado.movimientos.push(mov);
       anotados++;
@@ -5506,13 +5535,17 @@ function avisar(texto){
 }
 
 function exportarCSV(){
-  const filas = [['Fecha','Tipo','Categoría','Detalle','Nota','Monto']];
+  // "Pagué con" va acá porque el CSV es lo que abres en Excel para mirar el
+  // año: es justo donde sirve poder sumar aparte lo que fue en crédito.
+  const filas = [['Fecha','Tipo','Categoría','Detalle','Nota','Pagué con','Monto']];
+  const COMO = {credito: 'Crédito', debito: 'Débito'};
   estado.movimientos
     .slice().sort((a,b) => a.fecha.localeCompare(b.fecha))
     .forEach(m => {
       const cat = buscarCat(m.catId);
       const sub = cat && cat.subs.find(s => s.id === m.subId);
-      filas.push([m.fecha, m.tipo, cat?cat.nombre:'', sub?sub.nombre:'', m.nota||'', m.monto]);
+      filas.push([m.fecha, m.tipo, cat?cat.nombre:'', sub?sub.nombre:'', m.nota||'',
+                  COMO[m.medio] || '', m.monto]);
     });
   // El punto y coma es lo que espera Excel en español
   const csv = '﻿' + filas.map(f => f.map(c => `"${String(c).replace(/"/g,'""')}"`).join(';')).join('\n');
