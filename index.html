@@ -4005,16 +4005,35 @@ function editarMovimiento(id){
 
   document.getElementById('campoRepetir').classList.toggle('oculto', !!m.cuota);
 
+  /* Los avisos de esta hoja comparten UN SOLO párrafo, así que se juntan en
+     una lista en vez de escribir cada uno encima del anterior. Antes era un
+     if/else con dos ramas y bastaba; al agregar el medio de pago, que puede
+     coincidir con cualquiera de las dos, escribir directo habría borrado el
+     otro aviso —una cuota pagada con crédito perdía el "Cuota 3 de 6"—. */
+  const avisos = [];
+
   if(m.cuota){
-    origen.classList.remove('oculto');
-    origen.innerHTML = `Cuota ${m.cuota.numero} de ${m.cuota.total} de un pago de
-                        <b>${pesos(m.cuota.montoTotal)}</b>.`;
+    avisos.push(`Cuota ${m.cuota.numero} de ${m.cuota.total} de un pago de
+                 <b>${pesos(m.cuota.montoTotal)}</b>.`);
   }else if(fijo && fijo.tipo === 'gasto'){
     // Los pagos además viven en Recordatorios, y conviene decirlo: apagarlo
     // aquí también lo saca de allá.
+    avisos.push(`También está en <b>Recordatorios</b>. Si apagas
+                 “Repetir”, sale de ahí y solo queda el de este mes.`);
+  }
+
+  /* Solo el crédito, igual que en la lista: si no dice nada, fue débito. Y
+     va como frase y no como el recuadro de la lista porque acá conviven con
+     los otros dos avisos, que son frases; un recuadro suelto entre medio se
+     leería como un cuarto elemento de otra cosa.
+
+     Se muestra al abrir el movimiento porque en la lista el recuadro se ve de
+     paso, y este es el lugar donde uno viene a mirar un gasto en detalle. */
+  if(m.medio === 'credito') avisos.push('Se pagó con <b>tarjeta de crédito</b>.');
+
+  if(avisos.length){
     origen.classList.remove('oculto');
-    origen.innerHTML = `También está en <b>Recordatorios</b>. Si apagas
-                        “Repetir”, sale de ahí y solo queda el de este mes.`;
+    origen.innerHTML = avisos.join(' ');
   }
 
   const inp = document.getElementById('inpMonto');
