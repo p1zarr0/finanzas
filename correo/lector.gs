@@ -1,24 +1,38 @@
 /* ================================================================
-   EL LECTOR DE CORREOS DEL BANCO — PASO 1: PROBARLO
+   EL LECTOR DE CORREOS DEL BANCO
    Se pega en Google Apps Script (script.google.com), en la cuenta a la
    que llegan los avisos.
 
-   Este archivo todavía NO le manda nada a la app. Solo tiene la parte
-   que lee y entiende los correos, y una función para mirar qué entendió.
-   Es a propósito: primero se comprueba que lee bien TUS avisos, y recién
-   después se conecta con la app. Si los parsers fallan, conectarlos sería
-   llenar la app de datos malos.
+   Hace dos cosas:
+   - LEE tus correos del banco y entiende qué movimiento cuenta cada uno.
+   - Se los ENTREGA a la app cuando ella los pide (la parte de doGet, al
+     final del archivo).
 
-   CÓMO PROBARLO
+   ANTES DE NADA: llena las dos líneas de más abajo que vienen con texto
+   de ejemplo, CONFIG.YO y CONFIG.CLAVE. Se pierden cada vez que pegas
+   este archivo encima, y las dos fallan distinto:
+     - Sin CONFIG.YO, los traspasos entre tus propias cuentas se cuentan
+       como movimientos y tus totales del mes quedan inflados. Al menos
+       probarLector te lo grita.
+     - Sin CONFIG.CLAVE, la app deja de recibir movimientos y NADIE TE
+       AVISA. Y tiene que ser la MISMA clave que ya tiene la app.
+
+   PARA PROBARLO, sin tocar nada ni mandar nada:
    1. Pega TODO este archivo en el proyecto (borrando lo que haya).
-   2. Arriba, en la lista de funciones, elige  probarLector
-   3. Aprieta ▷ Ejecutar.
+   2. Llena CONFIG.YO y CONFIG.CLAVE.
+   3. Arriba, en la lista de funciones, elige  probarLector
+   4. Aprieta ▷ Ejecutar.
       La primera vez Google pide permiso para leer tu Gmail: es este
-      script, corriendo en tu cuenta, y no le manda nada a nadie.
-   4. Abre "Registro de ejecución" abajo y mira lo que entendió.
+      script, corriendo en tu cuenta.
+   5. Abre "Registro de ejecución" abajo y mira lo que entendió.
 
-   NO manda nada a ninguna parte y NO marca ni mueve ningún correo.
-   Se puede ejecutar las veces que quieras sin consecuencias.
+   probarLector NO marca ni mueve ningún correo y NO le manda nada a la
+   app. Se puede ejecutar las veces que quieras sin consecuencias.
+
+   PARA QUE LOS CAMBIOS LLEGUEN A LA APP hay que publicar:
+   Implementar -> Administrar implementaciones -> lápiz -> Nueva versión.
+   Nunca "Nueva implementación": crea otra dirección y deja la anterior
+   sin servicio, en silencio.
    ================================================================ */
 
 const CONFIG = {
@@ -31,6 +45,23 @@ const CONFIG = {
     'somosmach.com',      // MACH
     'santander.cl',
     'bci.cl'
+  ],
+
+  /* Los remitentes del banco que SOLO mandan publicidad. Se excluyen en la
+     búsqueda de Gmail, no después.
+
+     No es cosmético, y esto costó verlo: Gmail entrega de a 50 conversaciones
+     por búsqueda, y la publicidad se come ese cupo. En una prueba de 60 días
+     salieron 55 correos y 28 eran promociones del BCI; los correos más viejos
+     —entre ellos el único aviso de compra con TARJETA DE CRÉDITO que había—
+     quedaron fuera del cupo y no llegaron a mirarse nunca. Parecía que ese
+     correo no existía, y lo que pasaba es que no alcanzaba a entrar.
+
+     Van dominios completos y no palabras: "beneficio" o "promoción" también
+     aparecen en el pie de correos de verdad. */
+  NO_MIRAR: [
+    'info.bci.cl',            // "Conoce Bci", "Fer del Bci"
+    'comercial.bancochile.cl' // avisos comerciales del Banco de Chile
   ],
 
   /* Cuántos días hacia atrás mirar en la corrida de verdad. No es lo mismo
@@ -128,7 +159,27 @@ const ES_MOVIMIENTO = /(compra|pagaste|pago|cargo|giro|transferencia|abono|dep[o
    Primero se pregunta si TÚ lo hiciste. Solo si eso no calza se pregunta
    si te llegó. Y recién al final queda el método viejo, por si aparece un
    banco con otra redacción. */
-const YO_ENVIE = /(acabas de realizar|acabas de hacer|realizaste una|se ha realizado una compra|realizaste una compra|enviaste|pagaste|compra por|giro por|a terceros|a medio de pago)/i;
+/* "usted ha efectuado una transferencia" es del Banco de Chile, y tiene que
+   llevar el "usted" SÍ O SÍ.
+
+   Sin el "usted", esta frase también aparece cuando te llega plata: "nuestro(a)
+   cliente Fulano ha efectuado una transferencia de fondos A TU CUENTA". Ese
+   error ya se cometió una vez y las transferencias a terceros entraban como
+   ingreso. El "usted" es lo único que separa una de la otra.
+
+   Lo que la hizo falta (27 de agosto de 2026): los avisos "Transferencias de
+   Fondos a Khipu Clbs D" y "a TOKU SPA" se descartaban enteros. El pie del
+   correo del banco trae una palabra de SUENA_A_PUBLICIDAD, y como ninguna
+   frase de acá calzaba, loDescarta concluía "es publicidad y no dice que haya
+   pasado nada". El monto y el nombre estaban perfectos; nunca se llegó a
+   mirarlos.
+
+   Y el detalle que lo explica todo: "a Medio de Pago Fintoc" —el mismo correo,
+   el mismo pie— SÍ se leía. No por mérito de nadie: el NOMBRE del destinatario
+   contenía "a medio de pago", que estaba en esta lista por otra razón. Un
+   correo se salvaba por accidente y dos se perdían. Cuidado con las entradas
+   cortas de acá: calzan con nombres de empresas, no solo con frases del banco. */
+const YO_ENVIE = /(acabas de realizar|acabas de hacer|realizaste una|se ha realizado una compra|realizaste una compra|usted ha efectuado una transferencia|enviaste|pagaste|compra por|giro por|a terceros|a medio de pago)/i;
 
 /* Ojo con esta frase: tiene que ser LA COMPLETA. El Banco de Chile avisa lo
    que RECIBES con "nuestro(a) cliente Fulano ha efectuado una transferencia
@@ -278,6 +329,17 @@ function comercioDelCorreo(texto, esIngreso) {
     }
   }
 
+  /* El número de la tarjeta se saca ANTES de buscar el comercio, y no es
+     un capricho: el aviso de crédito dice "con Tarjeta de Crédito
+     terminada en 1234 en JUMBO el 10/07/2026", y la regla que busca el
+     nombre después de "en" se llevaba "1234 en JUMBO" como si fuera el
+     nombre de la tienda. Sacando el pedazo de la tarjeta, el único "en"
+     que queda es el bueno. */
+  const sinTarjeta = texto
+    .replace(/\bterminad[ao]\s+en\s+[\dxX*•·-]{2,}/gi, ' ')
+    .replace(/\bfinal(?:izada)?\s+en\s+[\dxX*•·-]{2,}/gi, ' ')
+    .replace(/[*xX•·]{2,}[\s-]*\d{3,4}/g, ' ');
+
   const intentos = esIngreso
     ? [
         /\bde\s+([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑa-záéíóúñ .'-]{2,40})/,
@@ -293,7 +355,7 @@ function comercioDelCorreo(texto, esIngreso) {
       ];
 
   for (let i = 0; i < intentos.length; i++) {
-    const hallado = texto.match(intentos[i]);
+    const hallado = sinTarjeta.match(intentos[i]);
     if (!hallado) continue;
     const limpio = limpiarNombre(hallado[1]);
     /* Frases del correo que no son el nombre de nadie. "Chile" estaba
@@ -376,6 +438,134 @@ function esTraspasoMio(asunto, texto, entra) {
 
 /* Devuelve {monto, tipo, comercio} o null si el correo no sirve.
    También devuelve {traspaso:true} en los traspasos tuyos, a propósito. */
+/* --- ¿Con qué pagaste? Débito o crédito ---
+
+   Acá no hay nada que adivinar: el Banco de Chile lo escribe dos veces, en
+   el asunto y en el cuerpo, y son dos correos distintos.
+
+     "Compra con Tarjeta de Crédito"   asunto
+     "...una compra por $X con Tarjeta de Crédito ... en COMERCIO el ..."
+
+     "Cargo en Cuenta"                 asunto
+     "...una compra por $X con cargo a Cuenta ... en COMERCIO el ..."
+
+   Ojo con lo segundo: el débito casi nunca se llama débito. La compra con
+   la tarjeta de la cuenta corriente llega como "cargo a Cuenta", y para lo
+   único que nos importa —¿la plata salió hoy?— es exactamente lo mismo.
+   Por eso las dos formas cuentan como débito.
+
+   Devuelve '' cuando el correo no lo dice, y eso es a propósito. Vale para
+   los otros bancos, cuya redacción todavía no se ha visto: es mejor dejarlo
+   en blanco que inventarle un medio de pago a una compra. */
+const CON_CREDITO = /tarjeta\s+de\s+cr[eé]dito/i;
+const CON_DEBITO  = /(tarjeta\s+de\s+d[eé]bito|cargo\s+(?:a|en)\s+(?:tu\s+)?cuenta|redcompra)/i;
+
+function medioDePago(texto) {
+  /* Crédito primero. "Tarjeta de Crédito" no admite discusión, y algunos
+     avisos de crédito nombran igual la cuenta donde después se paga la
+     tarjeta, así que preguntar por el débito antes daría vuelta el caso. */
+  if (CON_CREDITO.test(texto)) return 'credito';
+  if (CON_DEBITO.test(texto)) return 'debito';
+  return '';
+}
+
+/* Por qué un correo no se anotó, dicho en palabras.
+
+   Existe SOLO para la prueba: no lo llama nadie del camino de verdad, así que
+   no puede romper nada. Se escribió porque "NO LO ANOTÉ (no parece un aviso de
+   compra, o no le encontré el monto)" juntaba cuatro motivos distintos en una
+   sola frase, y con eso no se puede arreglar nada.
+
+   El caso que lo motivó: "Transferencias de Fondos a Khipu Clbs D" y "a TOKU
+   SPA" no encuentran monto, y "a Medio de Pago Fintoc" —mismo banco, mismo
+   asunto— sí. Para saber la diferencia hay que ver QUÉ CIFRAS vio y por cuál
+   descartó cada una. Adivinar desde acá no sirve; ya se intentó otras veces y
+   siempre ganó mirar el correo de verdad.
+
+   El orden importa: es el mismo que sigue interpretarCorreo, para que lo que
+   se lea acá sea de verdad el motivo por el que se cayó y no otro parecido. */
+function motivoDelRechazo(asunto, cuerpo) {
+  const texto = (asunto + '\n' + cuerpo).replace(/\s+/g, ' ');
+
+  if (NO_CUENTA_FUERTE.test(texto)) {
+    return 'dice que la plata NO se movió: "' + texto.match(NO_CUENTA_FUERTE)[0] + '"';
+  }
+  if (loDescarta(texto)) return 'parece publicidad y no dice que haya pasado nada';
+  if (!ES_MOVIMIENTO.test(texto)) return 'no habla de plata que se haya movido';
+
+  if (!montoDelCorreo(texto)) {
+    /* Se repite el recorrido de montoDelCorreo, pero contando en voz alta.
+       La ventana de 45 caracteres y el uso de hallado.index son los mismos de
+       allá A PROPÓSITO: si acá se mirara distinto, el diagnóstico explicaría
+       una decisión que nadie tomó. Al tocar montoDelCorreo, tocar esto. */
+    const vistas = [];
+    const busca = /\$\s*([\d][\d.]*)/g;
+    let hallado;
+    while ((hallado = busca.exec(texto)) !== null) {
+      const n = Number(hallado[1].replace(/\./g, ''));
+      const antes = texto.slice(Math.max(0, hallado.index - 45), hallado.index);
+      let veredicto;
+      if (!isFinite(n) || n < 100) veredicto = 'menos de $100, la ignoré';
+      else if (NO_ES_EL_MONTO.test(antes)) veredicto = 'venía después de "' + antes.match(NO_ES_EL_MONTO)[0] + '"';
+      else veredicto = 'la habría tomado';
+      vistas.push('$' + hallado[1] + ' → ' + veredicto);
+    }
+
+    // El segundo intento, el de las cifras sin signo peso ("Monto | 12.000")
+    const suelto = texto.match(/\bmonto\b[^\d]{0,25}([\d][\d.]{2,})/i);
+    const cola = suelto
+      ? '  Y sin signo $ vi "' + suelto[0] + '", pero no me sirvió.'
+      : '  Tampoco hay una cifra pegada a la palabra "Monto".';
+
+    /* Y el pedazo crudo alrededor de la palabra "Monto", que es lo único que
+       cierra el caso.
+
+       Estos correos del Banco de Chile traen el monto en una TABLA
+       ("Datos de la Transferencia: Fecha · Cuenta · Monto · ID"), y una tabla
+       no llega igual a texto plano que un párrafo: Gmail puede dejar la
+       etiqueta y su valor juntos, o poner todas las etiquetas seguidas y los
+       valores después. Sin ver cómo quedó, cualquier arreglo es adivinanza,
+       y en este lector adivinar ya salió mal cinco veces.
+
+       Se muestran 90 caracteres a cada lado. Sale solo en la prueba, que es
+       algo que corres tú y lees tú. */
+    const donde = texto.search(/\bmonto\b/i);
+    const crudo = donde === -1
+      ? '  La palabra "Monto" no aparece en ninguna parte del correo.'
+      : '\n     Así llegó el pedazo del "Monto": ...' +
+        texto.slice(Math.max(0, donde - 90), donde + 90).trim() + '...';
+
+    return (vistas.length
+      ? 'no le encontré el monto. Cifras con $ que vi: ' + vistas.join(' | ')
+      : 'no le encontré el monto: no hay ninguna cifra con signo $') + cola + crudo;
+  }
+
+
+  // No debería llegar acá nunca: si hay monto y no lo descartó nada, el
+  // correo se habría entendido y esta función ni se habría llamado.
+  return 'no sé por qué, avísame si ves esto';
+}
+
+/* El motivo, con el tamaño del texto por delante.
+
+   El tamaño no es un adorno. Los correos de Khipu y TOKU, reconstruidos a
+   mano con lo que se ve en pantalla, se leen PERFECTO: $26.749 y $14.990, con
+   el nombre y el tipo correctos. O sea que lo que los rompe no está en lo que
+   uno ve, sino en lo que textoPlano recibe de Gmail.
+
+   getPlainBody() devuelve la versión en texto que arma Google, y no siempre
+   trae todo: una tabla puede llegar vacía, cortada, o el correo puede venir
+   sin parte de texto y caer al respaldo que desarma el HTML. Un cuerpo de 80
+   caracteres cuando la pantalla muestra media página lo dice al tiro. */
+function porQueNo(asunto, cuerpo) {
+  const largo = (cuerpo || '').length;
+  const aviso = largo < 200
+    ? ' !! OJO: el texto que recibí tiene solo ' + largo + ' caracteres. ' +
+      'Gmail no me está entregando el correo completo, y ese es el problema de raíz.'
+    : ' (texto recibido: ' + largo + ' caracteres)';
+  return motivoDelRechazo(asunto, cuerpo) + aviso;
+}
+
 function interpretarCorreo(asunto, cuerpo) {
   const texto = (asunto + '\n' + cuerpo).replace(/\s+/g, ' ');
 
@@ -405,17 +595,24 @@ function interpretarCorreo(asunto, cuerpo) {
   const monto = montoDelCorreo(texto);
   if (!monto) return null;
 
+  /* Compra con tarjeta o transferencia a una persona. La app las trata
+     distinto: las transferencias van a su propia categoría en vez de
+     mezclarse con Alimentación o Gastos varios, porque pasarle plata a
+     alguien no es lo mismo que comprar algo, aunque las dos resten.
+
+     La distingue la palabra "compra", que es la que usan los bancos en
+     el aviso de tarjeta y no aparece en un comprobante de transferencia. */
+  const clase = /\bcompra\b/i.test(texto) ? 'compra' : 'transferencia';
+
   return {
     monto: monto,
     tipo: entra ? 'ingreso' : 'gasto',
-    /* Compra con tarjeta o transferencia a una persona. La app las trata
-       distinto: las transferencias van a su propia categoría en vez de
-       mezclarse con Alimentación o Gastos varios, porque pasarle plata a
-       alguien no es lo mismo que comprar algo, aunque las dos resten.
-
-       La distingue la palabra "compra", que es la que usan los bancos en
-       el aviso de tarjeta y no aparece en un comprobante de transferencia. */
-    clase: /\bcompra\b/i.test(texto) ? 'compra' : 'transferencia',
+    clase: clase,
+    /* El medio de pago solo se pregunta en las compras. En una
+       transferencia la pregunta no tiene sentido —no hay tarjeta— y el
+       "con cargo a tu cuenta" de un comprobante de transferencia la
+       marcaría como débito sin que eso signifique nada. */
+    medio: clase === 'compra' ? medioDePago(texto) : '',
     // Sin nombre igual se manda: el monto y la fecha ya sirven, y en la app
     // le pones la categoría a mano. Peor sería perder el movimiento.
     comercio: comercio || (entra ? 'Abono' : 'Transferencia')
@@ -448,6 +645,11 @@ function busquedaGmail(esPrueba) {
   const dias = esPrueba ? CONFIG.DIAS_AL_PROBAR : CONFIG.DIAS;
   let q = '(' + de + ') newer_than:' + dias + 'd';
 
+  /* La publicidad se saca ACÁ, en la búsqueda, y no más adelante al leer
+     cada correo. Filtrarla después igual gasta el cupo de 50 conversaciones
+     que entrega Gmail, y por eso los avisos más viejos se perdían. */
+  CONFIG.NO_MIRAR.forEach(function (d) { q += ' -from:' + d; });
+
   if (esPrueba) return q;
 
   /* OJO con los espacios de la etiqueta. Gmail busca las etiquetas con
@@ -467,20 +669,38 @@ function busquedaGmail(esPrueba) {
 
 // Recorre los correos y devuelve lo entendido. No manda ni marca nada:
 // eso lo deciden quienes la llaman, que son el lector y la prueba.
+/* Cuántas conversaciones pide Gmail de una vez. Gmail NO avisa cuando te
+   entrega menos de las que hay: devuelve las más nuevas y calla el resto.
+   Con el tope en 50 se perdieron avisos de compra sin que nada lo dijera,
+   así que ahora son 100 y además se avisa cuando se llega al tope. */
+const TOPE_HILOS = 100;
+
+// Queda en true cuando la búsqueda llegó al tope, es decir cuando podría
+// haber correos más viejos que no se miraron. Lo lee probarLector.
+let seCortoLaBusqueda = false;
+
 function recolectar(esPrueba) {
-  const hilos = GmailApp.search(busquedaGmail(esPrueba), 0, 50);
+  const hilos = GmailApp.search(busquedaGmail(esPrueba), 0, TOPE_HILOS);
+  seCortoLaBusqueda = hilos.length >= TOPE_HILOS;
   const salida = [];
 
   hilos.forEach(function (hilo) {
     hilo.getMessages().forEach(function (mensaje) {
-      const leido = interpretarCorreo(mensaje.getSubject(), textoPlano(mensaje));
+      const asunto = mensaje.getSubject();
+      const cuerpo = textoPlano(mensaje);
+      const leido = interpretarCorreo(asunto, cuerpo);
       salida.push({
         hilo: hilo,
         id: mensaje.getId(),
-        asunto: mensaje.getSubject(),
+        asunto: asunto,
         de: mensaje.getFrom(),
         fecha: mensaje.getDate(),
-        leido: leido
+        leido: leido,
+        /* El cuerpo se guarda SOLO en la prueba y SOLO cuando el correo no se
+           entendió: es lo único que porQueNo necesita para explicarse. En la
+           corrida de verdad no se guarda ninguno, para no arrastrar el texto
+           completo de cada correo en memoria sin usarlo nunca. */
+        cuerpo: (esPrueba && !leido) ? cuerpo : null
       });
     });
   });
@@ -517,6 +737,18 @@ function probarLector() {
   Logger.log('Correos que calzan: ' + encontrados.length);
   Logger.log('--- NO SE MANDÓ NADA NI SE MARCÓ NINGÚN CORREO. Es solo una prueba. ---');
 
+  /* Gmail entrega hasta TOPE_HILOS conversaciones y no dice nada cuando hay
+     más: simplemente te da las más nuevas. Si esto no se avisara, un correo
+     viejo que falta parecería no existir en vez de no haberse mirado, que es
+     exactamente lo que pasó con el primer aviso de compra con crédito. */
+  if (seCortoLaBusqueda) {
+    Logger.log('');
+    Logger.log('!!! LA BÚSQUEDA SE CORTÓ EN ' + TOPE_HILOS + ' CONVERSACIONES.');
+    Logger.log('    Puede haber correos más viejos que NO se miraron.');
+    Logger.log('    Baja DIAS_AL_PROBAR, o agrega el remitente que sobra');
+    Logger.log('    a CONFIG.NO_MIRAR si es publicidad.');
+  }
+
   if (!encontrados.length) {
     Logger.log('');
     Logger.log('Si esperabas ver algo, revisa:');
@@ -533,10 +765,14 @@ function probarLector() {
     if (c.leido && c.leido.traspaso) {
       Logger.log('   TRASPASO ENTRE TUS CUENTAS -> no se anota, a propósito');
     } else if (c.leido) {
+      /* El medio de pago se muestra en la prueba porque es lo que hay que
+         mirar con los correos de verdad: si sale vacío en una compra, ese
+         banco escribe la tarjeta de otra forma y hay que agregarla. */
+      const conQue = c.leido.medio ? '   [' + c.leido.medio + ']' : '';
       Logger.log('   ENTENDÍ -> ' + c.leido.tipo + ' de $' +
-                 c.leido.monto.toLocaleString('es-CL') + ' en "' + c.leido.comercio + '"');
+                 c.leido.monto.toLocaleString('es-CL') + ' en "' + c.leido.comercio + '"' + conQue);
     } else {
-      Logger.log('   NO LO ANOTÉ (no parece un aviso de compra, o no le encontré el monto)');
+      Logger.log('   NO LO ANOTÉ: ' + porQueNo(c.asunto, c.cuerpo || ''));
     }
   });
 
@@ -606,6 +842,60 @@ function doGet(e) {
 
 /* Lo que la app todavía no se ha llevado. Los traspasos entre tus cuentas
    y lo que no se entendió se quedan fuera: no son movimientos. */
+/* --- Dos correos, un solo movimiento ---
+
+   El Banco de Chile avisa DOS veces la misma transferencia: "Transferencia a
+   Terceros" y "Aviso de transferencia de fondos", con el mismo segundo exacto
+   (00:54:07 y 18:13:02 en el registro del 27 de agosto de 2026). Son dos
+   correos distintos, con id distinto, contando lo mismo.
+
+   La clave es tipo + monto + fecha AL SEGUNDO. Dos movimientos de verdad por
+   el mismo monto, en el mismo sentido y en el mismo segundo no existen.
+
+   Lo importante, y lo que hace que esto no sea de una línea: **el id del
+   correo repetido NO se tira, se pega al del que se queda separado por coma.**
+   La app junta todos los ids con coma para avisar cuáles se llevó, y doGet los
+   parte por coma, así que "idA,idB" viaja entero y los DOS correos terminan
+   etiquetados. Si el repetido se descartara sin más, nunca se marcaría: la app
+   no sabría de él, no lo reportaría, y volvería a ofrecerse en cada consulta
+   para siempre.
+
+   Ojo: en los correos reales del 27 de agosto los duplicados eran traspasos
+   suyos, que se filtran antes de llegar acá. O sea que esto está probado con
+   casos armados a mano, no con un duplicado suyo de verdad. */
+
+// Los nombres que pone el lector cuando no encontró ninguno de verdad.
+const NOMBRE_GENERICO = /^(transferencia|abono)$/i;
+
+function juntarRepetidos(movs) {
+  const porClave = {};
+  const orden = [];
+
+  movs.forEach(function (m) {
+    const clave = m.tipo + '|' + m.monto + '|' + m.fecha.slice(0, 19);
+    const ya = porClave[clave];
+
+    if (!ya) {
+      porClave[clave] = m;
+      orden.push(clave);
+      return;
+    }
+
+    // El id del repetido viaja pegado, para que ese correo también se marque.
+    ya.id += ',' + m.id;
+
+    /* Y de los dos avisos se rescata lo mejor de cada uno. Los dos correos del
+       Banco de Chile no traen lo mismo: uno puede nombrar a la contraparte y
+       el otro dejarla en "Transferencia" a secas. */
+    if (m.texto && NOMBRE_GENERICO.test(ya.texto) && !NOMBRE_GENERICO.test(m.texto)) {
+      ya.texto = m.texto;
+    }
+    if (!ya.medio && m.medio) ya.medio = m.medio;
+  });
+
+  return orden.map(function (k) { return porClave[k]; });
+}
+
 function pendientes() {
   const salida = [];
 
@@ -617,11 +907,12 @@ function pendientes() {
       tipo: c.leido.tipo,             // 'gasto' o 'ingreso'
       texto: c.leido.comercio,        // va al campo "Tienda" y de ahí lo clasifica
       clase: c.leido.clase,           // 'compra' o 'transferencia'
+      medio: c.leido.medio,           // 'credito', 'debito', o '' si no lo dice
       fecha: c.fecha.toISOString()
     });
   });
 
-  return salida;
+  return juntarRepetidos(salida);
 }
 
 /* Le pone la etiqueta a los correos que la app ya guardó, para que no
